@@ -6,6 +6,8 @@ export interface VideoSource {
     /** true for HLS (.m3u8), false for mp4 */
     isM3U8: boolean;
     subtitles: Subtitle[];
+    /** session cookies needed to fetch this stream */
+    cookies?: string;
 }
 export interface Subtitle {
     url: string;

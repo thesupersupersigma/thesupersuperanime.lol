@@ -21,26 +21,14 @@ export async function POST(req: NextRequest) {
     };
 
     if (!animeTitle || episodeNum == null || animeId == null) {
-      return NextResponse.json(
-        { error: "Missing required fields: animeTitle, episodeNum, animeId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const sessionId =
-      req.cookies.get("session-id")?.value ??
-      req.cookies.get("site-auth")?.value ??
-      "anonymous";
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown";
+    const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
 
     if (!checkRateLimit(sessionId, 10, 60_000)) {
-      return NextResponse.json(
-        { error: "Rate limited — max 10 requests per minute" },
-        { status: 429 }
-      );
+      return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
     const MIRURO_API_URL = "https://miruro-api-qhis.onrender.com";
@@ -51,9 +39,7 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!epsRes.ok) {
-      throw new Error(`Miruro API returned ${epsRes.status} on episodes fetch`);
-    }
+    if (!epsRes.ok) throw new Error(`Miruro API returned ${epsRes.status} on episodes`);
 
     const epsData = await epsRes.json();
 
@@ -71,18 +57,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!episodeId) {
-      return NextResponse.json({ error: "Episode not found on any provider" }, { status: 404 });
-    }
+    if (!episodeId) return NextResponse.json({ error: "Episode not found" }, { status: 404 });
 
     const streamRes = await fetch(`${MIRURO_API_URL}/${episodeId}`, {
       headers: { "x-api-key": MIRURO_API_KEY },
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!streamRes.ok) {
-      throw new Error(`Miruro API returned ${streamRes.status} on stream fetch`);
-    }
+    if (!streamRes.ok) throw new Error(`Miruro API returned ${streamRes.status} on stream`);
 
     const streamData = await streamRes.json();
 
@@ -105,8 +87,7 @@ export async function POST(req: NextRequest) {
     const tokenSecret = process.env.TOKEN_SECRET;
 
     if (!encryptionSecret || !tokenSecret) {
-      console.error("[/api/source] Missing ENCRYPTION_SECRET or TOKEN_SECRET env vars");
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json({ error: "Server config error" }, { status: 500 });
     }
 
     const expiresAt = new Date(Date.now() + 30 * 60_000);
@@ -117,21 +98,20 @@ export async function POST(req: NextRequest) {
         const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
         const cipher = createCipheriv("aes-256-cbc", key, iv);
         const payload = JSON.stringify({ url: source.url, cookies: source.cookies });
-        let encrypted = cipher.update(payload, "utf8", "hex");
-        encrypted += cipher.final("hex");
+        const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
         const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
         const tokenId = randomBytes(24).toString("hex");
-
-        const signature = createHmac("sha256", tokenSecret)
-          .update(tokenId + expiresAt.toISOString())
-          .digest("hex");
-
-        const token = `${tokenId}.${signature}`;
+        const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
+        
+        // This is the clean token for the DB
+        const baseToken = `${tokenId}.${signature}`;
+        // This is what tells Vidstack it's an HLS stream!
+        const ext = source.isM3U8 ? ".m3u8" : ".mp4"; 
 
         await db.sourceToken.create({
           data: {
-            token,
+            token: baseToken,
             url: encryptedUrl,
             sessionId,
             ip,
@@ -142,7 +122,7 @@ export async function POST(req: NextRequest) {
         });
 
         return {
-          token,
+          token: baseToken + ext, // Sent to frontend with .m3u8!
           quality: source.quality,
           isM3U8: source.isM3U8 || true,
         };
@@ -151,13 +131,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ sources: tokenizedSources });
   } catch (err) {
-    console.error(
-      "[/api/source] Unexpected error:",
-      err instanceof Error ? err.message : "unknown"
-    );
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("[/api/source] Error:", err instanceof Error ? err.message : "unknown");
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

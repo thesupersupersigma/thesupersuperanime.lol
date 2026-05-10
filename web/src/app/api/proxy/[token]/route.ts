@@ -6,51 +6,66 @@ interface Params {
   params: Promise<{ token: string }>;
 }
 
+interface TokenInsertData {
+  token: string;
+  url: string;
+  sessionId: string;
+  ip: string;
+  quality: string;
+  isM3U8: boolean;
+  expiresAt: Date;
+  used: boolean;
+}
+
+export async function HEAD(req: NextRequest, { params }: Params) {
+  return handleRequest(req, await params, true);
+}
+
 export async function GET(req: NextRequest, { params }: Params) {
-  const { token } = await params;
+  return handleRequest(req, await params, false);
+}
+
+async function handleRequest(req: NextRequest, params: { token: string }, isHead: boolean) {
+  // Strip the extension so we can find the token in the database!
+  const cleanToken = params.token.replace(/\.(m3u8|mp4|ts|m4s|key|uwu)$/i, "");
 
   try {
-    const record = await db.sourceToken.findUnique({ where: { token } });
+    const record = await db.sourceToken.findUnique({ where: { token: cleanToken } });
 
-    if (!record) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 403 });
-    }
+    if (!record) return NextResponse.json({ error: "Invalid token" }, { status: 403 });
+    if (new Date() > record.expiresAt) return NextResponse.json({ error: "Token expired" }, { status: 410 });
 
-    if (new Date() > record.expiresAt) {
-      return NextResponse.json({ error: "Token expired" }, { status: 410 });
-    }
+    const requestIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
+    if (record.ip !== requestIp && record.ip !== "unknown") return NextResponse.json({ error: "IP mismatch" }, { status: 403 });
 
-    const requestIp =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown";
-    if (record.ip !== requestIp && record.ip !== "unknown") {
-      return NextResponse.json({ error: "IP mismatch" }, { status: 403 });
-    }
+    const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
+    if (record.sessionId !== sessionId && record.sessionId !== "anonymous") return NextResponse.json({ error: "Session mismatch" }, { status: 403 });
 
-    const sessionId =
-      req.cookies.get("session-id")?.value ??
-      req.cookies.get("site-auth")?.value ??
-      "anonymous";
-    if (record.sessionId !== sessionId && record.sessionId !== "anonymous") {
-      return NextResponse.json({ error: "Session mismatch" }, { status: 403 });
-    }
+    if (!record.isM3U8 && record.used) return NextResponse.json({ error: "Token already consumed" }, { status: 410 });
 
-    if (!record.isM3U8 && record.used) {
-      return NextResponse.json({ error: "Token already consumed" }, { status: 410 });
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "*";
+
+    if (isHead) {
+      return new NextResponse(null, {
+        status: 200,
+        headers: {
+          "Access-Control-Allow-Origin": siteUrl,
+          "Cache-Control": "no-store",
+          "Content-Type": record.isM3U8 ? "application/x-mpegURL" : "video/mp4",
+          "X-Content-Type-Options": "nosniff"
+        }
+      });
     }
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
-    if (!encryptionSecret) {
-      return NextResponse.json({ error: "Server config error" }, { status: 500 });
-    }
+    const tokenSecret = process.env.TOKEN_SECRET;
+    if (!encryptionSecret || !tokenSecret) return NextResponse.json({ error: "Server config error" }, { status: 500 });
 
     const [ivHex, encryptedHex] = record.url.split(":");
     const iv = Buffer.from(ivHex, "hex");
     const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
     const decipher = createDecipheriv("aes-256-cbc", key, iv);
-    let decryptedPayload = decipher.update(encryptedHex, "hex", "utf8");
-    decryptedPayload += decipher.final("utf8");
+    const decryptedPayload = decipher.update(encryptedHex, "hex", "utf8") + decipher.final("utf8");
 
     let decryptedUrl: string;
     let cookies = "";
@@ -62,9 +77,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       decryptedUrl = decryptedPayload;
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "*";
-
-    // ── Handle m3u8 playlists ───────────────────────────────────────────────
     if (record.isM3U8) {
       const playlistRes = await fetch(decryptedUrl, {
         headers: {
@@ -76,67 +88,47 @@ export async function GET(req: NextRequest, { params }: Params) {
         signal: AbortSignal.timeout(10000),
       });
 
-      if (!playlistRes.ok) {
-        return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
-      }
+      if (!playlistRes.ok) return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
 
-      let playlist = await playlistRes.text();
+      const playlist = await playlistRes.text();
       const lines = playlist.split("\n");
       const rewrittenLines: string[] = [];
+      const tokensToInsert: TokenInsertData[] = [];
 
       for (let line of lines) {
         const trimmed = line.trim();
+        if (!trimmed) { rewrittenLines.push(line); continue; }
 
-        if (!trimmed) {
-          rewrittenLines.push(line);
-          continue;
-        }
-
-        // Also proxy the decryption key if Kwik uses AES-128
         if (trimmed.startsWith("#EXT-X-KEY:") && trimmed.includes('URI="')) {
           const match = trimmed.match(/URI="([^"]+)"/);
           if (match) {
             const originalUri = match[1];
-            let keyUrl: string;
-            try { keyUrl = new URL(originalUri, playlistRes.url).toString(); }
-            catch { keyUrl = originalUri; }
+            let keyUrl;
+            try { keyUrl = new URL(originalUri, playlistRes.url).toString(); } catch { keyUrl = originalUri; }
             
-            const keyToken = await createChunkToken(keyUrl, record.sessionId, record.ip, encryptionSecret, cookies);
-            line = line.replace(`URI="${originalUri}"`, `URI="/api/proxy/${keyToken}"`);
+            const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies);
+            tokensToInsert.push(tData.dbData);
+            line = line.replace(`URI="${originalUri}"`, `URI="/api/proxy/${tData.serveToken}"`);
           }
           rewrittenLines.push(line);
           continue;
         }
 
-        // If it's another tag/comment, leave it alone
-        if (trimmed.startsWith("#")) {
-          rewrittenLines.push(line);
-          continue;
-        }
+        if (trimmed.startsWith("#")) { rewrittenLines.push(line); continue; }
 
-        // It's a chunk or sub-playlist URI! Rewrite it regardless of file extension.
-        // We resolve it against playlistRes.url in case Kwik issued a redirect
-        let chunkUrl: string;
-        try { 
-          chunkUrl = new URL(trimmed, playlistRes.url).toString(); 
-        } catch { 
-          chunkUrl = trimmed; 
-        }
-
-        const chunkToken = await createChunkToken(
-          chunkUrl, 
-          record.sessionId, 
-          record.ip, 
-          encryptionSecret, 
-          cookies
-        );
+        let chunkUrl;
+        try { chunkUrl = new URL(trimmed, playlistRes.url).toString(); } catch { chunkUrl = trimmed; }
         
-        rewrittenLines.push(`/api/proxy/${chunkToken}`);
+        const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies);
+        tokensToInsert.push(tData.dbData);
+        rewrittenLines.push(`/api/proxy/${tData.serveToken}`);
       }
 
-      playlist = rewrittenLines.join("\n");
+      if (tokensToInsert.length > 0) {
+        await db.sourceToken.createMany({ data: tokensToInsert });
+      }
 
-      return new NextResponse(playlist, {
+      return new NextResponse(rewrittenLines.join("\n"), {
         status: 200,
         headers: {
           "Content-Type": "application/x-mpegURL",
@@ -147,7 +139,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       });
     }
 
-    // ── Handle raw stream chunks (video/mp2t) ───────────────────────────────
     const fetchHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Referer": "https://kwik.cx/",
@@ -158,78 +149,63 @@ export async function GET(req: NextRequest, { params }: Params) {
     const rangeHeader = req.headers.get("range");
     if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
 
-    const streamRes = await fetch(decryptedUrl, { 
-      headers: fetchHeaders, 
-      signal: AbortSignal.timeout(30000) 
-    });
+    const streamRes = await fetch(decryptedUrl, { headers: fetchHeaders, signal: AbortSignal.timeout(30000) });
 
-    if (!streamRes.ok && streamRes.status !== 206) {
-      return NextResponse.json({ error: `Failed to fetch source chunk: ${streamRes.status}` }, { status: 502 });
-    }
+    if (!streamRes.ok && streamRes.status !== 206) return NextResponse.json({ error: `Failed to fetch source chunk: ${streamRes.status}` }, { status: 502 });
 
     const responseHeaders: Record<string, string> = {
-      "Content-Type": streamRes.headers.get("content-type") ?? "video/mp4",
+      "Content-Type": streamRes.headers.get("content-type") ?? "video/mp2t",
       "Access-Control-Allow-Origin": siteUrl,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     };
 
-    const contentLength = streamRes.headers.get("content-length");
-    if (contentLength) responseHeaders["Content-Length"] = contentLength;
-    const contentRange = streamRes.headers.get("content-range");
-    if (contentRange) responseHeaders["Content-Range"] = contentRange;
-    const acceptRanges = streamRes.headers.get("accept-ranges");
-    if (acceptRanges) responseHeaders["Accept-Ranges"] = acceptRanges;
+    const cl = streamRes.headers.get("content-length"); if (cl) responseHeaders["Content-Length"] = cl;
+    const cr = streamRes.headers.get("content-range"); if (cr) responseHeaders["Content-Range"] = cr;
+    const ar = streamRes.headers.get("accept-ranges"); if (ar) responseHeaders["Accept-Ranges"] = ar;
 
-    return new NextResponse(streamRes.body, { 
-      status: streamRes.status, 
-      headers: responseHeaders 
-    });
+    return new NextResponse(streamRes.body, { status: streamRes.status, headers: responseHeaders });
   } catch (err) {
     console.error("[/api/proxy] Error:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-async function createChunkToken(
-  chunkUrl: string, 
-  sessionId: string, 
-  ip: string, 
-  encryptionSecret: string, 
-  cookies: string = ""
-): Promise<string> {
-  const tokenSecret = process.env.TOKEN_SECRET;
-  if (!tokenSecret) throw new Error("TOKEN_SECRET not set");
-
+function buildTokenData(
+  url: string, 
+  record: { sessionId: string; ip: string }, 
+  key: Buffer, 
+  tokenSecret: string, 
+  cookies: string
+): { serveToken: string, dbData: TokenInsertData } {
   const iv = randomBytes(16);
-  const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
-  
-  const payload = JSON.stringify({ url: chunkUrl, cookies });
-  let encrypted = cipher.update(payload, "utf8", "hex");
-  encrypted += cipher.final("hex");
+  const payload = JSON.stringify({ url, cookies });
+  const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
   const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
   const tokenId = randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + 15 * 60_000); // Bumped chunk expiry to 15 mins
+  const expiresAt = new Date(Date.now() + 15 * 60_000);
   const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
-  const token = `${tokenId}.${signature}`;
+  
+  const baseToken = `${tokenId}.${signature}`;
+  
+  // Assign the right extension so Vidstack trusts it!
+  let ext = ".ts";
+  if (url.includes(".m3u8")) ext = ".m3u8";
+  if (url.includes("key")) ext = ".key";
 
-  // If the chunk is actually another playlist (master -> resolution playlist)
-  const isM3U8 = chunkUrl.includes(".m3u8");
-
-  await db.sourceToken.create({
-    data: { 
-      token, 
+  return { 
+    serveToken: baseToken + ext,
+    dbData: {
+      token: baseToken, 
       url: encryptedUrl, 
-      sessionId, 
-      ip, 
+      sessionId: record.sessionId, 
+      ip: record.ip, 
       quality: "chunk", 
-      isM3U8, 
+      isM3U8: url.includes(".m3u8"), 
       expiresAt, 
       used: false 
-    },
-  });
-
-  return token;
+    }
+  };
 }

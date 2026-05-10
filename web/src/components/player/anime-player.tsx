@@ -49,7 +49,7 @@ export function AnimePlayer({
         if (res.ok) {
           const data = await res.json();
           const historyRecord = data.history?.find(
-            (h: any) => h.episodeId === `${animeId}-${episodeNum}`
+            (h: { episodeId: string; progress: number }) => h.episodeId === `${animeId}-${episodeNum}`
           );
           if (historyRecord && historyRecord.progress > 30) {
             setResumeTime(historyRecord.progress);
@@ -113,8 +113,14 @@ export function AnimePlayer({
     }
   };
 
-  const onTimeUpdate = (e: any) => {
-    saveProgress(e.currentTime, e.duration);
+  // THE FIX: Take no arguments and safely read the state from the player reference!
+  const onTimeUpdate = () => {
+    const player = playerRef.current;
+    if (player) {
+      const currentTime = player.currentTime || 0;
+      const duration = player.state?.duration || 0;
+      saveProgress(currentTime, duration);
+    }
   };
 
   const onEnded = () => {
@@ -143,7 +149,7 @@ export function AnimePlayer({
     };
   }, []);
 
-  const onError = (e: any) => {
+  const onError = (e: unknown) => {
     console.error("Player error:", e);
     setPlayerError("Stream unavailable — try another episode");
   };
@@ -167,7 +173,10 @@ export function AnimePlayer({
       <MediaPlayer
         ref={playerRef}
         title={`${animeTitle} - Episode ${episodeNum}`}
-        src={srcUrl}
+        src={{ 
+          src: srcUrl, 
+          type: activeSource.isM3U8 ? "application/x-mpegurl" : "video/mp4" 
+        }}
         currentTime={resumeTime}
         onTimeUpdate={onTimeUpdate}
         onCanPlay={onCanPlay}
