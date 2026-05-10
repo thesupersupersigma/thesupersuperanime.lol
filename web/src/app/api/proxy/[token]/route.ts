@@ -77,14 +77,29 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       decryptedUrl = decryptedPayload;
     }
 
+    // --- FIXES APPLIED HERE ---
+    if (decryptedUrl.startsWith("//")) {
+      decryptedUrl = `https:${decryptedUrl}`;
+    }
+
+    let targetOrigin = "https://kwik.cx"; // default fallback
+    try {
+      targetOrigin = new URL(decryptedUrl).origin;
+    } catch { // FIX: Removed the unused 'e' variable here!
+      console.warn("[/api/proxy] Invalid URL format caught:", decryptedUrl);
+    }
+
+    const baseHeaders: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Referer": `${targetOrigin}/`,
+      "Origin": targetOrigin,
+      ...(cookies ? { Cookie: cookies } : {}),
+    };
+    // --------------------------
+
     if (record.isM3U8) {
       const playlistRes = await fetch(decryptedUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Referer": "https://kwik.cx/",
-          "Origin": "https://kwik.cx",
-          ...(cookies ? { Cookie: cookies } : {}),
-        },
+        headers: baseHeaders,
         signal: AbortSignal.timeout(10000),
       });
 
@@ -139,19 +154,13 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       });
     }
 
-    const fetchHeaders: Record<string, string> = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Referer": "https://kwik.cx/",
-      "Origin": "https://kwik.cx",
-      ...(cookies ? { Cookie: cookies } : {}),
-    };
+    const fetchHeaders: Record<string, string> = { ...baseHeaders };
     
     const rangeHeader = req.headers.get("range");
     if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
 
     const streamRes = await fetch(decryptedUrl, { headers: fetchHeaders, signal: AbortSignal.timeout(30000) });
 
-    // THE FIX: Catch Cloudflare fake 200 OK HTML pages
     const contentType = streamRes.headers.get("content-type") || "";
     if (contentType.includes("text/html")) {
       console.error("[/api/proxy] Blocked by upstream! Target returned HTML instead of video.");
@@ -172,8 +181,9 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const ar = streamRes.headers.get("accept-ranges"); if (ar) responseHeaders["Accept-Ranges"] = ar;
 
     return new NextResponse(streamRes.body, { status: streamRes.status, headers: responseHeaders });
-  } catch (err) {
-    console.error("[/api/proxy] Error:", err instanceof Error ? err.message : "unknown");
+  } catch (err: unknown) { // FIX: Changed 'any' to 'unknown' here!
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[/api/proxy] Error:", msg);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -197,7 +207,6 @@ function buildTokenData(
   
   const baseToken = `${tokenId}.${signature}`;
   
-  // Assign the right extension so Vidstack trusts it!
   let ext = ".ts";
   if (url.includes(".m3u8")) ext = ".m3u8";
   if (url.includes("key")) ext = ".key";

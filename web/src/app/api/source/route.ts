@@ -76,7 +76,6 @@ export async function POST(req: NextRequest) {
       .filter((s: MiruroStream) => s.type === "hls" || s.url.includes(".m3u8"))
       .map((s: MiruroStream) => ({
         url: s.url,
-        // THE FIX: If 'arc' doesn't provide a quality string, default to "auto"
         quality: s.quality ? String(s.quality) : "auto", 
         isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
         cookies: s.cookies || "",
@@ -117,7 +116,7 @@ export async function POST(req: NextRequest) {
               url: encryptedUrl,
               sessionId,
               ip,
-              quality: source.quality, // This is now safely guaranteed to be a string!
+              quality: source.quality,
               isM3U8: safeIsM3U8,
               expiresAt,
             },
