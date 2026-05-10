@@ -70,7 +70,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Referer": "https://kwik.cx/",
-          "Origin": "https://kwik.cx", // Added Origin to be super safe
+          "Origin": "https://kwik.cx",
           ...(cookies ? { Cookie: cookies } : {}),
         },
         signal: AbortSignal.timeout(10000),
@@ -84,16 +84,38 @@ export async function GET(req: NextRequest, { params }: Params) {
       const lines = playlist.split("\n");
       const rewrittenLines: string[] = [];
 
-      for (const line of lines) {
+      for (let line of lines) {
         const trimmed = line.trim();
 
-        // If it's empty or a comment, leave it alone
-        if (!trimmed || trimmed.startsWith("#")) {
+        if (!trimmed) {
           rewrittenLines.push(line);
           continue;
         }
 
-        // It's a URI! Resolve it against the final URL in case Kwik redirected us
+        // Also proxy the decryption key if Kwik uses AES-128
+        if (trimmed.startsWith("#EXT-X-KEY:") && trimmed.includes('URI="')) {
+          const match = trimmed.match(/URI="([^"]+)"/);
+          if (match) {
+            const originalUri = match[1];
+            let keyUrl: string;
+            try { keyUrl = new URL(originalUri, playlistRes.url).toString(); }
+            catch { keyUrl = originalUri; }
+            
+            const keyToken = await createChunkToken(keyUrl, record.sessionId, record.ip, encryptionSecret, cookies);
+            line = line.replace(`URI="${originalUri}"`, `URI="/api/proxy/${keyToken}"`);
+          }
+          rewrittenLines.push(line);
+          continue;
+        }
+
+        // If it's another tag/comment, leave it alone
+        if (trimmed.startsWith("#")) {
+          rewrittenLines.push(line);
+          continue;
+        }
+
+        // It's a chunk or sub-playlist URI! Rewrite it regardless of file extension.
+        // We resolve it against playlistRes.url in case Kwik issued a redirect
         let chunkUrl: string;
         try { 
           chunkUrl = new URL(trimmed, playlistRes.url).toString(); 
@@ -189,7 +211,7 @@ async function createChunkToken(
   const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
   const tokenId = randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + 15 * 60_000); // Bumped to 15 mins
+  const expiresAt = new Date(Date.now() + 15 * 60_000); // Bumped chunk expiry to 15 mins
   const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
   const token = `${tokenId}.${signature}`;
 
