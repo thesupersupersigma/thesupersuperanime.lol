@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
     const epsData = await epsRes.json();
 
     let episodeId = null;
-    // THE FIX: Move kiwi to the back to avoid Cloudflare datacenter blocks!
     const providers = ["ally", "arc", "bee", "kiwi"];
     
     for (const provider of providers) {
@@ -78,8 +77,9 @@ export async function POST(req: NextRequest) {
       .map((s: MiruroStream) => ({
         url: s.url,
         quality: s.quality,
-        isM3U8: true,
-        cookies: "",
+        // SAFE FALLBACK: Always default to true if the API forgot to send it
+        isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
+        cookies: s.cookies || "",
       }));
 
     console.log(`[/api/source] Provider: Miruro, Fetched ${sources.length} sources successfully.`);
@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
     const tokenSecret = process.env.TOKEN_SECRET;
 
     if (!encryptionSecret || !tokenSecret) {
+      console.error("[/api/source] FATAL: ENCRYPTION_SECRET or TOKEN_SECRET is missing from environment variables!");
       return NextResponse.json({ error: "Server config error" }, { status: 500 });
     }
 
@@ -95,38 +96,46 @@ export async function POST(req: NextRequest) {
 
     const tokenizedSources = await Promise.all(
       sources.map(async (source: MiruroStream) => {
-        const iv = randomBytes(16);
-        const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
-        const cipher = createCipheriv("aes-256-cbc", key, iv);
-        const payload = JSON.stringify({ url: source.url, cookies: source.cookies });
-        const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
-        const encryptedUrl = iv.toString("hex") + ":" + encrypted;
+        try {
+          const iv = randomBytes(16);
+          const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
+          const cipher = createCipheriv("aes-256-cbc", key, iv);
+          const payload = JSON.stringify({ url: source.url, cookies: source.cookies });
+          const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
+          const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
-        const tokenId = randomBytes(24).toString("hex");
-        const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
-        
-        // This is the clean token for the DB
-        const baseToken = `${tokenId}.${signature}`;
-        // This is what tells Vidstack it's an HLS stream!
-        const ext = source.isM3U8 ? ".m3u8" : ".mp4"; 
+          const tokenId = randomBytes(24).toString("hex");
+          const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
+          
+          const baseToken = `${tokenId}.${signature}`;
+          
+          // Double check the safe fallback is applied here too
+          const safeIsM3U8 = source.isM3U8 !== undefined ? source.isM3U8 : true;
+          const ext = safeIsM3U8 ? ".m3u8" : ".mp4"; 
 
-        await db.sourceToken.create({
-          data: {
-            token: baseToken,
-            url: encryptedUrl,
-            sessionId,
-            ip,
+          await db.sourceToken.create({
+            data: {
+              token: baseToken,
+              url: encryptedUrl,
+              sessionId,
+              ip,
+              quality: source.quality,
+              isM3U8: safeIsM3U8,
+              expiresAt,
+            },
+          });
+
+          return {
+            token: baseToken + ext,
             quality: source.quality,
-            isM3U8: source.isM3U8 || true,
-            expiresAt,
-          },
-        });
-
-        return {
-          token: baseToken + ext, // Sent to frontend with .m3u8!
-          quality: source.quality,
-          isM3U8: source.isM3U8 || true,
-        };
+            isM3U8: safeIsM3U8,
+          };
+        } catch (dbError: unknown) {
+          // THE FIX: Safely parse the unknown error type
+          const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
+          console.error("[/api/source] FATAL: Database insertion failed! Check your DATABASE_URL.", errorMessage);
+          throw dbError; 
+        }
       })
     );
 
