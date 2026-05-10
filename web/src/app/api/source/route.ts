@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
     const MIRURO_API_URL = "https://miruro-api-qhis.onrender.com";
     const MIRURO_API_KEY = "fb6b36828b22617be219102d2a22e16a73c0784890b9536216ff4fd569ecc3b8";
 
-    // Step 1 from Miruro Docs
     const epsRes = await fetch(`${MIRURO_API_URL}/episodes/${animeId}`, {
       headers: { "x-api-key": MIRURO_API_KEY },
       signal: AbortSignal.timeout(15000),
@@ -44,47 +43,73 @@ export async function POST(req: NextRequest) {
 
     const epsData = await epsRes.json();
 
-    let episodeId = null;
-    const providers = ["ally", "arc", "bee", "kiwi"];
+    const allProviders = ["zoro", "jet", "ally", "arc", "bee", "kiwi"];
     
-    for (const provider of providers) {
+    let finalSources = null;
+    let successfulProvider = null;
+
+    for (const provider of allProviders) {
       const subEps = epsData?.providers?.[provider]?.episodes?.sub;
-      if (Array.isArray(subEps)) {
-        const ep = subEps.find((e) => e.number === episodeNum);
-        if (ep && ep.id) {
-          episodeId = ep.id;
-          break;
+      if (!Array.isArray(subEps)) continue;
+
+      const ep = subEps.find((e: { number: number; id: string }) => e.number === episodeNum);
+      if (!ep || !ep.id) continue;
+
+      try {
+        const streamRes = await fetch(`${MIRURO_API_URL}/${ep.id}`, {
+          headers: { "x-api-key": MIRURO_API_KEY },
+          signal: AbortSignal.timeout(10000), 
+        });
+
+        if (!streamRes.ok) continue;
+
+        const streamData = await streamRes.json();
+        if (!streamData.streams || streamData.streams.length === 0) continue;
+
+        const hlsStreams = streamData.streams.filter((s: MiruroStream) => s.type === "hls" || s.url.includes(".m3u8"));
+        
+        if (hlsStreams.length > 0) {
+          
+          // --- THE SMARTER PING TEST ---
+          let isAlive = false;
+          try {
+            console.log(`[/api/source] Testing stream health for provider: ${provider}...`);
+            await fetch(hlsStreams[0].url, {
+              method: "GET",
+              headers: { 
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Referer": "https://kwik.cx/"
+              },
+              signal: AbortSignal.timeout(4000) 
+            });
+            // THE FIX: If fetch resolves at all (even 403 Forbidden), the domain physically exists!
+            isAlive = true;
+          } catch {
+            console.log(`[/api/source] ❌ Stream for ${provider} is DEAD (DNS/Timeout). Skipping to next...`);
+          }
+
+          if (!isAlive) continue; 
+          // ---------------------
+
+          finalSources = hlsStreams.map((s: MiruroStream) => ({
+            url: s.url,
+            quality: s.quality ? String(s.quality) : "auto", 
+            isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
+            cookies: s.cookies || "",
+          }));
+          successfulProvider = provider;
+          break; 
         }
+      } catch {
+        continue;
       }
     }
 
-    if (!episodeId) return NextResponse.json({ error: "Episode not found" }, { status: 404 });
-
-    // Step 2 from Miruro Docs
-    const streamRes = await fetch(`${MIRURO_API_URL}/${episodeId}`, {
-      headers: { "x-api-key": MIRURO_API_KEY },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!streamRes.ok) throw new Error(`Miruro API returned ${streamRes.status} on stream`);
-
-    const streamData = await streamRes.json();
-
-    if (!streamData.streams || streamData.streams.length === 0) {
-      return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
+    if (!finalSources) {
+      return NextResponse.json({ error: "No playable streams found across any provider" }, { status: 404 });
     }
 
-    const sources = streamData.streams
-      .filter((s: MiruroStream) => s.type === "hls" || s.url.includes(".m3u8"))
-      .map((s: MiruroStream) => ({
-        url: s.url,
-        // THE MAGIC FIX: If arc doesn't provide a quality string, default to "auto"
-        quality: s.quality ? String(s.quality) : "auto", 
-        isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
-        cookies: s.cookies || "",
-      }));
-
-    console.log(`[/api/source] Provider: Miruro, Fetched ${sources.length} sources successfully.`);
+    console.log(`[/api/source] Success! Provider '${successfulProvider}' served ${finalSources.length} ALIVE sources.`);
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
     const tokenSecret = process.env.TOKEN_SECRET;
@@ -96,7 +121,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 30 * 60_000);
 
     const tokenizedSources = await Promise.all(
-      sources.map(async (source: { url: string; cookies: string; quality: string; isM3U8: boolean }) => {
+      finalSources.map(async (source: { url: string; cookies: string; quality: string; isM3U8: boolean }) => {
         try {
           const iv = randomBytes(16);
           const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
@@ -117,7 +142,7 @@ export async function POST(req: NextRequest) {
               url: encryptedUrl,
               sessionId,
               ip,
-              quality: source.quality, // Guaranteed to be a string now!
+              quality: source.quality, 
               isM3U8: source.isM3U8,
               expiresAt,
             },

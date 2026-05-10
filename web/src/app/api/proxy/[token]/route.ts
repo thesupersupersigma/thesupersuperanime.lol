@@ -27,7 +27,6 @@ export async function GET(req: NextRequest, { params }: Params) {
 
 async function handleRequest(req: NextRequest, params: { token: string }, isHead: boolean) {
   const cleanToken = params.token.replace(/\.(m3u8|mp4|ts|m4s|key|uwu)$/i, "");
-  let decryptedUrl = "unknown_url"; 
 
   try {
     const record = await db.sourceToken.findUnique({ where: { token: cleanToken } });
@@ -67,6 +66,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const decipher = createDecipheriv("aes-256-cbc", key, iv);
     const decryptedPayload = decipher.update(encryptedHex, "hex", "utf8") + decipher.final("utf8");
 
+    let decryptedUrl: string;
     let cookies = "";
     try {
       const parsed = JSON.parse(decryptedPayload);
@@ -76,33 +76,38 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       decryptedUrl = decryptedPayload;
     }
 
-    if (decryptedUrl.startsWith("//")) {
-      decryptedUrl = `https:${decryptedUrl}`;
+    // --- THE FIX: SMARTER KWIK DETECTION ---
+    const targetUrl = new URL(decryptedUrl);
+    let referer = targetUrl.origin + "/";
+    
+    // Check for "kwik", their known CDN "owocdn", the "uwu.m3u8" signature, or generic ".top" domains
+    if (
+      decryptedUrl.includes("kwik") || 
+      decryptedUrl.includes("owocdn") || 
+      decryptedUrl.includes("uwu.m3u8") ||
+      targetUrl.hostname.endsWith(".top")
+    ) {
+      referer = "https://kwik.cx/";
     }
 
-    let targetOrigin = "https://kwik.cx"; 
-    try {
-      targetOrigin = new URL(decryptedUrl).origin;
-    } catch { 
-      console.warn("[/api/proxy] Invalid URL format caught:", decryptedUrl);
-    }
-
-    const baseHeaders: Record<string, string> = {
+    const fetchHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Referer": `${targetOrigin}/`,
-      "Origin": targetOrigin,
+      "Referer": referer,
+      "Origin": referer.replace(/\/$/, ""), // Turns "https://kwik.cx/" into "https://kwik.cx"
       ...(cookies ? { Cookie: cookies } : {}),
     };
-
-    console.log(`[/api/proxy] Attempting to fetch URL: ${decryptedUrl}`);
+    // ---------------------------------
 
     if (record.isM3U8) {
       const playlistRes = await fetch(decryptedUrl, {
-        headers: baseHeaders,
-        signal: AbortSignal.timeout(15000), 
+        headers: fetchHeaders,
+        signal: AbortSignal.timeout(10000),
       });
 
-      if (!playlistRes.ok) return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
+      if (!playlistRes.ok) {
+        console.error(`[/api/proxy] M3U8 Fetch Failed: ${playlistRes.status} for URL: ${decryptedUrl}`);
+        return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
+      }
 
       const playlist = await playlistRes.text();
       const lines = playlist.split("\n");
@@ -152,8 +157,6 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         },
       });
     }
-
-    const fetchHeaders: Record<string, string> = { ...baseHeaders };
     
     const rangeHeader = req.headers.get("range");
     if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
@@ -180,19 +183,8 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const ar = streamRes.headers.get("accept-ranges"); if (ar) responseHeaders["Accept-Ranges"] = ar;
 
     return new NextResponse(streamRes.body, { status: streamRes.status, headers: responseHeaders });
-  } catch (err: unknown) { // --- CHANGED BACK TO UNKNOWN ---
-    console.error(`\n[/api/proxy] ❌ CRITICAL FETCH ERROR for URL: ${decryptedUrl}`);
-    
-    // --- TYPE-SAFE ERROR CHECKING ---
-    if (err instanceof Error) {
-      console.error("[/api/proxy] Error Message:", err.message);
-      if (err.cause) {
-        console.error("[/api/proxy] Detailed Cause:", err.cause);
-      }
-    } else {
-      console.error("[/api/proxy] Error:", String(err));
-    }
-    
+  } catch (err) {
+    console.error("[/api/proxy] Error:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
