@@ -41,7 +41,6 @@ export function AnimePlayer({
   const activeSource = sources.find((s) => s.quality === selectedQuality) || sources[0];
   const srcUrl = `/api/proxy/${activeSource.token}`;
 
-  // 1. Fetch initial progress on mount
   useEffect(() => {
     async function fetchProgress() {
       try {
@@ -62,11 +61,9 @@ export function AnimePlayer({
     fetchProgress();
   }, [animeId, episodeNum]);
 
-  // 2. Save progress function
   const saveProgress = useCallback(async (currentTime: number, duration: number) => {
     if (currentTime < 1 || duration < 1) return;
     
-    // Don't spam saves if time hasn't changed much
     if (Math.abs(currentTime - lastSavedTimeRef.current) < 10 && currentTime !== duration) {
       return;
     }
@@ -89,7 +86,6 @@ export function AnimePlayer({
     }
   }, [animeId, episodeNum]);
 
-  // 3. Quality change handler
   const handleQualityChange = (newQuality: string) => {
     if (newQuality === selectedQuality) return;
     
@@ -100,20 +96,27 @@ export function AnimePlayer({
     setSelectedQuality(newQuality);
   };
 
-  // 4. Player Event Handlers
   const onCanPlay = () => {
     const player = playerRef.current;
     if (!player) return;
 
-    // Handle quality change resume
+    // THE FIX: Gracefully handle the quality switch without throwing an AbortError!
     if (targetSeekTimeRef.current !== null) {
       player.currentTime = targetSeekTimeRef.current;
       targetSeekTimeRef.current = null;
-      player.play();
+      
+      // Give the browser 150ms to flush the old video buffer before forcing play
+      setTimeout(async () => {
+        try {
+          await player.play();
+        } catch (err) {
+          // If the browser still blocks it, we catch it silently so it doesn't crash the player!
+          console.warn("Browser interrupted auto-play during quality switch. Waiting for user interaction.");
+        }
+      }, 150);
     }
   };
 
-  // THE FIX: Take no arguments and safely read the state from the player reference!
   const onTimeUpdate = () => {
     const player = playerRef.current;
     if (player) {
@@ -183,11 +186,12 @@ export function AnimePlayer({
         onEnded={onEnded}
         onError={onError}
         crossOrigin
+        playsInline
+        preferNativeHLS
       >
         <MediaProvider />
         <DefaultVideoLayout icons={defaultLayoutIcons} />
         
-        {/* Custom Quality Menu overlaid on the player */}
         <QualityMenu 
           qualities={sortedQualities} 
           selectedQuality={selectedQuality} 
@@ -195,7 +199,6 @@ export function AnimePlayer({
         />
       </MediaPlayer>
 
-      {/* Auto Next Prompt overlay */}
       {showNextPrompt && (
         <div style={{
           position: "absolute",
