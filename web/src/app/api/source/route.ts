@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/core";
 interface MiruroStream {
   url: string;
   type: string;
-  quality: string;
+  quality?: string;
   isM3U8?: boolean;
   cookies?: string;
 }
@@ -73,10 +73,11 @@ export async function POST(req: NextRequest) {
     }
 
     const sources = streamData.streams
-      .filter((s: MiruroStream) => s.type === "hls")
+      .filter((s: MiruroStream) => s.type === "hls" || s.url.includes(".m3u8"))
       .map((s: MiruroStream) => ({
         url: s.url,
-        quality: s.quality,
+        // THE FIX: If 'arc' doesn't provide a quality string, default to "auto"
+        quality: s.quality ? String(s.quality) : "auto", 
         isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
         cookies: s.cookies || "",
       }));
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 30 * 60_000);
 
     const tokenizedSources = await Promise.all(
-      sources.map(async (source: MiruroStream) => {
+      sources.map(async (source: { url: string; quality: string; isM3U8: boolean; cookies: string }) => {
         try {
           const iv = randomBytes(16);
           const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
               url: encryptedUrl,
               sessionId,
               ip,
-              quality: source.quality,
+              quality: source.quality, // This is now safely guaranteed to be a string!
               isM3U8: safeIsM3U8,
               expiresAt,
             },
@@ -137,7 +138,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sources: tokenizedSources });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    // THE FIX: Return the exact crash message to the browser so we can see it!
     return NextResponse.json({ error: `Vercel Crash: ${msg}` }, { status: 500 });
   }
 }
