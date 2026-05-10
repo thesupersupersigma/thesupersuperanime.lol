@@ -151,6 +151,13 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
 
     const streamRes = await fetch(decryptedUrl, { headers: fetchHeaders, signal: AbortSignal.timeout(30000) });
 
+    // THE FIX: Catch Cloudflare fake 200 OK HTML pages
+    const contentType = streamRes.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      console.error("[/api/proxy] Blocked by upstream! Target returned HTML instead of video.");
+      return NextResponse.json({ error: "Upstream anti-bot protection triggered" }, { status: 502 });
+    }
+
     if (!streamRes.ok && streamRes.status !== 206) return NextResponse.json({ error: `Failed to fetch source chunk: ${streamRes.status}` }, { status: 502 });
 
     const responseHeaders: Record<string, string> = {

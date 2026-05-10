@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
     const epsData = await epsRes.json();
 
     let episodeId = null;
-    const providers = ["kiwi", "ally", "arc", "bee"];
+    // THE FIX: Move kiwi to the back to avoid Cloudflare datacenter blocks!
+    const providers = ["ally", "arc", "bee", "kiwi"];
     
     for (const provider of providers) {
       const subEps = epsData?.providers?.[provider]?.episodes?.sub;
