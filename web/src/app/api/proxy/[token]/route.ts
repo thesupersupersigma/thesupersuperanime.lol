@@ -64,17 +64,21 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "*";
 
+    // ── Handle m3u8 playlists ───────────────────────────────────────────────
     if (record.isM3U8) {
       const playlistRes = await fetch(decryptedUrl, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Referer": "https://kwik.cx/",
+          "Origin": "https://kwik.cx", // Added Origin to be super safe
           ...(cookies ? { Cookie: cookies } : {}),
         },
         signal: AbortSignal.timeout(10000),
       });
 
-      if (!playlistRes.ok) return NextResponse.json({ error: "Failed to fetch playlist" }, { status: 502 });
+      if (!playlistRes.ok) {
+        return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
+      }
 
       let playlist = await playlistRes.text();
       const lines = playlist.split("\n");
@@ -83,16 +87,28 @@ export async function GET(req: NextRequest, { params }: Params) {
       for (const line of lines) {
         const trimmed = line.trim();
 
-        if (!trimmed || trimmed.startsWith("#") || !trimmed.match(/\.(ts|m4s|mp4|key|m3u8)(\?|$)/i)) {
+        // If it's empty or a comment, leave it alone
+        if (!trimmed || trimmed.startsWith("#")) {
           rewrittenLines.push(line);
           continue;
         }
 
+        // It's a URI! Resolve it against the final URL in case Kwik redirected us
         let chunkUrl: string;
-        try { chunkUrl = new URL(trimmed, decryptedUrl).toString(); } 
-        catch { chunkUrl = trimmed; }
+        try { 
+          chunkUrl = new URL(trimmed, playlistRes.url).toString(); 
+        } catch { 
+          chunkUrl = trimmed; 
+        }
 
-        const chunkToken = await createChunkToken(chunkUrl, record.sessionId, record.ip, encryptionSecret, cookies);
+        const chunkToken = await createChunkToken(
+          chunkUrl, 
+          record.sessionId, 
+          record.ip, 
+          encryptionSecret, 
+          cookies
+        );
+        
         rewrittenLines.push(`/api/proxy/${chunkToken}`);
       }
 
@@ -109,19 +125,24 @@ export async function GET(req: NextRequest, { params }: Params) {
       });
     }
 
+    // ── Handle raw stream chunks (video/mp2t) ───────────────────────────────
     const fetchHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Referer": "https://kwik.cx/",
+      "Origin": "https://kwik.cx",
       ...(cookies ? { Cookie: cookies } : {}),
     };
     
     const rangeHeader = req.headers.get("range");
     if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
 
-    const streamRes = await fetch(decryptedUrl, { headers: fetchHeaders, signal: AbortSignal.timeout(30000) });
+    const streamRes = await fetch(decryptedUrl, { 
+      headers: fetchHeaders, 
+      signal: AbortSignal.timeout(30000) 
+    });
 
     if (!streamRes.ok && streamRes.status !== 206) {
-      return NextResponse.json({ error: "Failed to fetch source" }, { status: 502 });
+      return NextResponse.json({ error: `Failed to fetch source chunk: ${streamRes.status}` }, { status: 502 });
     }
 
     const responseHeaders: Record<string, string> = {
@@ -138,14 +159,23 @@ export async function GET(req: NextRequest, { params }: Params) {
     const acceptRanges = streamRes.headers.get("accept-ranges");
     if (acceptRanges) responseHeaders["Accept-Ranges"] = acceptRanges;
 
-    return new NextResponse(streamRes.body, { status: streamRes.status, headers: responseHeaders });
+    return new NextResponse(streamRes.body, { 
+      status: streamRes.status, 
+      headers: responseHeaders 
+    });
   } catch (err) {
     console.error("[/api/proxy] Error:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-async function createChunkToken(chunkUrl: string, sessionId: string, ip: string, encryptionSecret: string, cookies: string = ""): Promise<string> {
+async function createChunkToken(
+  chunkUrl: string, 
+  sessionId: string, 
+  ip: string, 
+  encryptionSecret: string, 
+  cookies: string = ""
+): Promise<string> {
   const tokenSecret = process.env.TOKEN_SECRET;
   if (!tokenSecret) throw new Error("TOKEN_SECRET not set");
 
@@ -159,12 +189,24 @@ async function createChunkToken(chunkUrl: string, sessionId: string, ip: string,
   const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
   const tokenId = randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + 5 * 60_000);
+  const expiresAt = new Date(Date.now() + 15 * 60_000); // Bumped to 15 mins
   const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
   const token = `${tokenId}.${signature}`;
 
+  // If the chunk is actually another playlist (master -> resolution playlist)
+  const isM3U8 = chunkUrl.includes(".m3u8");
+
   await db.sourceToken.create({
-    data: { token, url: encryptedUrl, sessionId, ip, quality: "chunk", isM3U8: false, expiresAt, used: false },
+    data: { 
+      token, 
+      url: encryptedUrl, 
+      sessionId, 
+      ip, 
+      quality: "chunk", 
+      isM3U8, 
+      expiresAt, 
+      used: false 
+    },
   });
 
   return token;
