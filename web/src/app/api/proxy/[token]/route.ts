@@ -1,32 +1,17 @@
-// THE FIX: Prevent Next.js from caching video chunks, which causes local 500 errors!
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createDecipheriv, createCipheriv, randomBytes, createHmac } from "crypto";
 import { db } from "@/lib/db";
 
-interface Params {
-  params: Promise<{ token: string }>;
-}
+interface Params { params: Promise<{ token: string }>; }
 
 interface TokenInsertData {
-  token: string;
-  url: string;
-  sessionId: string;
-  ip: string;
-  quality: string;
-  isM3U8: boolean;
-  expiresAt: Date;
-  used: boolean;
+  token: string; url: string; sessionId: string; ip: string; quality: string; isM3U8: boolean; expiresAt: Date; used: boolean;
 }
 
-export async function HEAD(req: NextRequest, { params }: Params) {
-  return handleRequest(req, await params, true);
-}
-
-export async function GET(req: NextRequest, { params }: Params) {
-  return handleRequest(req, await params, false);
-}
+export async function HEAD(req: NextRequest, { params }: Params) { return handleRequest(req, await params, true); }
+export async function GET(req: NextRequest, { params }: Params) { return handleRequest(req, await params, false); }
 
 async function handleRequest(req: NextRequest, params: { token: string }, isHead: boolean) {
   const cleanToken = params.token.replace(/\.(m3u8|mp4|ts|m4s|key|uwu)$/i, "");
@@ -82,12 +67,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const targetUrl = new URL(decryptedUrl);
     let referer = targetUrl.origin + "/";
     
-    if (
-      decryptedUrl.includes("kwik") || 
-      decryptedUrl.includes("owocdn") || 
-      decryptedUrl.includes("uwu.m3u8") ||
-      targetUrl.hostname.endsWith(".top")
-    ) {
+    if (decryptedUrl.includes("kwik") || decryptedUrl.includes("owocdn") || decryptedUrl.includes("uwu.m3u8") || targetUrl.hostname.endsWith(".top")) {
       referer = "https://kwik.cx/";
     }
 
@@ -99,14 +79,12 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     };
 
     if (record.isM3U8) {
-      const playlistRes = await fetch(decryptedUrl, {
-        headers: fetchHeaders,
-        signal: AbortSignal.timeout(10000),
+      const playlistRes = await fetch(decryptedUrl, { 
+        headers: fetchHeaders, 
+        signal: req.signal // Abort if user navigates away
       });
 
-      if (!playlistRes.ok) {
-        return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
-      }
+      if (!playlistRes.ok) return NextResponse.json({ error: `Failed to fetch playlist` }, { status: 502 });
 
       const playlist = await playlistRes.text();
       const lines = playlist.split("\n");
@@ -124,7 +102,6 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
             let keyUrl;
             try { keyUrl = new URL(originalUri, playlistRes.url).toString(); } catch { keyUrl = originalUri; }
             
-            // THE FIX: Explicitly tell the token builder this is a .key file, regardless of the URL
             const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies, ".key");
             tokensToInsert.push(tData.dbData);
             line = line.replace(`URI="${originalUri}"`, `URI="/api/proxy/${tData.serveToken}"`);
@@ -138,15 +115,12 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         let chunkUrl;
         try { chunkUrl = new URL(trimmed, playlistRes.url).toString(); } catch { chunkUrl = trimmed; }
         
-        // THE FIX: Explicitly tell the token builder this is a .ts video chunk
         const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies, ".ts");
         tokensToInsert.push(tData.dbData);
         rewrittenLines.push(`/api/proxy/${tData.serveToken}`);
       }
 
-      if (tokensToInsert.length > 0) {
-        await db.sourceToken.createMany({ data: tokensToInsert });
-      }
+      if (tokensToInsert.length > 0) await db.sourceToken.createMany({ data: tokensToInsert });
 
       return new NextResponse(rewrittenLines.join("\n"), {
         status: 200,
@@ -162,18 +136,28 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const rangeHeader = req.headers.get("range");
     if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
 
-    const streamRes = await fetch(decryptedUrl, { headers: fetchHeaders, signal: AbortSignal.timeout(30000) });
+    // THE FIX: Listen to req.signal. If you skip ahead, the browser aborts the request. 
+    // This instantly kills the old Kwik download so the network doesn't get clogged!
+    const streamRes = await fetch(decryptedUrl, { 
+      headers: fetchHeaders, 
+      signal: req.signal 
+    });
 
-    const contentType = streamRes.headers.get("content-type") || "";
-    if (contentType.includes("text/html")) {
-      return NextResponse.json({ error: "Upstream anti-bot protection triggered" }, { status: 502 });
+    if (!streamRes.ok && streamRes.status !== 206) return NextResponse.json({ error: `Failed chunk fetch` }, { status: 502 });
+
+    if (params.token.endsWith(".key")) {
+      const keyBuffer = await streamRes.arrayBuffer();
+      return new NextResponse(keyBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Access-Control-Allow-Origin": siteUrl,
+          "Cache-Control": "public, max-age=31536000",
+        }
+      });
     }
 
-    if (!streamRes.ok && streamRes.status !== 206) return NextResponse.json({ error: `Failed to fetch source chunk: ${streamRes.status}` }, { status: 502 });
-
-    // THE FIX: Force the absolute correct Content-Type based on the extension of our proxy token!
     let finalContentType = streamRes.headers.get("content-type") ?? "video/mp2t";
-    if (params.token.endsWith(".key")) finalContentType = "application/octet-stream";
     if (params.token.endsWith(".m3u8")) finalContentType = "application/x-mpegURL";
 
     const responseHeaders: Record<string, string> = {
@@ -183,26 +167,29 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       "X-Content-Type-Options": "nosniff",
     };
 
-    // THE FIX: Purposely omit Content-Length. Node automatically unzips compressed Cloudflare keys, 
-    // which makes the original Content-Length invalid and causes browser truncation!
+    // THE FIX: Restore Content-Length specifically for video chunks!
+    // This prevents the browser from downloading the entire 200MB file for a 50KB byte range!
+    const cl = streamRes.headers.get("content-length"); 
+    if (cl && !params.token.endsWith(".key") && !params.token.endsWith(".m3u8")) {
+      responseHeaders["Content-Length"] = cl;
+    }
+    
     const cr = streamRes.headers.get("content-range"); if (cr) responseHeaders["Content-Range"] = cr;
     const ar = streamRes.headers.get("accept-ranges"); if (ar) responseHeaders["Accept-Ranges"] = ar;
 
     return new NextResponse(streamRes.body, { status: streamRes.status, headers: responseHeaders });
-  } catch (err) {
+  } catch (err: unknown) {
+    // Gracefully handle the AbortError so it doesn't spam your server logs when you skip
+    if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
+      return new NextResponse(null, { status: 499 }); // 499 = Client Closed Request
+    }
     console.error("[/api/proxy] Error:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-// THE FIX: Added an explicitExt parameter to guarantee files are labeled correctly
 function buildTokenData(
-  url: string, 
-  record: { sessionId: string; ip: string }, 
-  key: Buffer, 
-  tokenSecret: string, 
-  cookies: string,
-  explicitExt?: string
+  url: string, record: { sessionId: string; ip: string }, key: Buffer, tokenSecret: string, cookies: string, explicitExt?: string
 ): { serveToken: string, dbData: TokenInsertData } {
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
@@ -215,21 +202,13 @@ function buildTokenData(
   const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
   
   const baseToken = `${tokenId}.${signature}`;
-  
   let ext = explicitExt || ".ts";
   if (url.includes(".m3u8")) ext = ".m3u8";
 
   return { 
     serveToken: baseToken + ext,
     dbData: {
-      token: baseToken, 
-      url: encryptedUrl, 
-      sessionId: record.sessionId, 
-      ip: record.ip, 
-      quality: "chunk", 
-      isM3U8: url.includes(".m3u8"), 
-      expiresAt, 
-      used: false 
+      token: baseToken, url: encryptedUrl, sessionId: record.sessionId, ip: record.ip, quality: "chunk", isM3U8: url.includes(".m3u8"), expiresAt, used: false 
     }
   };
 }

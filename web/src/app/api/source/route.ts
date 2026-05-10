@@ -64,13 +64,12 @@ export async function POST(req: NextRequest) {
         if (!streamRes.ok) continue;
 
         const streamData = await streamRes.json();
+        
         if (!streamData.streams || streamData.streams.length === 0) continue;
 
         const hlsStreams = streamData.streams.filter((s: MiruroStream) => s.type === "hls" || s.url.includes(".m3u8"));
         
         if (hlsStreams.length > 0) {
-          
-          // --- THE SMARTER PING TEST ---
           let isAlive = false;
           try {
             console.log(`[/api/source] Testing stream health for provider: ${provider}...`);
@@ -82,19 +81,18 @@ export async function POST(req: NextRequest) {
               },
               signal: AbortSignal.timeout(4000) 
             });
-            // THE FIX: If fetch resolves at all (even 403 Forbidden), the domain physically exists!
             isAlive = true;
           } catch {
-            console.log(`[/api/source] ❌ Stream for ${provider} is DEAD (DNS/Timeout). Skipping to next...`);
+            console.log(`[/api/source] ❌ Stream for ${provider} is DEAD. Skipping to next...`);
           }
 
           if (!isAlive) continue; 
-          // ---------------------
 
           finalSources = hlsStreams.map((s: MiruroStream) => ({
             url: s.url,
             quality: s.quality ? String(s.quality) : "auto", 
-            isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
+            // THE FIX: We filtered for HLS, so this is ALWAYS true. Stop trusting the API.
+            isM3U8: true, 
             cookies: s.cookies || "",
           }));
           successfulProvider = provider;
@@ -105,18 +103,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!finalSources) {
-      return NextResponse.json({ error: "No playable streams found across any provider" }, { status: 404 });
-    }
+    if (!finalSources) return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
 
     console.log(`[/api/source] Success! Provider '${successfulProvider}' served ${finalSources.length} ALIVE sources.`);
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
     const tokenSecret = process.env.TOKEN_SECRET;
 
-    if (!encryptionSecret || !tokenSecret) {
-      throw new Error("ENCRYPTION_SECRET or TOKEN_SECRET is missing from Vercel Environment Variables!");
-    }
+    if (!encryptionSecret || !tokenSecret) throw new Error("Missing Secrets!");
 
     const expiresAt = new Date(Date.now() + 30 * 60_000);
 
@@ -148,14 +142,9 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          return {
-            token: baseToken + ext,
-            quality: source.quality,
-            isM3U8: source.isM3U8,
-          };
+          return { token: baseToken + ext, quality: source.quality, isM3U8: source.isM3U8 };
         } catch (dbError: unknown) {
-          const msg = dbError instanceof Error ? dbError.message : String(dbError);
-          throw new Error(`DB/Crypto Error: ${msg}`);
+          throw new Error(`DB Error`);
         }
       })
     );
