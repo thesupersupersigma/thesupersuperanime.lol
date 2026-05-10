@@ -1,3 +1,6 @@
+// THE FIX: Prevent Next.js from caching video chunks, which causes local 500 errors!
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createDecipheriv, createCipheriv, randomBytes, createHmac } from "crypto";
 import { db } from "@/lib/db";
@@ -76,11 +79,9 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       decryptedUrl = decryptedPayload;
     }
 
-    // --- THE FIX: SMARTER KWIK DETECTION ---
     const targetUrl = new URL(decryptedUrl);
     let referer = targetUrl.origin + "/";
     
-    // Check for "kwik", their known CDN "owocdn", the "uwu.m3u8" signature, or generic ".top" domains
     if (
       decryptedUrl.includes("kwik") || 
       decryptedUrl.includes("owocdn") || 
@@ -93,10 +94,9 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const fetchHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Referer": referer,
-      "Origin": referer.replace(/\/$/, ""), // Turns "https://kwik.cx/" into "https://kwik.cx"
+      "Origin": referer.replace(/\/$/, ""), 
       ...(cookies ? { Cookie: cookies } : {}),
     };
-    // ---------------------------------
 
     if (record.isM3U8) {
       const playlistRes = await fetch(decryptedUrl, {
@@ -105,7 +105,6 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       });
 
       if (!playlistRes.ok) {
-        console.error(`[/api/proxy] M3U8 Fetch Failed: ${playlistRes.status} for URL: ${decryptedUrl}`);
         return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
       }
 
@@ -125,7 +124,8 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
             let keyUrl;
             try { keyUrl = new URL(originalUri, playlistRes.url).toString(); } catch { keyUrl = originalUri; }
             
-            const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies);
+            // THE FIX: Explicitly tell the token builder this is a .key file, regardless of the URL
+            const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies, ".key");
             tokensToInsert.push(tData.dbData);
             line = line.replace(`URI="${originalUri}"`, `URI="/api/proxy/${tData.serveToken}"`);
           }
@@ -138,7 +138,8 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         let chunkUrl;
         try { chunkUrl = new URL(trimmed, playlistRes.url).toString(); } catch { chunkUrl = trimmed; }
         
-        const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies);
+        // THE FIX: Explicitly tell the token builder this is a .ts video chunk
+        const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies, ".ts");
         tokensToInsert.push(tData.dbData);
         rewrittenLines.push(`/api/proxy/${tData.serveToken}`);
       }
@@ -165,20 +166,25 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
 
     const contentType = streamRes.headers.get("content-type") || "";
     if (contentType.includes("text/html")) {
-      console.error("[/api/proxy] Blocked by upstream! Target returned HTML instead of video.");
       return NextResponse.json({ error: "Upstream anti-bot protection triggered" }, { status: 502 });
     }
 
     if (!streamRes.ok && streamRes.status !== 206) return NextResponse.json({ error: `Failed to fetch source chunk: ${streamRes.status}` }, { status: 502 });
 
+    // THE FIX: Force the absolute correct Content-Type based on the extension of our proxy token!
+    let finalContentType = streamRes.headers.get("content-type") ?? "video/mp2t";
+    if (params.token.endsWith(".key")) finalContentType = "application/octet-stream";
+    if (params.token.endsWith(".m3u8")) finalContentType = "application/x-mpegURL";
+
     const responseHeaders: Record<string, string> = {
-      "Content-Type": streamRes.headers.get("content-type") ?? "video/mp2t",
+      "Content-Type": finalContentType,
       "Access-Control-Allow-Origin": siteUrl,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     };
 
-    const cl = streamRes.headers.get("content-length"); if (cl) responseHeaders["Content-Length"] = cl;
+    // THE FIX: Purposely omit Content-Length. Node automatically unzips compressed Cloudflare keys, 
+    // which makes the original Content-Length invalid and causes browser truncation!
     const cr = streamRes.headers.get("content-range"); if (cr) responseHeaders["Content-Range"] = cr;
     const ar = streamRes.headers.get("accept-ranges"); if (ar) responseHeaders["Accept-Ranges"] = ar;
 
@@ -189,12 +195,14 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
   }
 }
 
+// THE FIX: Added an explicitExt parameter to guarantee files are labeled correctly
 function buildTokenData(
   url: string, 
   record: { sessionId: string; ip: string }, 
   key: Buffer, 
   tokenSecret: string, 
-  cookies: string
+  cookies: string,
+  explicitExt?: string
 ): { serveToken: string, dbData: TokenInsertData } {
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
@@ -208,9 +216,8 @@ function buildTokenData(
   
   const baseToken = `${tokenId}.${signature}`;
   
-  let ext = ".ts";
+  let ext = explicitExt || ".ts";
   if (url.includes(".m3u8")) ext = ".m3u8";
-  if (url.includes("key")) ext = ".key";
 
   return { 
     serveToken: baseToken + ext,
