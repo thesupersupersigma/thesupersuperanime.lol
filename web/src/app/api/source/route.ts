@@ -77,7 +77,6 @@ export async function POST(req: NextRequest) {
       .map((s: MiruroStream) => ({
         url: s.url,
         quality: s.quality,
-        // SAFE FALLBACK: Always default to true if the API forgot to send it
         isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
         cookies: s.cookies || "",
       }));
@@ -88,8 +87,7 @@ export async function POST(req: NextRequest) {
     const tokenSecret = process.env.TOKEN_SECRET;
 
     if (!encryptionSecret || !tokenSecret) {
-      console.error("[/api/source] FATAL: ENCRYPTION_SECRET or TOKEN_SECRET is missing from environment variables!");
-      return NextResponse.json({ error: "Server config error" }, { status: 500 });
+      throw new Error("ENCRYPTION_SECRET or TOKEN_SECRET is missing from Vercel Environment Variables!");
     }
 
     const expiresAt = new Date(Date.now() + 30 * 60_000);
@@ -109,7 +107,6 @@ export async function POST(req: NextRequest) {
           
           const baseToken = `${tokenId}.${signature}`;
           
-          // Double check the safe fallback is applied here too
           const safeIsM3U8 = source.isM3U8 !== undefined ? source.isM3U8 : true;
           const ext = safeIsM3U8 ? ".m3u8" : ".mp4"; 
 
@@ -131,17 +128,16 @@ export async function POST(req: NextRequest) {
             isM3U8: safeIsM3U8,
           };
         } catch (dbError: unknown) {
-          // THE FIX: Safely parse the unknown error type
-          const errorMessage = dbError instanceof Error ? dbError.message : String(dbError);
-          console.error("[/api/source] FATAL: Database insertion failed! Check your DATABASE_URL.", errorMessage);
-          throw dbError; 
+          const msg = dbError instanceof Error ? dbError.message : String(dbError);
+          throw new Error(`DB/Crypto Error: ${msg}`);
         }
       })
     );
 
     return NextResponse.json({ sources: tokenizedSources });
-  } catch (err) {
-    console.error("[/api/source] Error:", err instanceof Error ? err.message : "unknown");
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // THE FIX: Return the exact crash message to the browser so we can see it!
+    return NextResponse.json({ error: `Vercel Crash: ${msg}` }, { status: 500 });
   }
 }
