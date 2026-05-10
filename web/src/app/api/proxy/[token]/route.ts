@@ -26,8 +26,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 async function handleRequest(req: NextRequest, params: { token: string }, isHead: boolean) {
-  // Strip the extension so we can find the token in the database!
   const cleanToken = params.token.replace(/\.(m3u8|mp4|ts|m4s|key|uwu)$/i, "");
+  let decryptedUrl = "unknown_url"; 
 
   try {
     const record = await db.sourceToken.findUnique({ where: { token: cleanToken } });
@@ -67,7 +67,6 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const decipher = createDecipheriv("aes-256-cbc", key, iv);
     const decryptedPayload = decipher.update(encryptedHex, "hex", "utf8") + decipher.final("utf8");
 
-    let decryptedUrl: string;
     let cookies = "";
     try {
       const parsed = JSON.parse(decryptedPayload);
@@ -77,15 +76,14 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       decryptedUrl = decryptedPayload;
     }
 
-    // --- FIXES APPLIED HERE ---
     if (decryptedUrl.startsWith("//")) {
       decryptedUrl = `https:${decryptedUrl}`;
     }
 
-    let targetOrigin = "https://kwik.cx"; // default fallback
+    let targetOrigin = "https://kwik.cx"; 
     try {
       targetOrigin = new URL(decryptedUrl).origin;
-    } catch { // FIX: Removed the unused 'e' variable here!
+    } catch { 
       console.warn("[/api/proxy] Invalid URL format caught:", decryptedUrl);
     }
 
@@ -95,12 +93,13 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       "Origin": targetOrigin,
       ...(cookies ? { Cookie: cookies } : {}),
     };
-    // --------------------------
+
+    console.log(`[/api/proxy] Attempting to fetch URL: ${decryptedUrl}`);
 
     if (record.isM3U8) {
       const playlistRes = await fetch(decryptedUrl, {
         headers: baseHeaders,
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(15000), 
       });
 
       if (!playlistRes.ok) return NextResponse.json({ error: `Failed to fetch playlist: ${playlistRes.status}` }, { status: 502 });
@@ -181,9 +180,19 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const ar = streamRes.headers.get("accept-ranges"); if (ar) responseHeaders["Accept-Ranges"] = ar;
 
     return new NextResponse(streamRes.body, { status: streamRes.status, headers: responseHeaders });
-  } catch (err: unknown) { // FIX: Changed 'any' to 'unknown' here!
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[/api/proxy] Error:", msg);
+  } catch (err: unknown) { // --- CHANGED BACK TO UNKNOWN ---
+    console.error(`\n[/api/proxy] ❌ CRITICAL FETCH ERROR for URL: ${decryptedUrl}`);
+    
+    // --- TYPE-SAFE ERROR CHECKING ---
+    if (err instanceof Error) {
+      console.error("[/api/proxy] Error Message:", err.message);
+      if (err.cause) {
+        console.error("[/api/proxy] Detailed Cause:", err.cause);
+      }
+    } else {
+      console.error("[/api/proxy] Error:", String(err));
+    }
+    
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
