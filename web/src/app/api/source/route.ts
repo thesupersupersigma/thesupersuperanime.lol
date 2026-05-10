@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     const MIRURO_API_URL = "https://miruro-api-qhis.onrender.com";
     const MIRURO_API_KEY = "fb6b36828b22617be219102d2a22e16a73c0784890b9536216ff4fd569ecc3b8";
 
+    // Step 1 from Miruro Docs
     const epsRes = await fetch(`${MIRURO_API_URL}/episodes/${animeId}`, {
       headers: { "x-api-key": MIRURO_API_KEY },
       signal: AbortSignal.timeout(15000),
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
 
     if (!episodeId) return NextResponse.json({ error: "Episode not found" }, { status: 404 });
 
+    // Step 2 from Miruro Docs
     const streamRes = await fetch(`${MIRURO_API_URL}/${episodeId}`, {
       headers: { "x-api-key": MIRURO_API_KEY },
       signal: AbortSignal.timeout(15000),
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest) {
       .filter((s: MiruroStream) => s.type === "hls" || s.url.includes(".m3u8"))
       .map((s: MiruroStream) => ({
         url: s.url,
+        // THE MAGIC FIX: If arc doesn't provide a quality string, default to "auto"
         quality: s.quality ? String(s.quality) : "auto", 
         isM3U8: s.isM3U8 !== undefined ? s.isM3U8 : true,
         cookies: s.cookies || "",
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 30 * 60_000);
 
     const tokenizedSources = await Promise.all(
-      sources.map(async (source: { url: string; quality: string; isM3U8: boolean; cookies: string }) => {
+      sources.map(async (source: { url: string; cookies: string; quality: string; isM3U8: boolean }) => {
         try {
           const iv = randomBytes(16);
           const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
@@ -106,9 +109,7 @@ export async function POST(req: NextRequest) {
           const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
           
           const baseToken = `${tokenId}.${signature}`;
-          
-          const safeIsM3U8 = source.isM3U8 !== undefined ? source.isM3U8 : true;
-          const ext = safeIsM3U8 ? ".m3u8" : ".mp4"; 
+          const ext = source.isM3U8 ? ".m3u8" : ".mp4"; 
 
           await db.sourceToken.create({
             data: {
@@ -116,8 +117,8 @@ export async function POST(req: NextRequest) {
               url: encryptedUrl,
               sessionId,
               ip,
-              quality: source.quality,
-              isM3U8: safeIsM3U8,
+              quality: source.quality, // Guaranteed to be a string now!
+              isM3U8: source.isM3U8,
               expiresAt,
             },
           });
@@ -125,7 +126,7 @@ export async function POST(req: NextRequest) {
           return {
             token: baseToken + ext,
             quality: source.quality,
-            isM3U8: safeIsM3U8,
+            isM3U8: source.isM3U8,
           };
         } catch (dbError: unknown) {
           const msg = dbError instanceof Error ? dbError.message : String(dbError);
