@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&display=swap');
+@import "tailwindcss";
+@import '@vidstack/react/player/styles/default/theme.css';
+@import '@vidstack/react/player/styles/default/layouts/video.css';
+
+@theme inline {
+  --color-bg: #0f0f0f;
+  --color-bg-card: #1a1a1a;
+  --color-bg-card-alt: #161616;
+  --color-bg-elevated: #222222;
+  --color-border: #2a2a2a;
+  --color-border-hover: #3b82f6;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-text: #e5e5e5;
+  --color-text-secondary: #888888;
+  --color-text-muted: #666666;
+  --color-surface: #1a1a1a;
+
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Syne', ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: #0f0f0f;
+  color-scheme: dark;
+}
+
+body {
+  background: #0f0f0f;
+  color: #e5e5e5;
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+
+/* Selection */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #e5e5e5;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 1px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Horizontal scroll rows */
+.scroll-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-row > * {
+  flex: 0 0 160px;
+  max-width: 160px;
+}
+
+.scroll-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+/* Skeleton pulse */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.15; }
+}
+
+.skeleton {
+  background: #2a2a2a;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* Card hover effect */
+.card-image-wrap:hover {
+  border-color: #3b82f6 !important;
+}
+
+/* Responsive: site layout padding */
+@media (max-width: 768px) {
+  .site-main {
+    padding: 16px 16px 100px !important;
+  }
+
+  .desktop-search {
+    display: none !important;
+  }
+
+  .mobile-tab-bar {
+    display: flex !important;
+  }
+}
+
+/* Desktop: hide mobile tab bar */
+.mobile-tab-bar {
+  display: none;
+}
+
+/* Anime detail responsive */
+@media (max-width: 640px) {
+  .anime-detail-top {
+    flex-direction: column !important;
+  }
+  .anime-cover {
+    width: 160px !important;
+  }
+}
