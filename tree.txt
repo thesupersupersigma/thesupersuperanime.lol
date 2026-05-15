@@ -1,3 +1,5 @@
+tree -I 'node_modules|dist|.git' > tree.txt
+
 .
 ├── .DS_Store
 ├── .github
@@ -240,3 +242,5 @@
     └── tsconfig.json
 
 56 directories, 184 files
+
+tree -I 'node_modules|dist|.git' > tree.txt
