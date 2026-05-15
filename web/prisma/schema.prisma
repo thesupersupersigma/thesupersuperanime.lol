@@ -7,24 +7,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  discordId    String?  @unique // For when we build the Discord linker later
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  watchHistory WatchHistory[]
+  watchlist    Watchlist[]
+}
+
 model WatchHistory {
   id        String   @id @default(cuid())
-  sessionId String
+  userId    String?  // Optional: Only used if they are logged in
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String   // Kept for guest users
   animeId   Int
   episodeId String
   progress  Int      @default(0)
   duration  Int      @default(0)
   updatedAt DateTime @updatedAt
 
-  @@unique([sessionId, episodeId])
+  @@unique([userId, episodeId])    // A user can only have one progress record per episode
+  @@unique([sessionId, episodeId]) // A guest session can only have one progress record per episode
 }
 
 model Watchlist {
   id        String   @id @default(cuid())
-  sessionId String
+  userId    String?  
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String   
   animeId   Int
+  status    String   @default("Planning") // THE NEW FIELD! (Planning | Watching | Completed | Dropped)
   addedAt   DateTime @default(now())
 
+  @@unique([userId, animeId])
   @@unique([sessionId, animeId])
 }
 

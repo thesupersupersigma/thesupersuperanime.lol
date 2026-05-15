@@ -1,7 +1,14 @@
 import { cookies } from "next/headers";
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { db } from "./db";
 
 const AUTH_COOKIE = "site-auth";
 const SESSION_COOKIE = "session-id";
+const USER_SESSION_COOKIE = "user-session"; // The new cookie for logged-in users
+
+// ==========================================
+// 1. SITE-WIDE DMCA LOCK & GUEST SESSIONS
+// ==========================================
 
 /**
  * Verify password and set auth cookie
@@ -67,4 +74,44 @@ function generateId(): string {
   const randomPart = Math.random().toString(36).substring(2, 10);
   const randomPart2 = Math.random().toString(36).substring(2, 10);
   return `s${timestamp}${randomPart}${randomPart2}`;
+}
+
+// ==========================================
+// 2. PERSONAL USER ACCOUNTS (NEW)
+// ==========================================
+
+/**
+ * Secure Password Hashing
+ */
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const derivedKey = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${derivedKey}`;
+}
+
+/**
+ * Verify a login attempt
+ */
+export function verifyPassword(password: string, hash: string): boolean {
+  const [salt, key] = hash.split(":");
+  const keyBuffer = Buffer.from(key, "hex");
+  const derivedKey = scryptSync(password, salt, 64);
+  return timingSafeEqual(keyBuffer, derivedKey);
+}
+
+/**
+ * Get the currently logged-in user from the database
+ */
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+  const userId = cookieStore.get(USER_SESSION_COOKIE)?.value;
+
+  if (!userId) return null;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, createdAt: true }, // Don't return the password hash!
+  });
+
+  return user;
 }

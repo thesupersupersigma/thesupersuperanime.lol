@@ -1,0 +1,163 @@
+.
+├── eslint.config.mjs
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── prisma
+│   └── schema.prisma
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── README.md
+├── src
+│   ├── app
+│   │   ├── (auth)
+│   │   │   └── login
+│   │   │       ├── actions.ts
+│   │   │       └── page.tsx
+│   │   ├── (site)
+│   │   │   ├── anime
+│   │   │   │   └── [id]
+│   │   │   │       ├── page.tsx
+│   │   │   │       └── watchlist-button.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── search
+│   │   │   │   └── page.tsx
+│   │   │   └── watch
+│   │   │       └── [animeId]
+│   │   │           └── [episodeNum]
+│   │   │               └── page.tsx
+│   │   ├── account
+│   │   │   ├── account-buttons.tsx
+│   │   │   ├── actions.ts
+│   │   │   ├── login-form.tsx
+│   │   │   └── page.tsx
+│   │   ├── admin
+│   │   │   ├── components
+│   │   │   │   ├── dashboard-client.tsx
+│   │   │   │   ├── log-feed.tsx
+│   │   │   │   └── status-card.tsx
+│   │   │   ├── login
+│   │   │   │   ├── actions.ts
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── api
+│   │   │   ├── admin
+│   │   │   │   ├── check
+│   │   │   │   │   ├── [providerId]
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── logs
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── status
+│   │   │   │       └── route.ts
+│   │   │   ├── anilist
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── search
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── trending
+│   │   │   │       └── route.ts
+│   │   │   ├── cron
+│   │   │   │   └── health-check
+│   │   │   │       └── route.ts
+│   │   │   ├── progress
+│   │   │   │   └── route.ts
+│   │   │   ├── proxy
+│   │   │   │   └── [token]
+│   │   │   │       └── route.ts
+│   │   │   ├── source
+│   │   │   │   └── route.ts
+│   │   │   └── watchlist
+│   │   │       └── route.ts
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   └── layout.tsx
+│   ├── components
+│   │   ├── anime-card.tsx
+│   │   ├── episode-list.tsx
+│   │   ├── nav.tsx
+│   │   ├── player
+│   │   │   ├── anime-player.tsx
+│   │   │   ├── quality-menu.tsx
+│   │   │   └── source-loader.tsx
+│   │   ├── search-bar.tsx
+│   │   └── watch
+│   │       ├── episode-sidebar.tsx
+│   │       └── watch-info.tsx
+│   ├── lib
+│   │   ├── anilist.ts
+│   │   ├── auth.ts
+│   │   ├── core-dist
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.d.ts.map
+│   │   │   ├── index.js
+│   │   │   ├── index.js.map
+│   │   │   ├── lib
+│   │   │   │   ├── extractors
+│   │   │   │   │   ├── base.d.ts
+│   │   │   │   │   ├── base.d.ts.map
+│   │   │   │   │   ├── base.js
+│   │   │   │   │   ├── base.js.map
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   ├── index.d.ts.map
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   ├── index.js.map
+│   │   │   │   │   ├── s3taku.d.ts
+│   │   │   │   │   ├── s3taku.d.ts.map
+│   │   │   │   │   ├── s3taku.js
+│   │   │   │   │   ├── s3taku.js.map
+│   │   │   │   │   ├── streamtape.d.ts
+│   │   │   │   │   ├── streamtape.d.ts.map
+│   │   │   │   │   ├── streamtape.js
+│   │   │   │   │   ├── streamtape.js.map
+│   │   │   │   │   ├── vibeplayer.d.ts
+│   │   │   │   │   ├── vibeplayer.d.ts.map
+│   │   │   │   │   ├── vibeplayer.js
+│   │   │   │   │   └── vibeplayer.js.map
+│   │   │   │   ├── fetch.d.ts
+│   │   │   │   ├── fetch.d.ts.map
+│   │   │   │   ├── fetch.js
+│   │   │   │   ├── fetch.js.map
+│   │   │   │   ├── rate-limit.d.ts
+│   │   │   │   ├── rate-limit.d.ts.map
+│   │   │   │   ├── rate-limit.js
+│   │   │   │   └── rate-limit.js.map
+│   │   │   └── providers
+│   │   │       ├── aniwave.d.ts
+│   │   │       ├── aniwave.d.ts.map
+│   │   │       ├── aniwave.js
+│   │   │       ├── aniwave.js.map
+│   │   │       ├── base.d.ts
+│   │   │       ├── base.d.ts.map
+│   │   │       ├── base.js
+│   │   │       ├── base.js.map
+│   │   │       ├── gogoanime.d.ts
+│   │   │       ├── gogoanime.d.ts.map
+│   │   │       ├── gogoanime.js
+│   │   │       ├── gogoanime.js.map
+│   │   │       ├── index.d.ts
+│   │   │       ├── index.d.ts.map
+│   │   │       ├── index.js
+│   │   │       └── index.js.map
+│   │   ├── core.ts
+│   │   ├── db.ts
+│   │   ├── discord.ts
+│   │   ├── health-check.ts
+│   │   └── importers
+│   │       ├── anikai.ts
+│   │       └── route.ts
+│   ├── middleware.ts
+│   └── providers
+│       ├── base.ts
+│       └── index.ts
+├── tree.txt
+└── tsconfig.json
+
+45 directories, 116 files
