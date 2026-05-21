@@ -15,6 +15,7 @@ export interface AnilistTitle {
 
 export interface AnilistCoverImage {
   large: string;
+  medium: string;
   extraLarge: string;
   color: string | null;
 }
@@ -77,6 +78,7 @@ const MEDIA_FRAGMENT = `
     }
     coverImage {
       large
+      medium
       extraLarge
       color
     }
@@ -120,6 +122,7 @@ const SEARCH_FRAGMENT = `
     }
     coverImage {
       large
+      medium
       extraLarge
       color
     }
