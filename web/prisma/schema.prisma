@@ -11,38 +11,48 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
-  discordId    String?  @unique // For when we build the Discord linker later
+  discordId    String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
   watchHistory WatchHistory[]
   watchlist    Watchlist[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
 }
 
 model WatchHistory {
   id        String   @id @default(cuid())
-  userId    String?  // Optional: Only used if they are logged in
+  userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessionId String   // Kept for guest users
+  sessionId String
   animeId   Int
   episodeId String
   progress  Int      @default(0)
   duration  Int      @default(0)
   updatedAt DateTime @updatedAt
-
-  @@unique([userId, episodeId])    // A user can only have one progress record per episode
-  @@unique([sessionId, episodeId]) // A guest session can only have one progress record per episode
+  @@unique([userId, episodeId])
+  @@unique([sessionId, episodeId])
 }
 
 model Watchlist {
   id        String   @id @default(cuid())
-  userId    String?  
+  userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessionId String   
+  sessionId String
   animeId   Int
-  status    String   @default("Planning") // THE NEW FIELD! (Planning | Watching | Completed | Dropped)
+  status    String   @default("Planning")
   addedAt   DateTime @default(now())
-
   @@unique([userId, animeId])
   @@unique([sessionId, animeId])
 }
@@ -51,7 +61,7 @@ model ProviderStatus {
   id               String    @id @default(cuid())
   providerId       String    @unique
   displayName      String
-  status           String    @default("unknown") // "healthy" | "degraded" | "broken" | "unknown"
+  status           String    @default("unknown")
   latencyMs        Int?
   lastCheckedAt    DateTime?
   lastSuccessAt    DateTime?
@@ -63,7 +73,7 @@ model ProviderStatus {
 model ProviderLog {
   id         String   @id @default(cuid())
   providerId String
-  level      String   // "info" | "warn" | "error" | "success"
+  level      String
   message    String
   latencyMs  Int?
   createdAt  DateTime @default(now())
@@ -72,7 +82,7 @@ model ProviderLog {
 model SourceToken {
   id        String   @id @default(cuid())
   token     String   @unique
-  url       String   // AES encrypted at rest using ENCRYPTION_SECRET env var
+  url       String
   sessionId String
   ip        String
   quality   String
@@ -80,7 +90,6 @@ model SourceToken {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
-
   @@index([token])
   @@index([expiresAt])
 }

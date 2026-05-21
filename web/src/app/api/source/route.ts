@@ -11,6 +11,16 @@ interface NormalizedStream {
   cookies: string;
 }
 
+// Provider priority — kiwi/ally first, bee last (flaky)
+const PROVIDER_PRIORITY: Record<string, number> = {
+  kiwi: 0,
+  ally: 1,
+  arc:  2,
+  zoro: 3,
+  jet:  4,
+  bee:  5,
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -39,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
     }
 
-    // Group by provider (server selector in the player)
+    // Group by provider (becomes the server selector in the player)
     const serverMap = new Map<string, NormalizedStream[]>();
     for (const stream of allStreams) {
       if (!serverMap.has(stream.provider)) serverMap.set(stream.provider, []);
@@ -104,9 +114,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── Miruro ──────────────────────────────────────────────────────────────────
-// Tries MIRURO_API_URL first, falls back to MIRURO_API_URL_2 if that's set
-// and the first one fails (handles cold start / usage limits on Render)
+// ── Miruro ───────────────────────────────────────────────────────────────────
+// Tries MIRURO_API_URL first, falls back to MIRURO_API_URL_2 and _3 if set
 
 async function fetchMiruro(animeId: number, episodeNum: number): Promise<NormalizedStream[]> {
   const urls = [
@@ -142,13 +151,13 @@ async function fetchMiruroFromUrl(
 ): Promise<NormalizedStream[]> {
   const epsRes = await fetch(`${baseUrl}/episodes/${animeId}`, {
     headers: { "x-api-key": apiKey },
-    signal: AbortSignal.timeout(12000), // generous — covers cold start
+    signal: AbortSignal.timeout(12000),
   });
 
   if (!epsRes.ok) return [];
-
   const epsData = await epsRes.json();
-  const allProviders = ["zoro", "jet", "ally", "arc", "bee", "kiwi"];
+
+  const allProviders = ["kiwi", "ally", "arc", "zoro", "jet", "bee"];
   const validStreams: NormalizedStream[] = [];
 
   await Promise.all(
@@ -168,24 +177,37 @@ async function fetchMiruroFromUrl(
 
         const streamData = await streamRes.json();
         const hlsStreams = (streamData.streams ?? []).filter(
-          (s: { type?: string; url?: string }) => s.type === "hls" || s.url?.includes(".m3u8")
+          (s: { type?: string; url?: string }) =>
+            s.type === "hls" || s.url?.includes(".m3u8")
         );
         if (hlsStreams.length === 0) return;
 
-        // Quick liveness check on the first stream
+        // Proper liveness check — verify it actually responds with a valid m3u8,
+        // not just any HTTP 200 (catches bee/anikoto returning garbage)
         try {
-          await fetch(hlsStreams[0].url, {
+          const checkRes = await fetch(hlsStreams[0].url, {
             method: "GET",
-            headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://kwik.cx/" },
-            signal: AbortSignal.timeout(3000),
+            headers: {
+              "User-Agent": "Mozilla/5.0",
+              "Referer": "https://kwik.cx/",
+            },
+            signal: AbortSignal.timeout(4000),
           });
+
+          if (!checkRes.ok) return;
+
+          const text = await checkRes.text();
+          if (!text.includes("#EXTM3U")) {
+            console.log(`[fetchMiruro] ${provider} failed m3u8 validation, skipping`);
+            return;
+          }
         } catch {
-          return; // stream URL is dead
+          return;
         }
 
         for (const s of hlsStreams) {
           validStreams.push({
-            provider: `${provider.toUpperCase()}`,
+            provider,
             url: s.url,
             quality: s.quality ? String(s.quality) : "auto",
             isM3U8: true,
@@ -198,5 +220,8 @@ async function fetchMiruroFromUrl(
     })
   );
 
-  return validStreams;
+  // Sort so kiwi/ally always appear first in the server selector
+  return validStreams.sort(
+    (a, b) => (PROVIDER_PRIORITY[a.provider] ?? 99) - (PROVIDER_PRIORITY[b.provider] ?? 99)
+  );
 }
