@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { cookies } from "next/headers";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -21,7 +20,10 @@ export async function GET(req: NextRequest) {
   const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
   const botToken = process.env.DISCORD_BOT_TOKEN!;
   const guildId = process.env.DISCORD_GUILD_ID!;
-  const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/discord/callback`;
+  
+  // Clean trailing slash safely to prevent string mismatch errors
+  const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const redirectUri = `${cleanBaseUrl}/api/auth/discord/callback`;
 
   try {
     // 1. Exchange code for access token
@@ -79,9 +81,10 @@ export async function GET(req: NextRequest) {
       body: JSON.stringify({ access_token: accessToken }),
     });
 
-    // 5. Set the discord-linked cookie so middleware lets them through
-    const cookieStore = await cookies();
-    cookieStore.set("discord-linked", "1", {
+    // 5. STABLE COOKIE SET: Create the response first, then bake the cookie directly into it
+    const response = NextResponse.redirect(new URL("/", req.url));
+    
+    response.cookies.set("discord-linked", "1", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -89,7 +92,7 @@ export async function GET(req: NextRequest) {
       path: "/",
     });
 
-    return NextResponse.redirect(new URL("/", req.url));
+    return response;
   } catch (err) {
     console.error("[Discord OAuth]", err);
     return NextResponse.redirect(new URL("/account/link-discord?error=server", req.url));
