@@ -48,8 +48,20 @@ export async function signInAction(formData: FormData) {
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 30,
     });
+    if (user.discordId) {
+      cookieStore.set("discord-linked", "1", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30,
+        path: "/",
+      });
+      revalidatePath("/account");
+      return { success: true }
+    }
+    // Not linked yet — tell the client to redirect
     revalidatePath("/account");
-    return { success: true };
+    return { success: true, requiresDiscord: true }
   } catch {
     return { error: "Something went wrong." };
   }
@@ -58,6 +70,7 @@ export async function signInAction(formData: FormData) {
 export async function logOutAction() {
   const cookieStore = await cookies();
   cookieStore.delete("user-session");
+  cookieStore.delete("discord-linked"); // clear the gate cookie too
   revalidatePath("/account");
 }
 

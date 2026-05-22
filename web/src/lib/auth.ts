@@ -105,12 +105,18 @@ export function verifyPassword(password: string, hash: string): boolean {
 export async function getCurrentUser() {
   const cookieStore = await cookies();
   const userId = cookieStore.get(USER_SESSION_COOKIE)?.value;
-
   if (!userId) return null;
 
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, createdAt: true }, // Don't return the password hash!
+    select: {
+      id: true,
+      email: true,
+      createdAt: true,
+      discordId: true,        // needed for the gate check
+      discordUsername: true,  // needed for comments/leaderboard later
+      discordAvatar: true,    // needed for comments/leaderboard later
+    },
   });
 
   return user;

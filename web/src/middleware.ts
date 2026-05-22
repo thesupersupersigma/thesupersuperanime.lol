@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ── Static / Next internals — always pass through ──────────────────────────
+  // ── Static / Next internals ─────────────────────────────────────────────
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -15,12 +15,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Proxy routes — token IS the auth, no cookie needed ─────────────────────
+  // ── Proxy routes — token IS the auth ───────────────────────────────────
   if (pathname.startsWith("/api/proxy")) {
     return NextResponse.next();
   }
 
-  // ── Cron routes — auth via Bearer token, not cookies ──────────────────────
+  // ── Discord OAuth callback — must be public ─────────────────────────────
+  if (pathname.startsWith("/api/auth/discord")) {
+    return NextResponse.next();
+  }
+
+  // ── Cron routes ─────────────────────────────────────────────────────────
   if (pathname.startsWith("/api/cron")) {
     const authHeader = req.headers.get("authorization") ?? "";
     const expectedToken = process.env.CRON_SECRET;
@@ -30,14 +35,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Admin login page — excluded from admin auth ────────────────────────────
+  // ── Admin login page ────────────────────────────────────────────────────
   if (pathname === "/admin/login") {
     return NextResponse.next();
   }
 
-  // ── Admin routes — check admin-auth cookie ─────────────────────────────────
+  // ── Admin routes ────────────────────────────────────────────────────────
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    // Must also pass the main site-auth check first
     const siteAuth = req.cookies.get("site-auth");
     if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
       if (pathname.startsWith("/api/")) {
@@ -45,7 +49,6 @@ export function middleware(req: NextRequest) {
       }
       return NextResponse.redirect(new URL("/login", req.url));
     }
-
     const adminAuth = req.cookies.get("admin-auth");
     if (!adminAuth || adminAuth.value !== process.env.ADMIN_PASSWORD) {
       if (pathname.startsWith("/api/")) {
@@ -53,16 +56,15 @@ export function middleware(req: NextRequest) {
       }
       return NextResponse.redirect(new URL("/admin/login", req.url));
     }
-
     return NextResponse.next();
   }
 
-  // ── Main site login page — excluded from site auth ─────────────────────────
+  // ── Main site login page ────────────────────────────────────────────────
   if (pathname === "/login") {
     return NextResponse.next();
   }
 
-  // ── All other routes — check site-auth cookie ──────────────────────────────
+  // ── Site-wide password lock ─────────────────────────────────────────────
   const siteAuth = req.cookies.get("site-auth");
   if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
     if (pathname.startsWith("/api/")) {
@@ -71,17 +73,37 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
+  // ── Discord link gate — logged-in users must have Discord linked ────────
+  // Exempt: account page itself, auth APIs, and api/auth/me
+  const exemptFromDiscordGate =
+    pathname === "/account" ||
+    pathname.startsWith("/account/") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/import") ||
+    pathname === "/api/auth/me";
+
+  if (!exemptFromDiscordGate) {
+    const userId = req.cookies.get("user-session")?.value;
+    // Only gate logged-in users — guests (no user-session cookie) pass through
+    // The actual Discord check happens server-side since middleware can't query DB
+    // We use a separate cookie set after Discord link to avoid DB calls in edge
+    if (userId) {
+      const discordLinked = req.cookies.get("discord-linked")?.value;
+      if (!discordLinked || discordLinked !== "1") {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Discord account required", code: "DISCORD_REQUIRED" },
+            { status: 403 }
+          );
+        }
+        return NextResponse.redirect(new URL("/account/link-discord", req.url));
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

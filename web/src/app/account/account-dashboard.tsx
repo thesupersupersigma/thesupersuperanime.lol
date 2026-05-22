@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ImportButton, SignOutButton } from "./account-buttons";
@@ -64,7 +65,16 @@ function timeAgo(isoString: string): string {
 }
 
 export function AccountDashboard({ user, history, watchlist, logOutAction }: Props) {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("history");
+
+  // Read tab from URL on mount — so /account?tab=watchlist opens watchlist directly
+  useEffect(() => {
+    const tab = searchParams.get("tab") as Tab | null;
+    if (tab && TABS.find(t => t.id === tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   return (
     <div style={{

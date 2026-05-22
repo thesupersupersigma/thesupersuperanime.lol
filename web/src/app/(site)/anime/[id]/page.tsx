@@ -4,6 +4,9 @@ import { getAnimeById, getDisplayTitle, getMainStudio } from "@/lib/anilist";
 import { EpisodeList } from "@/components/episode-list";
 import { WatchlistButton } from "./watchlist-button";
 import type { Metadata } from "next";
+import { NextEpisodeCountdown } from "@/components/next-episode-countdown";
+import { Comments } from "@/components/comments";
+import { getCurrentUser } from "@/lib/auth";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -24,7 +27,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function AnimeDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const anime = await getAnimeById(Number(id));
+  
+  // Fetch both anime and user data simultaneously
+  const [anime, user] = await Promise.all([
+    getAnimeById(Number(id)),
+    getCurrentUser(),
+  ]);
 
   if (!anime) notFound();
 
@@ -169,6 +177,16 @@ export default async function AnimeDetailPage({ params }: PageProps) {
             ))}
           </div>
 
+          {/* Next episode countdown — only shows for currently airing anime */}
+          {anime.nextAiringEpisode && (
+            <div style={{ marginBottom: "16px" }}>
+              <NextEpisodeCountdown
+                episode={anime.nextAiringEpisode.episode}
+                airingAt={anime.nextAiringEpisode.airingAt}
+              />
+            </div>
+          )}
+
           {/* Description */}
           {description && <ExpandableDescription text={description} />}
 
@@ -197,6 +215,22 @@ export default async function AnimeDetailPage({ params }: PageProps) {
           totalEpisodes={anime.episodes}
           nextAiringEpisode={anime.nextAiringEpisode?.episode}
         />
+      </section>
+
+      {/* Comments Section */}
+      <section style={{ marginTop: "40px" }}>
+        <h2
+          style={{
+            fontFamily: "'Syne', sans-serif",
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#e5e5e5",
+            marginBottom: "12px",
+          }}
+        >
+          Comments
+        </h2>
+        <Comments animeId={anime.id} currentUserId={user?.id} />
       </section>
     </div>
   );

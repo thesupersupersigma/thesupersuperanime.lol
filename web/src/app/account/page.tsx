@@ -1,3 +1,4 @@
+import { Suspense } from "react"; // 👈 Added the Suspense import here
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 import { logOutAction } from "./actions";
@@ -43,7 +44,7 @@ export default async function AccountPage() {
     ...watchlistRaw.map(w => w.animeId),
   ])];
 
-  // Fetch AniList metadata for all IDs in parallel (cap at 20 to avoid hammering)
+  // Fetch AniList metadata for all IDs in parallel (cap at 40 to avoid hammering)
   const metadataResults = await Promise.allSettled(
     allAnimeIds.slice(0, 40).map(id => getAnimeById(id))
   );
@@ -81,11 +82,14 @@ export default async function AccountPage() {
   }))
 
   return (
-    <AccountDashboard
-      user={{ id: user.id, email: user.email }}
-      history={history}
-      watchlist={watchlist}
-      logOutAction={logOutAction}
-    />
+    // 👈 Wrapped the AccountDashboard inside Suspense here
+    <Suspense fallback={null}>
+      <AccountDashboard
+        user={{ id: user.id, email: user.email }}
+        history={history}
+        watchlist={watchlist}
+        logOutAction={logOutAction}
+      />
+    </Suspense>
   );
-}
+} 

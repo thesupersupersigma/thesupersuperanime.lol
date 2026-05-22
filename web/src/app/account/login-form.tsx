@@ -30,7 +30,16 @@ export function LoginForm() {
         const action = view === "login" ? signInAction : signUpAction;
         const res = await action(formData);
         if (res?.error) setError(res.error);
-        if (res?.success) router.refresh();
+        
+        // --- YOUR REPLACED LOGIC STARTS HERE ---
+        if (res?.success) {
+          if ('requiresDiscord' in res && res.requiresDiscord) {
+            window.location.href = "/account/link-discord";
+          } else {
+            router.refresh();
+          }
+        }
+        // --- YOUR REPLACED LOGIC ENDS HERE ---
       }
     } catch {
       setError("An unexpected error occurred.");

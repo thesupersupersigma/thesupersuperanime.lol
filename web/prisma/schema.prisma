@@ -8,25 +8,29 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  discordId    String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  watchHistory WatchHistory[]
-  watchlist    Watchlist[]
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String
+  discordId           String?              @unique
+  discordUsername     String?
+  discordAvatar       String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  watchHistory        WatchHistory[]
+  watchlist           Watchlist[]
   passwordResetTokens PasswordResetToken[]
+  comments            Comment[]
+  commentLikes        CommentLike[]
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([token])
 }
@@ -41,6 +45,7 @@ model WatchHistory {
   progress  Int      @default(0)
   duration  Int      @default(0)
   updatedAt DateTime @updatedAt
+
   @@unique([userId, episodeId])
   @@unique([sessionId, episodeId])
 }
@@ -53,6 +58,7 @@ model Watchlist {
   animeId   Int
   status    String   @default("Planning")
   addedAt   DateTime @default(now())
+
   @@unique([userId, animeId])
   @@unique([sessionId, animeId])
 }
@@ -90,6 +96,35 @@ model SourceToken {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
+
   @@index([token])
   @@index([expiresAt])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  animeId   Int
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  isSpoiler Boolean   @default(false)
+  parentId  String?
+  parent    Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Comment[] @relation("Replies")
+  likes     CommentLike[]
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([animeId])
+  @@index([userId])
+}
+
+model CommentLike {
+  id        String  @id @default(cuid())
+  commentId String
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
 }

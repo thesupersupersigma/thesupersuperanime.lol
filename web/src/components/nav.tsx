@@ -1,21 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { SearchBar } from "./search-bar";
 
 export function Nav() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check auth state client-side by pinging a lightweight endpoint
+  // --- YOUR NEW EFFECT LOGIC ---
   useEffect(() => {
     fetch("/api/auth/me")
       .then(r => r.ok ? r.json() : null)
-      .then(data => setIsLoggedIn(!!data?.userId))
+      .then(data => {
+        if (!data?.userId) {
+          setIsLoggedIn(false);
+          return;
+        }
+        setIsLoggedIn(true);
+        // If logged in but Discord not linked, gate them
+        if (!data.discordLinked) {
+          const exempt =
+            pathname === "/account" ||
+            pathname.startsWith("/account/");
+          if (!exempt) {
+            router.push("/account/link-discord");
+          }
+        }
+      })
       .catch(() => {})
-  }, [pathname]) // re-check on navigation
+  }, [pathname, router])
+  // --- END OF NEW EFFECT LOGIC ---
 
   return (
     <>
@@ -61,7 +78,7 @@ export function Nav() {
           {/* Right — account or sign in */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {/* Watchlist/search bookmark */}
-            <Link href="/search" style={{
+            <Link href="/account?tab=watchlist" style={{
               display: "flex",
               alignItems: "center",
               color: "#888",
