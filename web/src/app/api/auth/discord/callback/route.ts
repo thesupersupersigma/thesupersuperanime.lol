@@ -1,27 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
   const error = searchParams.get("error");
+  const state = searchParams.get("state");
 
   if (error || !code) {
     return NextResponse.redirect(new URL("/account/link-discord?error=cancelled", req.url));
   }
 
-  const user = await getCurrentUser();
+  // Decode userId from state — no cookie needed
+  let userId: string | null = null;
+  try {
+    if (state) {
+      const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
+      userId = decoded.userId ?? null;
+    }
+  } catch {
+    return NextResponse.redirect(new URL("/account/link-discord?error=server", req.url));
+  }
+
+  if (!userId) {
+    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", req.url));
+  }
+
+  // Verify user actually exists in DB
+  const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) {
-    return NextResponse.redirect(new URL("/account", req.url));
+    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", req.url));
   }
 
   const clientId = process.env.DISCORD_CLIENT_ID!;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
   const botToken = process.env.DISCORD_BOT_TOKEN!;
   const guildId = process.env.DISCORD_GUILD_ID!;
-  
-  // Clean trailing slash safely to prevent string mismatch errors
   const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
   const redirectUri = `${cleanBaseUrl}/api/auth/discord/callback`;
 
@@ -63,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Save Discord info to user
     await db.user.update({
-      where: { id: user.id },
+      where: { id: userId },
       data: {
         discordId: discordUser.id,
         discordUsername: discordUser.username,
@@ -72,18 +86,22 @@ export async function GET(req: NextRequest) {
     });
 
     // 4. Auto-join user to Discord server
-    await fetch(`https://discord.com/api/guilds/${guildId}/members/${discordUser.id}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ access_token: accessToken }),
-    });
+    try {
+      await fetch(`https://discord.com/api/guilds/${guildId}/members/${discordUser.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ access_token: accessToken }),
+      });
+    } catch (joinErr) {
+      // Don't fail the whole flow if server join fails
+      console.error("[Discord] Server join failed:", joinErr);
+    }
 
-    // 5. STABLE COOKIE SET: Create the response first, then bake the cookie directly into it
+    // 5. Set discord-linked cookie and redirect home
     const response = NextResponse.redirect(new URL("/", req.url));
-    
     response.cookies.set("discord-linked", "1", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

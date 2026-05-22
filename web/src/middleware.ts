@@ -95,7 +95,7 @@ export function middleware(req: NextRequest) {
           );
         }
         // 👉 Commented out to prevent conflicting with nav.tsx client-side redirects
-        // return NextResponse.redirect(new URL("/account/link-discord", req.url));
+        return NextResponse.redirect(new URL("/account/link-discord", req.url));
       }
     }
   }
