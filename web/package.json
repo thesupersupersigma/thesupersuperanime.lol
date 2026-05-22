@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "prebuild": "echo 'core-dist committed, skipping core build'",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "predev": "npm run build --prefix ../core && cp -r ../core/dist ./src/lib/core-dist",
     "dev": "next dev",
     "start": "next start",
