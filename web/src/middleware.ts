@@ -85,8 +85,6 @@ export function middleware(req: NextRequest) {
   if (!exemptFromDiscordGate) {
     const userId = req.cookies.get("user-session")?.value;
     // Only gate logged-in users — guests (no user-session cookie) pass through
-    // The actual Discord check happens server-side since middleware can't query DB
-    // We use a separate cookie set after Discord link to avoid DB calls in edge
     if (userId) {
       const discordLinked = req.cookies.get("discord-linked")?.value;
       if (!discordLinked || discordLinked !== "1") {
@@ -96,7 +94,8 @@ export function middleware(req: NextRequest) {
             { status: 403 }
           );
         }
-        return NextResponse.redirect(new URL("/account/link-discord", req.url));
+        // 👉 Commented out to prevent conflicting with nav.tsx client-side redirects
+        // return NextResponse.redirect(new URL("/account/link-discord", req.url));
       }
     }
   }
