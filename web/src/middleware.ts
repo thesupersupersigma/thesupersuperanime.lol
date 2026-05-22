@@ -15,13 +15,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Proxy routes — token IS the auth ───────────────────────────────────
-  if (pathname.startsWith("/api/proxy")) {
-    return NextResponse.next();
-  }
-
-  // ── Discord OAuth callback — must be public ─────────────────────────────
-  if (pathname.startsWith("/api/auth/discord")) {
+  // ── Always public — no auth checks at all ──────────────────────────────
+  if (
+    pathname.startsWith("/api/proxy") ||
+    pathname.startsWith("/api/auth/discord") ||
+    pathname === "/api/auth/me" ||
+    pathname === "/login"
+  ) {
     return NextResponse.next();
   }
 
@@ -40,15 +40,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Admin routes ────────────────────────────────────────────────────────
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    const siteAuth = req.cookies.get("site-auth");
-    if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      return NextResponse.redirect(new URL("/login", req.url));
+  // ── Site-wide password lock ─────────────────────────────────────────────
+  const siteAuth = req.cookies.get("site-auth");
+  if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // ── Admin routes (after site auth passes) ──────────────────────────────
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const adminAuth = req.cookies.get("admin-auth");
     if (!adminAuth || adminAuth.value !== process.env.ADMIN_PASSWORD) {
       if (pathname.startsWith("/api/")) {
@@ -59,32 +61,16 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Main site login page ────────────────────────────────────────────────
-  if (pathname === "/login") {
-    return NextResponse.next();
-  }
-
-  // ── Site-wide password lock ─────────────────────────────────────────────
-  const siteAuth = req.cookies.get("site-auth");
-  if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  // ── Discord link gate — logged-in users must have Discord linked ────────
-  // Exempt: account page itself, auth APIs, and api/auth/me
+  // ── Discord link gate ───────────────────────────────────────────────────
   const exemptFromDiscordGate =
     pathname === "/account" ||
     pathname.startsWith("/account/") ||
-    pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/import") ||
-    pathname === "/api/auth/me";
+    pathname.startsWith("/api/watchlist") ||
+    pathname.startsWith("/api/progress");
 
   if (!exemptFromDiscordGate) {
     const userId = req.cookies.get("user-session")?.value;
-    // Only gate logged-in users — guests (no user-session cookie) pass through
     if (userId) {
       const discordLinked = req.cookies.get("discord-linked")?.value;
       if (!discordLinked || discordLinked !== "1") {
@@ -94,7 +80,6 @@ export function middleware(req: NextRequest) {
             { status: 403 }
           );
         }
-        // 👉 Commented out to prevent conflicting with nav.tsx client-side redirects
         return NextResponse.redirect(new URL("/account/link-discord", req.url));
       }
     }
