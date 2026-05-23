@@ -2,13 +2,19 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 function buildDiscordOAuthUrl(userId: string) {
-  // Encode userId as state so we can retrieve it in the callback
-  // without needing the session cookie
   const state = Buffer.from(JSON.stringify({ userId })).toString("base64url");
   
+  const bypassSecret = process.env.VERCEL_BYPASS_SECRET ?? "";
+  const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  
+  // Append bypass params so Vercel lets Discord's redirect through
+  const callbackUrl = bypassSecret
+    ? `${cleanBaseUrl}/api/auth/discord/callback?x-vercel-protection-bypass=${bypassSecret}&x-vercel-set-bypass-cookie=true`
+    : `${cleanBaseUrl}/api/auth/discord/callback`;
+
   const params = new URLSearchParams({
     client_id: process.env.DISCORD_CLIENT_ID!,
-    redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")}/api/auth/discord/callback`,
+    redirect_uri: callbackUrl,
     response_type: "code",
     scope: "identify guilds.join",
     state,

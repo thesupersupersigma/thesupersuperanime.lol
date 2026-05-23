@@ -37,8 +37,10 @@ export async function GET(req: NextRequest) {
   const botToken = process.env.DISCORD_BOT_TOKEN!;
   const guildId = process.env.DISCORD_GUILD_ID!;
   const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  const redirectUri = `${cleanBaseUrl}/api/auth/discord/callback`;
-
+  const bypassSecret = process.env.VERCEL_BYPASS_SECRET ?? "";
+  const redirectUri = bypassSecret
+    ? `${cleanBaseUrl}/api/auth/discord/callback?x-vercel-protection-bypass=${bypassSecret}&x-vercel-set-bypass-cookie=true`
+    : `${cleanBaseUrl}/api/auth/discord/callback`;
   try {
     // 1. Exchange code for access token
     const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
