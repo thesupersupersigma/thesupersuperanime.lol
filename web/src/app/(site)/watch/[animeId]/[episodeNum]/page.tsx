@@ -7,6 +7,7 @@ import { getDisplayTitle } from "@/lib/anilist";
 import { AnimePlayer, ServerData } from "@/components/player/anime-player";
 import { EpisodeSidebar } from "@/components/watch/episode-sidebar";
 import { WatchInfo } from "@/components/watch/watch-info";
+import { Comments } from "@/components/comments";
 
 export default function WatchPage() {
   const params = useParams();
@@ -19,6 +20,15 @@ export default function WatchPage() {
   const [servers, setServers] = useState<ServerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+
+  // Fetch the current user ID for the comments component
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.userId) setCurrentUserId(d.userId) })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isNaN(animeId) || isNaN(episodeNum)) {
@@ -120,6 +130,11 @@ export default function WatchPage() {
           <div className="hidden md:block mt-6">
             <WatchInfo anime={anime} episodeNum={episodeNum} />
           </div>
+
+          {/* Comments — desktop */}
+          <div className="hidden md:block mt-6">
+            <Comments animeId={animeId} currentUserId={currentUserId} />
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -144,6 +159,11 @@ export default function WatchPage() {
         {/* Mobile Info (shows below sidebar on mobile) */}
         <div className="md:hidden mt-4">
           <WatchInfo anime={anime} episodeNum={episodeNum} />
+        </div>
+
+        {/* Comments — mobile */}
+        <div className="md:hidden mt-4">
+          <Comments animeId={animeId} currentUserId={currentUserId} />
         </div>
       </div>
     </div>
