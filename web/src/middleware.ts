@@ -74,17 +74,25 @@ export function middleware(req: NextRequest) {
 
   if (!exemptFromDiscordGate) {
     const userId = req.cookies.get("user-session")?.value;
-    if (userId) {
-      const discordLinked = req.cookies.get("discord-linked")?.value;
-      if (!discordLinked || discordLinked !== "1") {
-        if (pathname.startsWith("/api/")) {
-          return NextResponse.json(
-            { error: "Discord account required", code: "DISCORD_REQUIRED" },
-            { status: 403 }
-          );
-        }
-        return NextResponse.redirect(new URL("/account/link-discord", req.url));
+
+    // 1. If they have NO account/session, kick them to the login page
+    if (!userId) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       }
+      return NextResponse.redirect(new URL("/account", req.url));
+    }
+
+    // 2. If they ARE logged in, but haven't linked Discord, kick to the link page
+    const discordLinked = req.cookies.get("discord-linked")?.value;
+    if (!discordLinked || discordLinked !== "1") {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Discord account required", code: "DISCORD_REQUIRED" },
+          { status: 403 }
+        );
+      }
+      return NextResponse.redirect(new URL("/account/link-discord", req.url));
     }
   }
 
