@@ -70,3 +70,31 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Failed to remove from watchlist" }, { status: 500 });
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const sessionId = await getSessionId();
+    const user = await getCurrentUser();
+    const { animeId, status } = await req.json();
+
+    const validStatuses = ["Planning", "Watching", "Completed", "Paused", "Dropped"];
+    if (!animeId || !status || !validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Invalid animeId or status" }, { status: 400 });
+    }
+
+    const entry = user
+      ? await db.watchlist.updateMany({
+          where: { userId: user.id, animeId: Number(animeId) },
+          data: { status },
+        })
+      : await db.watchlist.updateMany({
+          where: { sessionId, animeId: Number(animeId) },
+          data: { status },
+        });
+
+    return NextResponse.json({ success: true, entry });
+  } catch (error) {
+    console.error("Failed to update watchlist status:", error);
+    return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
+  }
+}

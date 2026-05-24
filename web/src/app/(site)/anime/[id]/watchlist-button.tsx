@@ -1,70 +1,149 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-interface WatchlistButtonProps {
-  animeId: number;
-  title: string;
-}
+const STATUSES = ["Planning", "Watching", "Completed", "Paused", "Dropped"] as const;
+type Status = typeof STATUSES[number];
 
-export function WatchlistButton({ animeId, title }: WatchlistButtonProps) {
-  const [added, setAdded] = useState(false);
-  const [loading, setLoading] = useState(false);
+export function WatchlistButton({ animeId, title }: { animeId: number; title: string }) {
+  const [status, setStatus] = useState<Status | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
 
-  async function handleToggle() {
+  useEffect(() => {
+    fetch("/api/watchlist")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const entry = data?.entries?.find((e: { animeId: number; status: string }) => e.animeId === animeId);
+        setStatus(entry?.status ?? null);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [animeId]);
+
+  async function handleAdd(newStatus: Status) {
     setLoading(true);
-    try {
-      const res = await fetch("/api/watchlist", {
-        method: added ? "DELETE" : "POST",
+    setOpen(false);
+    if (status === null) {
+      await fetch("/api/watchlist", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ animeId }),
       });
-
-      if (res.ok) {
-        setAdded(!added);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
     }
+    await fetch("/api/watchlist", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ animeId, status: newStatus }),
+    });
+    setStatus(newStatus);
+    setLoading(false);
   }
 
+  async function handleRemove() {
+    setLoading(true);
+    setOpen(false);
+    await fetch("/api/watchlist", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ animeId }),
+    });
+    setStatus(null);
+    setLoading(false);
+  }
+
+  const STATUS_COLORS: Record<Status, string> = {
+    Watching: "#3b82f6",
+    Completed: "#22c55e",
+    Planning: "#a855f7",
+    Paused: "#f59e0b",
+    Dropped: "#ef4444",
+  };
+
   return (
-    <button
-      onClick={handleToggle}
-      disabled={loading}
-      aria-label={added ? `Remove ${title} from watchlist` : `Add ${title} to watchlist`}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "6px",
-        background: added ? "#1a1a1a" : "#3b82f6",
-        color: added ? "#888" : "#fff",
-        border: added ? "1px solid #2a2a2a" : "1px solid #3b82f6",
-        borderRadius: "6px",
-        padding: "8px 16px",
-        fontSize: "13px",
-        fontWeight: 500,
-        fontFamily: "'DM Sans', sans-serif",
-        cursor: loading ? "not-allowed" : "pointer",
-        opacity: loading ? 0.6 : 1,
-        transition: "all 150ms ease",
-      }}
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill={added ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        disabled={loading}
+        style={{
+          background: status ? STATUS_COLORS[status] + "22" : "#1a1a1a",
+          border: `1px solid ${status ? STATUS_COLORS[status] + "66" : "#2a2a2a"}`,
+          color: status ? STATUS_COLORS[status] : "#a3a3a3",
+          padding: "8px 16px",
+          borderRadius: "8px",
+          fontSize: "13px",
+          fontWeight: 600,
+          cursor: loading ? "not-allowed" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          opacity: loading ? 0.6 : 1,
+        }}
       >
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-      </svg>
-      {added ? "In Watchlist" : "Add to Watchlist"}
-    </button>
+        {loading ? "..." : status ? `✓ ${status}` : "+ Add to List"}
+        {!loading && <span style={{ fontSize: "10px", opacity: 0.7 }}>▾</span>}
+      </button>
+
+      {open && (
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 10 }}
+          />
+          <div style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            zIndex: 20,
+            background: "#111",
+            border: "1px solid #2a2a2a",
+            borderRadius: "10px",
+            overflow: "hidden",
+            minWidth: "160px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          }}>
+            {STATUSES.map(s => (
+              <button
+                key={s}
+                onClick={() => handleAdd(s)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "10px 14px",
+                  background: status === s ? "#1a1a1a" : "none",
+                  border: "none",
+                  color: status === s ? STATUS_COLORS[s] : "#a3a3a3",
+                  fontSize: "13px",
+                  fontWeight: status === s ? 600 : 400,
+                  cursor: "pointer",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#1a1a1a")}
+                onMouseLeave={e => (e.currentTarget.style.background = status === s ? "#1a1a1a" : "none")}
+              >
+                {s}
+              </button>
+            ))}
+            {status && (
+              <>
+                <div style={{ height: "1px", background: "#1a1a1a" }} />
+                <button
+                  onClick={handleRemove}
+                  style={{
+                    display: "block", width: "100%", textAlign: "left",
+                    padding: "10px 14px", background: "none", border: "none",
+                    color: "#ef4444", fontSize: "13px", cursor: "pointer",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#1a1a1a")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                >
+                  Remove from list
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

@@ -65,10 +65,12 @@ export function middleware(req: NextRequest) {
   const exemptFromDiscordGate =
     pathname === "/account" ||
     pathname.startsWith("/account/") ||
+    pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/import") ||
     pathname.startsWith("/api/watchlist") ||
     pathname.startsWith("/api/progress") ||
-    pathname === "/leaderboard";
+    pathname === "/leaderboard" ||
+    pathname === "/api/auth/me";
 
   if (!exemptFromDiscordGate) {
     const userId = req.cookies.get("user-session")?.value;
