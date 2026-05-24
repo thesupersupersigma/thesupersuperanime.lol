@@ -1,246 +1,188 @@
-tree -I 'node_modules|dist|.git' > tree.txt
-
 .
-├── .DS_Store
-├── .github
-│   └── workflows
-│       └── health-check.yml
-├── .gitignore
-├── core
-│   ├── .gitignore
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── README.md
-│   ├── src
-│   │   ├── index.ts
-│   │   ├── lib
-│   │   │   ├── core-dist
-│   │   │   │   ├── index.d.ts
-│   │   │   │   ├── index.d.ts.map
-│   │   │   │   ├── index.js
-│   │   │   │   ├── index.js.map
-│   │   │   │   ├── lib
-│   │   │   │   │   ├── extractors
-│   │   │   │   │   │   ├── base.d.ts
-│   │   │   │   │   │   ├── base.d.ts.map
-│   │   │   │   │   │   ├── base.js
-│   │   │   │   │   │   ├── base.js.map
-│   │   │   │   │   │   ├── index.d.ts
-│   │   │   │   │   │   ├── index.d.ts.map
-│   │   │   │   │   │   ├── index.js
-│   │   │   │   │   │   ├── index.js.map
-│   │   │   │   │   │   ├── s3taku.d.ts
-│   │   │   │   │   │   ├── s3taku.d.ts.map
-│   │   │   │   │   │   ├── s3taku.js
-│   │   │   │   │   │   ├── s3taku.js.map
-│   │   │   │   │   │   ├── streamtape.d.ts
-│   │   │   │   │   │   ├── streamtape.d.ts.map
-│   │   │   │   │   │   ├── streamtape.js
-│   │   │   │   │   │   └── streamtape.js.map
-│   │   │   │   │   ├── fetch.d.ts
-│   │   │   │   │   ├── fetch.d.ts.map
-│   │   │   │   │   ├── fetch.js
-│   │   │   │   │   ├── fetch.js.map
-│   │   │   │   │   ├── rate-limit.d.ts
-│   │   │   │   │   ├── rate-limit.d.ts.map
-│   │   │   │   │   ├── rate-limit.js
-│   │   │   │   │   └── rate-limit.js.map
-│   │   │   │   └── providers
-│   │   │   │       ├── aniwave.d.ts
-│   │   │   │       ├── aniwave.d.ts.map
-│   │   │   │       ├── aniwave.js
-│   │   │   │       ├── aniwave.js.map
-│   │   │   │       ├── base.d.ts
-│   │   │   │       ├── base.d.ts.map
-│   │   │   │       ├── base.js
-│   │   │   │       ├── base.js.map
-│   │   │   │       ├── gogoanime.d.ts
-│   │   │   │       ├── gogoanime.d.ts.map
-│   │   │   │       ├── gogoanime.js
-│   │   │   │       ├── gogoanime.js.map
-│   │   │   │       ├── index.d.ts
-│   │   │   │       ├── index.d.ts.map
-│   │   │   │       ├── index.js
-│   │   │   │       └── index.js.map
-│   │   │   ├── extractors
-│   │   │   │   ├── base.ts
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── s3taku.ts
-│   │   │   │   ├── streamtape.ts
-│   │   │   │   └── vibeplayer.ts
-│   │   │   ├── fetch.ts
-│   │   │   └── rate-limit.ts
-│   │   ├── providers
-│   │   │   ├── aniwave.ts
-│   │   │   ├── base.ts
-│   │   │   ├── gogoanime.ts
-│   │   │   └── index.ts
-│   │   └── types
-│   │       └── stealth.d.ts
-│   ├── test-servers.js
-│   └── tsconfig.json
-├── LICENSE
-├── Please audit the Phase 3 implementation .md
+├── eslint.config.mjs
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── prisma
+│   └── schema.prisma
+├── public
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
 ├── README.md
-├── ROADMAP.md
+├── src
+│   ├── app
+│   │   ├── (auth)
+│   │   │   └── login
+│   │   │       ├── actions.ts
+│   │   │       └── page.tsx
+│   │   ├── (site)
+│   │   │   ├── anime
+│   │   │   │   └── [id]
+│   │   │   │       ├── page.tsx
+│   │   │   │       └── watchlist-button.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── search
+│   │   │   │   └── page.tsx
+│   │   │   └── watch
+│   │   │       └── [animeId]
+│   │   │           └── [episodeNum]
+│   │   │               └── page.tsx
+│   │   ├── account
+│   │   │   ├── account-buttons.tsx
+│   │   │   ├── account-dashboard.tsx
+│   │   │   ├── actions.ts
+│   │   │   ├── link-discord
+│   │   │   │   └── page.tsx
+│   │   │   ├── login-form.tsx
+│   │   │   ├── page.bak
+│   │   │   ├── page.tsx
+│   │   │   └── reset-password
+│   │   │       └── page.tsx
+│   │   ├── admin
+│   │   │   ├── components
+│   │   │   │   ├── dashboard-client.tsx
+│   │   │   │   ├── log-feed.tsx
+│   │   │   │   └── status-card.tsx
+│   │   │   ├── login
+│   │   │   │   ├── actions.ts
+│   │   │   │   └── page.tsx
+│   │   │   └── page.tsx
+│   │   ├── api
+│   │   │   ├── admin
+│   │   │   │   ├── check
+│   │   │   │   │   ├── [providerId]
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── logs
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── status
+│   │   │   │       └── route.ts
+│   │   │   ├── anilist
+│   │   │   │   ├── [id]
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── search
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── trending
+│   │   │   │       └── route.ts
+│   │   │   ├── auth
+│   │   │   │   ├── discord
+│   │   │   │   │   └── callback
+│   │   │   │   │       └── route.ts
+│   │   │   │   └── me
+│   │   │   │       └── route.ts
+│   │   │   ├── comments
+│   │   │   │   ├── like
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── route.ts
+│   │   │   ├── cron
+│   │   │   │   └── health-check
+│   │   │   │       └── route.ts
+│   │   │   ├── import
+│   │   │   │   └── route.ts
+│   │   │   ├── progress
+│   │   │   │   └── route.ts
+│   │   │   ├── proxy
+│   │   │   │   └── [token]
+│   │   │   │       └── route.ts
+│   │   │   ├── source
+│   │   │   │   └── route.ts
+│   │   │   └── watchlist
+│   │   │       └── route.ts
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── leaderboard
+│   │       ├── leaderboard-row.tsx
+│   │       └── page.tsx
+│   ├── components
+│   │   ├── anime-card.tsx
+│   │   ├── comments.tsx
+│   │   ├── continue-watching.tsx
+│   │   ├── episode-list.tsx
+│   │   ├── nav.tsx
+│   │   ├── next-episode-countdown.tsx
+│   │   ├── player
+│   │   │   ├── anime-player.tsx
+│   │   │   ├── quality-menu.tsx
+│   │   │   └── source-loader.tsx
+│   │   ├── search-bar.tsx
+│   │   └── watch
+│   │       ├── episode-sidebar.tsx
+│   │       └── watch-info.tsx
+│   ├── lib
+│   │   ├── anilist.ts
+│   │   ├── auth.ts
+│   │   ├── core-dist
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.d.ts.map
+│   │   │   ├── index.js
+│   │   │   ├── index.js.map
+│   │   │   ├── lib
+│   │   │   │   ├── extractors
+│   │   │   │   │   ├── base.d.ts
+│   │   │   │   │   ├── base.d.ts.map
+│   │   │   │   │   ├── base.js
+│   │   │   │   │   ├── base.js.map
+│   │   │   │   │   ├── index.d.ts
+│   │   │   │   │   ├── index.d.ts.map
+│   │   │   │   │   ├── index.js
+│   │   │   │   │   ├── index.js.map
+│   │   │   │   │   ├── s3taku.d.ts
+│   │   │   │   │   ├── s3taku.d.ts.map
+│   │   │   │   │   ├── s3taku.js
+│   │   │   │   │   ├── s3taku.js.map
+│   │   │   │   │   ├── streamtape.d.ts
+│   │   │   │   │   ├── streamtape.d.ts.map
+│   │   │   │   │   ├── streamtape.js
+│   │   │   │   │   ├── streamtape.js.map
+│   │   │   │   │   ├── vibeplayer.d.ts
+│   │   │   │   │   ├── vibeplayer.d.ts.map
+│   │   │   │   │   ├── vibeplayer.js
+│   │   │   │   │   └── vibeplayer.js.map
+│   │   │   │   ├── fetch.d.ts
+│   │   │   │   ├── fetch.d.ts.map
+│   │   │   │   ├── fetch.js
+│   │   │   │   ├── fetch.js.map
+│   │   │   │   ├── rate-limit.d.ts
+│   │   │   │   ├── rate-limit.d.ts.map
+│   │   │   │   ├── rate-limit.js
+│   │   │   │   └── rate-limit.js.map
+│   │   │   └── providers
+│   │   │       ├── aniwave.d.ts
+│   │   │       ├── aniwave.d.ts.map
+│   │   │       ├── aniwave.js
+│   │   │       ├── aniwave.js.map
+│   │   │       ├── base.d.ts
+│   │   │       ├── base.d.ts.map
+│   │   │       ├── base.js
+│   │   │       ├── base.js.map
+│   │   │       ├── gogoanime.d.ts
+│   │   │       ├── gogoanime.d.ts.map
+│   │   │       ├── gogoanime.js
+│   │   │       ├── gogoanime.js.map
+│   │   │       ├── index.d.ts
+│   │   │       ├── index.d.ts.map
+│   │   │       ├── index.js
+│   │   │       └── index.js.map
+│   │   ├── core.ts
+│   │   ├── db.ts
+│   │   ├── discord.ts
+│   │   ├── health-check.ts
+│   │   ├── importers
+│   │   │   ├── anikai.ts
+│   │   │   └── route.ts
+│   │   └── resend.ts
+│   ├── middleware.ts
+│   └── providers
+│       ├── base.ts
+│       └── index.ts
 ├── tree.txt
-└── web
-    ├── .env
-    ├── .env.example
-    ├── .env.local
-    ├── .gitignore
-    ├── eslint.config.mjs
-    ├── next-env.d.ts
-    ├── next.config.ts
-    ├── package-lock.json
-    ├── package.json
-    ├── postcss.config.mjs
-    ├── prisma
-    │   └── schema.prisma
-    ├── public
-    │   ├── file.svg
-    │   ├── globe.svg
-    │   ├── next.svg
-    │   ├── vercel.svg
-    │   └── window.svg
-    ├── README.md
-    ├── src
-    │   ├── app
-    │   │   ├── (auth)
-    │   │   │   └── login
-    │   │   │       ├── actions.ts
-    │   │   │       └── page.tsx
-    │   │   ├── (site)
-    │   │   │   ├── anime
-    │   │   │   │   └── [id]
-    │   │   │   │       ├── page.tsx
-    │   │   │   │       └── watchlist-button.tsx
-    │   │   │   ├── layout.tsx
-    │   │   │   ├── page.tsx
-    │   │   │   ├── search
-    │   │   │   │   └── page.tsx
-    │   │   │   └── watch
-    │   │   │       └── [animeId]
-    │   │   │           └── [episodeNum]
-    │   │   │               └── page.tsx
-    │   │   ├── admin
-    │   │   │   ├── components
-    │   │   │   │   ├── dashboard-client.tsx
-    │   │   │   │   ├── log-feed.tsx
-    │   │   │   │   └── status-card.tsx
-    │   │   │   ├── login
-    │   │   │   │   ├── actions.ts
-    │   │   │   │   └── page.tsx
-    │   │   │   └── page.tsx
-    │   │   ├── api
-    │   │   │   ├── admin
-    │   │   │   │   ├── check
-    │   │   │   │   │   ├── [providerId]
-    │   │   │   │   │   │   └── route.ts
-    │   │   │   │   │   └── route.ts
-    │   │   │   │   ├── logs
-    │   │   │   │   │   └── route.ts
-    │   │   │   │   └── status
-    │   │   │   │       └── route.ts
-    │   │   │   ├── anilist
-    │   │   │   │   ├── [id]
-    │   │   │   │   │   └── route.ts
-    │   │   │   │   ├── search
-    │   │   │   │   │   └── route.ts
-    │   │   │   │   └── trending
-    │   │   │   │       └── route.ts
-    │   │   │   ├── cron
-    │   │   │   │   └── health-check
-    │   │   │   │       └── route.ts
-    │   │   │   ├── progress
-    │   │   │   │   └── route.ts
-    │   │   │   ├── proxy
-    │   │   │   │   └── [token]
-    │   │   │   │       └── route.ts
-    │   │   │   ├── source
-    │   │   │   │   └── route.ts
-    │   │   │   └── watchlist
-    │   │   │       └── route.ts
-    │   │   ├── favicon.ico
-    │   │   ├── globals.css
-    │   │   └── layout.tsx
-    │   ├── components
-    │   │   ├── anime-card.tsx
-    │   │   ├── episode-list.tsx
-    │   │   ├── nav.tsx
-    │   │   ├── player
-    │   │   │   ├── anime-player.tsx
-    │   │   │   ├── quality-menu.tsx
-    │   │   │   └── source-loader.tsx
-    │   │   ├── search-bar.tsx
-    │   │   └── watch
-    │   │       ├── episode-sidebar.tsx
-    │   │       └── watch-info.tsx
-    │   ├── lib
-    │   │   ├── anilist.ts
-    │   │   ├── auth.ts
-    │   │   ├── core-dist
-    │   │   │   ├── index.d.ts
-    │   │   │   ├── index.d.ts.map
-    │   │   │   ├── index.js
-    │   │   │   ├── index.js.map
-    │   │   │   ├── lib
-    │   │   │   │   ├── extractors
-    │   │   │   │   │   ├── base.d.ts
-    │   │   │   │   │   ├── base.d.ts.map
-    │   │   │   │   │   ├── base.js
-    │   │   │   │   │   ├── base.js.map
-    │   │   │   │   │   ├── index.d.ts
-    │   │   │   │   │   ├── index.d.ts.map
-    │   │   │   │   │   ├── index.js
-    │   │   │   │   │   ├── index.js.map
-    │   │   │   │   │   ├── s3taku.d.ts
-    │   │   │   │   │   ├── s3taku.d.ts.map
-    │   │   │   │   │   ├── s3taku.js
-    │   │   │   │   │   ├── s3taku.js.map
-    │   │   │   │   │   ├── streamtape.d.ts
-    │   │   │   │   │   ├── streamtape.d.ts.map
-    │   │   │   │   │   ├── streamtape.js
-    │   │   │   │   │   ├── streamtape.js.map
-    │   │   │   │   │   ├── vibeplayer.d.ts
-    │   │   │   │   │   ├── vibeplayer.d.ts.map
-    │   │   │   │   │   ├── vibeplayer.js
-    │   │   │   │   │   └── vibeplayer.js.map
-    │   │   │   │   ├── fetch.d.ts
-    │   │   │   │   ├── fetch.d.ts.map
-    │   │   │   │   ├── fetch.js
-    │   │   │   │   ├── fetch.js.map
-    │   │   │   │   ├── rate-limit.d.ts
-    │   │   │   │   ├── rate-limit.d.ts.map
-    │   │   │   │   ├── rate-limit.js
-    │   │   │   │   └── rate-limit.js.map
-    │   │   │   └── providers
-    │   │   │       ├── aniwave.d.ts
-    │   │   │       ├── aniwave.d.ts.map
-    │   │   │       ├── aniwave.js
-    │   │   │       ├── aniwave.js.map
-    │   │   │       ├── base.d.ts
-    │   │   │       ├── base.d.ts.map
-    │   │   │       ├── base.js
-    │   │   │       ├── base.js.map
-    │   │   │       ├── gogoanime.d.ts
-    │   │   │       ├── gogoanime.d.ts.map
-    │   │   │       ├── gogoanime.js
-    │   │   │       ├── gogoanime.js.map
-    │   │   │       ├── index.d.ts
-    │   │   │       ├── index.d.ts.map
-    │   │   │       ├── index.js
-    │   │   │       └── index.js.map
-    │   │   ├── core.ts
-    │   │   ├── db.ts
-    │   │   ├── discord.ts
-    │   │   └── health-check.ts
-    │   ├── middleware.ts
-    │   └── providers
-    │       ├── base.ts
-    │       └── index.ts
-    └── tsconfig.json
+└── tsconfig.json
 
-56 directories, 184 files
-
-tree -I 'node_modules|dist|.git' > tree.txt
+55 directories, 131 files
