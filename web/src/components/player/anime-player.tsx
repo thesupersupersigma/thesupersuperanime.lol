@@ -41,12 +41,15 @@ export function AnimePlayer({
   const [playerError, setPlayerError]         = useState<string | null>(null);
   const [currentTime, setCurrentTime]         = useState(0);
   const [duration, setDuration]               = useState(0);
+  // True when the server hasn't produced any playable output within 14 s.
+  const [showServerTimeout, setShowServerTimeout] = useState(false);
 
   // --- REFS ---
-  const targetSeekTimeRef   = useRef<number | null>(null);
-  const lastSavedTimeRef    = useRef<number>(0);
-  const durationRef         = useRef<number>(0);          // avoids stale closure in onTimeUpdate
-  const autoNextTimeoutRef  = useRef<NodeJS.Timeout | null>(null);
+  const targetSeekTimeRef     = useRef<number | null>(null);
+  const lastSavedTimeRef      = useRef<number>(0);
+  const durationRef           = useRef<number>(0);          // avoids stale closure in onTimeUpdate
+  const autoNextTimeoutRef    = useRef<NodeJS.Timeout | null>(null);
+  const serverTimeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Resume-seek refs: avoid passing resumeTime as a reactive prop so the seek
   // only fires once the player is ready to buffer that position.
@@ -95,6 +98,21 @@ export function AnimePlayer({
       setSelectedQuality(sortedQualities[0] || "auto");
     }
   }, [selectedServerName, audioType, sortedQualities, selectedQuality]);
+
+  // ── SERVER TIMEOUT ─────────────────────────────────────────────────────────
+  // Arms a 14 s timer every time the selected server changes (including the
+  // initial load). The timer is cancelled in onCanPlay / onPlaying — both are
+  // reliable signals that the server is alive. If neither fires within 14 s the
+  // overlay is shown so the user can manually switch to another server.
+  useEffect(() => {
+    if (!selectedServerName) return;
+    setShowServerTimeout(false);
+    if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
+    serverTimeoutTimerRef.current = setTimeout(() => setShowServerTimeout(true), 14000);
+    return () => {
+      if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
+    };
+  }, [selectedServerName]);
 
   const activeSource = activeServer?.sources.find(s => s.quality === selectedQuality) || activeServer?.sources[0];
   const srcUrl       = activeSource ? `/api/proxy/${activeSource.token}` : "";
@@ -176,6 +194,10 @@ export function AnimePlayer({
     const player = playerRef.current;
     if (!player) return;
 
+    // Server responded with a valid stream — dismiss the timeout overlay.
+    if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
+    setShowServerTimeout(false);
+
     playerReadyRef.current = true;
 
     // Server / audio / quality switch — restore playback position and resume.
@@ -237,6 +259,9 @@ export function AnimePlayer({
 
   const onPlaying = useCallback(() => {
     clearStallTimer();
+    // Playback actually started — server is alive, no need for the timeout overlay.
+    if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
+    setShowServerTimeout(false);
   }, [clearStallTimer]);
 
   // Make hls.js tolerate buffer holes so a hard seek clears itself rather than
@@ -251,13 +276,12 @@ export function AnimePlayer({
     }
   };
 
-  // A fatal error means playback can't continue on the current tokens. hls.js
-  // has already exhausted its own retries by the time this fires, so the only
-  // thing that helps is fresh sources — let the parent re-fetch them.
-  const onPlaybackError = () => {
+  // Fatal playback error — hls.js has exhausted all retries. Show the error UI
+  // and let the user decide whether to retry or switch servers manually.
+  const onPlaybackError = useCallback(() => {
     if (onSourceFailure) onSourceFailure();
     else setPlayerError("Stream unavailable — try another server");
-  };
+  }, [onSourceFailure]);
 
   const onTimeUpdate = () => {
     const player = playerRef.current;
@@ -287,8 +311,9 @@ export function AnimePlayer({
   };
 
   useEffect(() => () => {
-    if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
-    if (stallTimerRef.current)      clearTimeout(stallTimerRef.current);
+    if (autoNextTimeoutRef.current)    clearTimeout(autoNextTimeoutRef.current);
+    if (stallTimerRef.current)         clearTimeout(stallTimerRef.current);
+    if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
   }, []);
 
   // ── EARLY RETURNS ──────────────────────────────────────────────────────────
@@ -356,6 +381,21 @@ export function AnimePlayer({
             <DefaultVideoLayout icons={defaultLayoutIcons} />
             <QualityMenu qualities={sortedQualities} selectedQuality={selectedQuality} onSelect={handleQualityChange} />
           </MediaPlayer>
+        )}
+
+        {/* ── SERVER TIMEOUT OVERLAY ── */}
+        {showServerTimeout && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 100, color: "#fff", gap: "16px" }}>
+            <p style={{ fontSize: "15px", fontWeight: 500, textAlign: "center", maxWidth: "320px", lineHeight: 1.5 }}>
+              Server timed out. Please try another server.
+            </p>
+            <button
+              onClick={() => setShowServerTimeout(false)}
+              style={{ background: "transparent", color: "#e5e5e5", border: "1px solid #555", padding: "7px 20px", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}
+            >
+              Dismiss
+            </button>
+          </div>
         )}
 
         {/* ── NEXT EPISODE PROMPT ── */}
