@@ -1,12 +1,10 @@
 name: Miruro Keep-Alive Ping
 
-# Pings each Miruro API instance every 14 minutes to prevent Render free-tier
-# services from spinning down due to inactivity.
+# Pings the primary Miruro API instance every 14 minutes to prevent the
+# Render free-tier service from spinning down due to inactivity.
 #
 # Required GitHub secrets:
-#   MIRURO_API_URL   — primary Miruro instance base URL
-#   MIRURO_API_URL_2 — second Miruro instance base URL
-#   MIRURO_API_URL_3 — third Miruro instance base URL
+#   MIRURO_API_URL — primary Miruro instance base URL
 
 on:
   schedule:
@@ -19,11 +17,5 @@ jobs:
     timeout-minutes: 2
 
     steps:
-      - name: Ping Miruro instance 1
+      - name: Ping Miruro
         run: curl -f --max-time 10 "${{ secrets.MIRURO_API_URL }}" || true
-
-      - name: Ping Miruro instance 2
-        run: curl -f --max-time 10 "${{ secrets.MIRURO_API_URL_2 }}" || true
-
-      - name: Ping Miruro instance 3
-        run: curl -f --max-time 10 "${{ secrets.MIRURO_API_URL_3 }}" || true
