@@ -5,6 +5,11 @@ import Link from "next/link";
 import { ReactNode } from "react";
 import type { LeaderboardEntry } from "./page";
 
+function formatWatchTime(minutes: number): string {
+  if (minutes < 1) return "< 1 min";
+  return `${minutes} mins`;
+}
+
 interface Props {
   entry: LeaderboardEntry;
   isLast: boolean;
@@ -62,7 +67,7 @@ export default function LeaderboardRow({ entry, isLast, rankNode }: Props) {
         {entry.showsCompleted}
       </div>
       <div style={{ color: "#a3a3a3", fontSize: "13px", textAlign: "right" }}>
-        {Math.floor(entry.minutesWatched / 60)}h
+        {formatWatchTime(entry.minutesWatched)}
       </div>
     </>
   );

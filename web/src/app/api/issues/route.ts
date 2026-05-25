@@ -12,6 +12,7 @@ export async function GET() {
       animeInfo: true,
       status: true,
       priority: true,
+      githubUrl: true,
       createdAt: true,
     },
   });
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Mirror to GitHub Issues if env vars are configured
+  // Mirror to GitHub Issues if env vars are configured; capture html_url to save back
   const ghRepo = process.env.GITHUB_ISSUES_REPO;
   const ghToken = process.env.GITHUB_PAT;
   if (ghRepo && ghToken) {
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
         : "Anonymous";
       bodyLines.push(`## Submitted by\n\n${submitter}`);
 
-      await fetch(`https://api.github.com/repos/${ghRepo}/issues`, {
+      const ghRes = await fetch(`https://api.github.com/repos/${ghRepo}/issues`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${ghToken}`,
@@ -87,6 +88,14 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({ title: ghTitle, body: bodyLines.join("\n\n") }),
       });
+
+      if (ghRes.ok) {
+        const ghData = await ghRes.json();
+        const githubUrl = ghData?.html_url as string | undefined;
+        if (githubUrl) {
+          await db.issue.update({ where: { id: issue.id }, data: { githubUrl } });
+        }
+      }
     } catch {
       // GitHub call is best-effort — DB save is the source of truth
     }

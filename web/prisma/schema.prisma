@@ -38,15 +38,16 @@ model PasswordResetToken {
 }
 
 model WatchHistory {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessionId String
-  animeId   Int
-  episodeId String
-  progress  Int      @default(0)
-  duration  Int      @default(0)
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId      String
+  animeId        Int
+  episodeId      String
+  progress       Int      @default(0)
+  duration       Int      @default(0)
+  watchedSeconds Int      @default(0)
+  updatedAt      DateTime @updatedAt
 
   @@unique([userId, episodeId])
   @@unique([sessionId, episodeId])
@@ -142,6 +143,7 @@ model Issue {
   // Status values: "open" | "in_progress" | "fixed" | "wont_fix" | "duplicate" | "resolved" (legacy)
   status      String   @default("open")
   priority    Int      @default(0)
+  githubUrl   String?
   createdAt   DateTime @default(now())
 
   @@index([status])

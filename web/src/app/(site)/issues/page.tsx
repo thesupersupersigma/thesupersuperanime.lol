@@ -11,6 +11,7 @@ interface Issue {
   animeInfo: string | null;
   status: string;
   priority: number;
+  githubUrl: string | null;
   createdAt: string;
 }
 
@@ -284,6 +285,7 @@ function IssueCard({
   isDragging,
   isDragOver,
   onStatusChange,
+  onDelete,
   onDragStart,
   onDragOver,
   onDrop,
@@ -294,12 +296,14 @@ function IssueCard({
   isDragging: boolean;
   isDragOver: boolean;
   onStatusChange: (id: string, status: string) => void;
+  onDelete: (id: string) => void;
   onDragStart: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: () => void;
   onDragEnd: () => void;
 }) {
   const sc = getStatus(issue.status);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
     <div
@@ -397,6 +401,87 @@ function IssueCard({
           <span style={{ color: "#333", fontSize: "12px", marginLeft: "auto", whiteSpace: "nowrap", flexShrink: 0 }}>
             {formatRelativeTime(issue.createdAt)}
           </span>
+
+          {/* GitHub link */}
+          {issue.githubUrl && (
+            <a
+              href={issue.githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              title="View on GitHub"
+              style={{
+                display: "flex", alignItems: "center",
+                color: "#444", textDecoration: "none", flexShrink: 0,
+                transition: "color 120ms",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#9ca3af")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#444")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          )}
+
+          {/* Admin delete */}
+          {isAdmin && (
+            confirmingDelete ? (
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{ display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}
+              >
+                <span style={{ color: "#f87171", fontSize: "11px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                  Delete?
+                </span>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete(issue.id); }}
+                  style={{
+                    background: "#7f1d1d", border: "1px solid #ef444440",
+                    borderRadius: "4px", color: "#f87171",
+                    fontSize: "11px", fontWeight: 600,
+                    padding: "1px 7px", cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setConfirmingDelete(false); }}
+                  style={{
+                    background: "#1a1a1a", border: "1px solid #2e2e2e",
+                    borderRadius: "4px", color: "#777",
+                    fontSize: "11px", fontWeight: 600,
+                    padding: "1px 7px", cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={e => { e.stopPropagation(); setConfirmingDelete(true); }}
+                title="Delete issue"
+                style={{
+                  background: "none", border: "none",
+                  color: "#2e2e2e", cursor: "pointer",
+                  padding: "2px", display: "flex", alignItems: "center",
+                  flexShrink: 0, transition: "color 120ms",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                onMouseLeave={e => (e.currentTarget.style.color = "#2e2e2e")}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              </button>
+            )
+          )}
         </div>
 
         {/* Anime info */}
@@ -452,10 +537,23 @@ export default function IssuesPage() {
   async function checkAdmin() {
     try {
       const res = await fetch("/api/admin/issues");
-      setIsAdmin(res.ok);
+      const admin = res.ok;
+      setIsAdmin(admin);
+      if (admin) {
+        // Fire-and-forget GitHub sync, then refresh the list
+        fetch("/api/admin/issues/sync")
+          .then(() => fetchIssues())
+          .catch(() => {});
+      }
     } catch {
       setIsAdmin(false);
     }
+  }
+
+  async function handleDelete(issueId: string) {
+    // Optimistic removal
+    setIssues(prev => prev.filter(i => i.id !== issueId));
+    await fetch(`/api/admin/issues/${issueId}`, { method: "DELETE" });
   }
 
   async function handleStatusChange(issueId: string, newStatus: string) {
@@ -578,6 +676,7 @@ export default function IssuesPage() {
               isDragging={dragIndex === index}
               isDragOver={dragOverIndex === index}
               onStatusChange={handleStatusChange}
+              onDelete={handleDelete}
               onDragStart={() => setDragIndex(index)}
               onDragOver={e => { e.preventDefault(); setDragOverIndex(index); }}
               onDrop={() => handleDrop(index)}

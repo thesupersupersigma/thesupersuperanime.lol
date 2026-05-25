@@ -25,7 +25,7 @@ async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     by: ["userId"],
     where: { userId: { not: null } },
     _count: { episodeId: true },
-    _sum: { duration: true },
+    _sum: { watchedSeconds: true },
     orderBy: { _count: { episodeId: "desc" } },
     take: 50,
   });
@@ -63,7 +63,7 @@ async function getLeaderboard(): Promise<LeaderboardEntry[]> {
         discordAvatar: user.discordAvatar,
         episodesWatched: h._count.episodeId,
         showsCompleted: completedMap.get(h.userId!) ?? 0,
-        minutesWatched: Math.floor((h._sum.duration ?? 0) / 60),
+        minutesWatched: Math.floor((h._sum.watchedSeconds ?? 0) / 60),
       };
     });
 }
@@ -174,7 +174,7 @@ export default async function LeaderboardPage() {
           <div>User</div>
           <div style={{ textAlign: "right" }}>Episodes</div>
           <div style={{ textAlign: "right" }}>Completed</div>
-          <div style={{ textAlign: "right" }}>Hours</div>
+          <div style={{ textAlign: "right" }}>Mins Watched</div>
         </div>
 
         {entries.length === 0 ? (

@@ -45,3 +45,12 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true, issue });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  await db.issue.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

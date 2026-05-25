@@ -43,6 +43,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "animeId and episodeId are required" }, { status: 400 });
     }
 
+    // --- Anti-cheat: fetch previous progress to validate the delta ---
+    // progress is stored in milliseconds; we convert to seconds for the delta check.
+    const existing = user
+      ? await db.watchHistory.findUnique({
+          where: { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } },
+          select: { progress: true },
+        })
+      : await db.watchHistory.findUnique({
+          where: { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
+          select: { progress: true },
+        });
+
+    const prevProgressMs = existing?.progress ?? 0;
+    const newProgressMs = progress ?? 0;
+    const deltaSeconds = (newProgressMs - prevProgressMs) / 1000;
+
+    // Valid: forward playback between 1 s and 60 s (normal save interval).
+    // Skips, scrubs backward, or huge jumps don't count toward watch time.
+    const validDelta = deltaSeconds >= 1 && deltaSeconds <= 60;
+    const watchedSecondsIncrement = validDelta ? Math.floor(deltaSeconds) : 0;
+
     // If logged in, upsert by userId. Otherwise by sessionId.
     if (user) {
       // A guest record for the same session+episode may exist (watched before logging in).
@@ -57,25 +78,35 @@ export async function POST(req: NextRequest) {
     const record = user
       ? await db.watchHistory.upsert({
           where: { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } },
-          update: { progress: progress ?? 0, duration: duration ?? 0 },
+          update: {
+            progress: newProgressMs,
+            duration: duration ?? 0,
+            watchedSeconds: { increment: watchedSecondsIncrement },
+          },
           create: {
             userId: user.id,
             sessionId,
             animeId: Number(animeId),
             episodeId: String(episodeId),
-            progress: progress ?? 0,
+            progress: newProgressMs,
             duration: duration ?? 0,
+            watchedSeconds: 0,
           },
         })
       : await db.watchHistory.upsert({
           where: { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
-          update: { progress: progress ?? 0, duration: duration ?? 0 },
+          update: {
+            progress: newProgressMs,
+            duration: duration ?? 0,
+            watchedSeconds: { increment: watchedSecondsIncrement },
+          },
           create: {
             sessionId,
             animeId: Number(animeId),
             episodeId: String(episodeId),
-            progress: progress ?? 0,
+            progress: newProgressMs,
             duration: duration ?? 0,
+            watchedSeconds: 0,
           },
         });
 
