@@ -199,9 +199,18 @@ async function fetchMiruroFromUrl(
           if (!streamRes.ok) return;
 
           const streamData = await streamRes.json();
-          const hlsStreams = (streamData.streams ?? []).filter(
-            (s: { type?: string; url?: string }) =>
-              s.type === "hls" || s.url?.includes(".m3u8")
+          // The hop provider returns a different response shape:
+          //   streamData.ssub.streams (sub) or streamData.sdub.streams (dub)
+          // All other providers use streamData.streams directly.
+          const rawStreams: unknown[] =
+            streamData.streams ??
+            (audioType === "sub" ? streamData.ssub?.streams : streamData.sdub?.streams) ??
+            [];
+          const hlsStreams = rawStreams.filter(
+            (s: unknown) => {
+              const stream = s as { type?: string; url?: string };
+              return stream.type === "hls" || stream.url?.includes(".m3u8");
+            }
           );
           if (hlsStreams.length === 0) return;
 
@@ -210,13 +219,15 @@ async function fetchMiruroFromUrl(
           // since some providers (ANIMEKAI, ANIMEZ, hop, ZORO) may serve
           // valid streams that require specific headers or don't return
           // the playlist inline on a bare GET.
+          const firstStream = hlsStreams[0] as { url: string; referer?: string; quality?: string | number; cookies?: string };
+          const liveReferer = firstStream.referer ?? "https://kwik.cx/";
           try {
-            const checkRes = await fetch(hlsStreams[0].url, {
+            const checkRes = await fetch(firstStream.url, {
               method: "GET",
               headers: {
                 "User-Agent": "Mozilla/5.0",
-                "Referer": "https://kwik.cx/",
-                "Origin": "https://kwik.cx/",
+                "Referer": liveReferer,
+                "Origin": new URL(liveReferer).origin,
               },
               signal: AbortSignal.timeout(4000),
             });
@@ -239,7 +250,8 @@ async function fetchMiruroFromUrl(
             return;
           }
 
-          for (const s of hlsStreams) {
+          for (const _s of hlsStreams) {
+            const s = _s as { url: string; quality?: string | number; cookies?: string };
             validStreams.push({
               provider,
               type: audioType,
