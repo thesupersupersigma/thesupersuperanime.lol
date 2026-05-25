@@ -102,7 +102,48 @@ export async function GET(req: NextRequest) {
       console.error("[Discord] Server join failed:", joinErr);
     }
 
-    // 5. Set discord-linked cookie and redirect home
+    // 5. Fire webhook alert (non-blocking)
+    void (async () => {
+      const webhookUrl = process.env.DISCORD_ALERT_WEBHOOK_URL;
+      if (!webhookUrl) return;
+
+      try {
+        const dmUserId = process.env.DISCORD_ALERT_USER_ID;
+        const dmMention = dmUserId ? `<@${dmUserId}>` : null;
+
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(dmMention ? { content: dmMention } : {}),
+            embeds: [
+              {
+                title: "New Discord Link",
+                color: 0x57f287, // Discord green
+                thumbnail: { url: avatarUrl },
+                fields: [
+                  {
+                    name: "Username",
+                    value: discordUser.username,
+                    inline: true,
+                  },
+                  {
+                    name: "Account Created",
+                    value: `<t:${Math.floor(user.createdAt.getTime() / 1000)}:D>`,
+                    inline: true,
+                  },
+                ],
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          }),
+        });
+      } catch (webhookErr) {
+        console.error("[Discord] Alert webhook failed:", webhookErr);
+      }
+    })();
+
+    // 6. Set discord-linked cookie and redirect home
     const response = NextResponse.redirect(new URL("/", req.url));
     response.cookies.set("discord-linked", "1", {
       httpOnly: true,
