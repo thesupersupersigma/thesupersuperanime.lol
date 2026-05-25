@@ -21,6 +21,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   comments            Comment[]
   commentLikes        CommentLike[]
+  issues              Issue[]
 }
 
 model PasswordResetToken {
@@ -127,4 +128,18 @@ model CommentLike {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId])
+}
+
+model Issue {
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  animeInfo   String?
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([createdAt])
 }

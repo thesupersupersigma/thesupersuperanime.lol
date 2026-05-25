@@ -97,6 +97,23 @@ export function Nav() {
               </svg>
             </Link>
 
+            {/* Report issue */}
+            <Link href="/issues" style={{
+              display: "flex", alignItems: "center",
+              color: pathname === "/issues" ? "#e5e5e5" : "#888",
+              textDecoration: "none", transition: "color 150ms ease",
+            }}
+              title="Report an issue"
+              onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
+              onMouseLeave={e => (e.currentTarget.style.color = pathname === "/issues" ? "#e5e5e5" : "#888")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </Link>
+
             {/* Watchlist/search bookmark */}
             <Link href="/account?tab=watchlist" style={{
               display: "flex",
@@ -192,6 +209,13 @@ export function Nav() {
             <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
             <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
             <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+          </svg>
+        } />
+        <MobileTab href="/issues" label="Report" active={pathname === "/issues"} icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
         } />
         <MobileTab href="/account" label={isLoggedIn ? "Account" : "Sign In"} active={pathname === "/account"} icon={

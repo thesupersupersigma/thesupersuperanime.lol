@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { providers } from "@/providers/index";
 import { DashboardClient } from "./components/dashboard-client";
+import { IssuesPanel } from "./components/issues-panel";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -40,6 +41,25 @@ export default async function AdminDashboard() {
         new Date(a.lastCheckedAt!).getTime()
     )[0]?.lastCheckedAt?.toISOString() ?? null;
 
+  // Fetch recent issues for the admin panel
+  const rawIssues = await db.issue.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    include: {
+      user: { select: { discordUsername: true, email: true } },
+    },
+  });
+
+  const initialIssues = rawIssues.map((i) => ({
+    id: i.id,
+    type: i.type,
+    description: i.description,
+    animeInfo: i.animeInfo,
+    status: i.status,
+    createdAt: i.createdAt.toISOString(),
+    user: i.user ? { discordUsername: i.user.discordUsername, email: i.user.email } : null,
+  }));
+
   return (
     <div
       style={{
@@ -53,6 +73,9 @@ export default async function AdminDashboard() {
         initialProviders={initialProviders}
         initialLastChecked={mostRecentCheck}
       />
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
+        <IssuesPanel initialIssues={initialIssues} />
+      </div>
     </div>
   );
 }
