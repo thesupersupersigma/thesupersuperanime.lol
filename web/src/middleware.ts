@@ -70,7 +70,8 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/api/watchlist") ||
     pathname.startsWith("/api/progress") ||
     pathname === "/leaderboard" ||
-    pathname === "/api/auth/me";
+    pathname === "/api/auth/me" ||
+    pathname.startsWith("/user/");
 
   if (!exemptFromDiscordGate) {
     const userId = req.cookies.get("user-session")?.value;

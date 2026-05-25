@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# claude and grapify
+graphify-out/
+
 # next.js
 /.next/
 /out/

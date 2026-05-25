@@ -34,12 +34,12 @@ Instead of Discord-gated accounts, do a verified badge for users who link Discor
 2. Next episode countdown on anime/watch pages — almost free with existing AniList data - DONE
 3. Watchlist page surfaced properly, bookmark button fixed - DONE
 4. Comments on anime pages - DONE
-5. Leaderboard
+5. Leaderboard - DONE
 6. Optional Discord linking (user HAS to link discord b4 using the sites) - DONE
 
 Want to start with the account page overhaul? That's the most broken thing right now and unblocks showing history/watchlist which you already have data for.
 
-ALSO ADD THE 3RD DEPLOYMENT FOR MUIRO API
+ALSO ADD THE 3RD DEPLOYMENT FOR MUIRO API - DONE
 
 Brainstorm for later:
 

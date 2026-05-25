@@ -85,7 +85,7 @@ export default async function AccountPage() {
     // 👈 Wrapped the AccountDashboard inside Suspense here
     <Suspense fallback={null}>
       <AccountDashboard
-        user={{ id: user.id, email: user.email }}
+        user={{ id: user.id, email: user.email, discordUsername: user.discordUsername ?? null }}
         history={history}
         watchlist={watchlist}
         logOutAction={logOutAction}

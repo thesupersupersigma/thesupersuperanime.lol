@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ReactNode } from "react";
 import type { LeaderboardEntry } from "./page";
 
@@ -11,19 +12,19 @@ interface Props {
 }
 
 export default function LeaderboardRow({ entry, isLast, rankNode }: Props) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "48px 1fr 80px 80px 80px",
-        gap: "12px", padding: "14px 20px",
-        alignItems: "center",
-        borderBottom: isLast ? "none" : "1px solid #0f0f0f",
-        transition: "background 0.15s",
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = "#0f0f0f")}
-      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-    >
+  const rowStyle = {
+    display: "grid",
+    gridTemplateColumns: "48px 1fr 80px 80px 80px",
+    gap: "12px", padding: "14px 20px",
+    alignItems: "center",
+    borderBottom: isLast ? "none" : "1px solid #0f0f0f",
+    transition: "background 0.15s",
+    textDecoration: "none",
+    color: "inherit",
+  } as const;
+
+  const inner = (
+    <>
       <div style={{ display: "flex", justifyContent: "center" }}>
         {rankNode}
       </div>
@@ -63,6 +64,29 @@ export default function LeaderboardRow({ entry, isLast, rankNode }: Props) {
       <div style={{ color: "#a3a3a3", fontSize: "13px", textAlign: "right" }}>
         {Math.floor(entry.minutesWatched / 60)}h
       </div>
+    </>
+  );
+
+  if (entry.discordUsername) {
+    return (
+      <Link
+        href={`/user/${entry.discordUsername}`}
+        style={rowStyle}
+        onMouseEnter={e => (e.currentTarget.style.background = "#0f0f0f")}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      style={rowStyle}
+      onMouseEnter={e => (e.currentTarget.style.background = "#0f0f0f")}
+      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+    >
+      {inner}
     </div>
   );
 }

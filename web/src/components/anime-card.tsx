@@ -8,13 +8,25 @@ import {
 
 type AnimeData = AnilistMedia | AnilistSearchResult;
 
+export type WatchlistStatus = "Watching" | "Completed" | "Planning" | "Dropped" | "Paused";
+
+const WATCHLIST_COLORS: Record<WatchlistStatus, string> = {
+  Watching:  "#3b82f6",
+  Completed: "#22c55e",
+  Planning:  "#a855f7",
+  Dropped:   "#ef4444",
+  Paused:    "#f59e0b",
+};
+
 interface AnimeCardProps {
   anime: AnimeData;
   /** Show genre tags under the title */
   showGenres?: boolean;
+  /** Overlay a status badge on the cover image */
+  watchlistStatus?: WatchlistStatus;
 }
 
-export function AnimeCard({ anime, showGenres = false }: AnimeCardProps) {
+export function AnimeCard({ anime, showGenres = false, watchlistStatus }: AnimeCardProps) {
   const title = getDisplayTitle(anime.title);
   const score = anime.averageScore;
 
@@ -47,6 +59,28 @@ export function AnimeCard({ anime, showGenres = false }: AnimeCardProps) {
           sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 160px"
           style={{ objectFit: "cover" }}
         />
+
+        {watchlistStatus && (
+          <span
+            style={{
+              position: "absolute",
+              top: "6px",
+              left: "6px",
+              background: WATCHLIST_COLORS[watchlistStatus],
+              color: "#fff",
+              fontSize: "10px",
+              fontWeight: 700,
+              padding: "2px 6px",
+              borderRadius: "3px",
+              lineHeight: "1.4",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              pointerEvents: "none",
+            }}
+          >
+            {watchlistStatus}
+          </span>
+        )}
 
         {score && (
           <span

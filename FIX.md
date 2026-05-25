@@ -17,3 +17,14 @@ add the abar thats at the top of the landingpage/homepage to every other page in
 add a verification to verify that the user has actually watched the anime for the leaderboard.
 check out that git heath check thing
 make better search ui
+
+
+
+BETTER SEARCH UI
+MAKE ISSUES PAGE ON SITE
+ADD THE WATCHING, PLANNING, COMPLETED THING - DONE
+
+OPTION TO SKIP INTRO AND OUTRO AND AN OPTION TO ENABLE IT TO DO THAT AUTOMATICALLY - DONE
+
+A PRIV MSG TO MY ACCOUNT OR A SPECEFIC CHANNEL WHEN SOMEONE AUTHS/LINKS THEIR DISCORD
+

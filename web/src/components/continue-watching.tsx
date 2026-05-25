@@ -29,14 +29,9 @@ export function ContinueWatching() {
         const res = await fetch("/api/progress");
         if (!res.ok) return;
         const data = await res.json();
-        const history = (data.history ?? []).slice(0, 10);
-        // After fetching history, deduplicate by animeId keeping most recent:
-        const seen = new Set<number>();
-        const deduped = history.filter((h: any) => { // Using 'any' or your HistoryEntry type
-          if (seen.has(h.animeId)) return false;
-          seen.add(h.animeId);
-          return true;
-        });
+        // The API already returns one entry per anime (latest episode watched).
+        // Slice to the 10 most recent before enriching to avoid unnecessary requests.
+        const history: HistoryEntry[] = (data.history ?? []).slice(0, 10);
 
         // Enrich with AniList metadata
         const enriched = await Promise.all(

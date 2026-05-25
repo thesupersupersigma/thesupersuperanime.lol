@@ -235,21 +235,51 @@ export async function getSeasonal(
   return data.Page.media;
 }
 
+export interface SearchFilters {
+  genre?: string;
+  season?: string;
+  seasonYear?: number;
+  format?: string;
+}
+
 /**
- * Search anime by title
+ * Search anime by title and/or filters
  */
 export async function searchAnime(
   search: string,
   page = 1,
-  perPage = 20
+  perPage = 20,
+  filters: SearchFilters = {}
 ): Promise<AnilistSearchResult[]> {
-  if (!search.trim()) return [];
+  const hasFilters = !!(filters.genre || filters.season || filters.seasonYear || filters.format);
+  if (!search.trim() && !hasFilters) return [];
+
+  // SEARCH_MATCH sort is invalid when no search term is provided
+  const sort = search.trim() ? ["SEARCH_MATCH"] : ["POPULARITY_DESC"];
 
   const query = `
     ${SEARCH_FRAGMENT}
-    query SearchAnime($search: String, $page: Int, $perPage: Int) {
+    query SearchAnime(
+      $search: String,
+      $page: Int,
+      $perPage: Int,
+      $sort: [MediaSort],
+      $genre: String,
+      $season: MediaSeason,
+      $seasonYear: Int,
+      $format: MediaFormat
+    ) {
       Page(page: $page, perPage: $perPage) {
-        media(search: $search, type: ANIME, isAdult: false, sort: SEARCH_MATCH) {
+        media(
+          search: $search,
+          type: ANIME,
+          isAdult: false,
+          sort: $sort,
+          genre: $genre,
+          season: $season,
+          seasonYear: $seasonYear,
+          format: $format
+        ) {
           ...SearchFields
         }
       }
@@ -258,7 +288,16 @@ export async function searchAnime(
 
   const data = await anilistFetch<{
     Page: { media: AnilistSearchResult[] };
-  }>(query, { search, page, perPage }, "no-store");
+  }>(query, {
+    search: search.trim() || undefined,
+    page,
+    perPage,
+    sort,
+    genre: filters.genre || undefined,
+    season: filters.season || undefined,
+    seasonYear: filters.seasonYear || undefined,
+    format: filters.format || undefined,
+  }, "no-store");
 
   return data.Page.media;
 }

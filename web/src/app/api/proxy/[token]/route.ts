@@ -189,7 +189,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
 }
 
 function buildTokenData(
-  url: string, record: { sessionId: string; ip: string }, key: Buffer, tokenSecret: string, cookies: string, explicitExt?: string
+  url: string, record: { sessionId: string; ip: string; expiresAt: Date }, key: Buffer, tokenSecret: string, cookies: string, explicitExt?: string
 ): { serveToken: string, dbData: TokenInsertData } {
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
@@ -198,7 +198,10 @@ function buildTokenData(
   const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
   const tokenId = randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + 15 * 60_000);
+  // Inherit the parent playlist token's expiry so a segment never expires mid-
+  // episode while its playlist is still valid (the old fixed 15-min window
+  // expired hundreds of segments out from under the player and stalled it).
+  const expiresAt = record.expiresAt;
   const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
   
   const baseToken = `${tokenId}.${signature}`;

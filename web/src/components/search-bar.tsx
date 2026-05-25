@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface SearchBarProps {
   /** Placeholder text */
@@ -19,32 +19,24 @@ export function SearchBar({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleSearch = useCallback(
-    (value: string) => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-
-      debounceRef.current = setTimeout(() => {
-        if (value.trim()) {
-          router.push(`/search?q=${encodeURIComponent(value.trim())}`);
-        } else {
-          router.push("/search");
-        }
-      }, 400);
-    },
-    [router]
-  );
+  const isInitialRender = useRef(true);
 
   useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (query.trim()) {
+        router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+      } else {
+        router.push("/search");
       }
-    };
-  }, []);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [query, router]);
 
   return (
     <div
@@ -79,10 +71,7 @@ export function SearchBar({
       <input
         type="text"
         value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          handleSearch(e.target.value);
-        }}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
         style={{
           width: "100%",

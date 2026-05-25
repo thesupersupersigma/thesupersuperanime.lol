@@ -1,3 +1,5 @@
+import { DiscordGateCheck } from "./discord-gate-check";
+
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <main
@@ -9,6 +11,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         minHeight: "calc(100vh - 56px)",
       }}
     >
+      <DiscordGateCheck />
       {children}
     </main>
   );

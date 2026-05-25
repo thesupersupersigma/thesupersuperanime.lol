@@ -36,14 +36,22 @@ function timeAgo(isoString: string): string {
   return `${days}d ago`; 
 } 
 
-export function AccountDashboard({ user, history, watchlist, logOutAction }: Props) { 
-  const searchParams = useSearchParams(); 
-  const [activeTab, setActiveTab] = useState<Tab>("history"); 
+export function AccountDashboard({ user, history, watchlist, logOutAction }: Props) {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>("history");
+  const [discordUsername, setDiscordUsername] = useState<string | null | undefined>(user.discordUsername);
 
-  useEffect(() => { 
-    const tab = searchParams.get("tab") as Tab | null; 
-    if (tab && TABS.find(t => t.id === tab)) { setActiveTab(tab); } 
-  }, [searchParams]); 
+  useEffect(() => {
+    const tab = searchParams.get("tab") as Tab | null;
+    if (tab && TABS.find(t => t.id === tab)) { setActiveTab(tab); }
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setDiscordUsername(data.discordUsername); })
+      .catch(() => {});
+  }, []); 
 
   return ( 
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5", paddingTop: "80px", paddingBottom: "80px", paddingLeft: "24px", paddingRight: "24px", }}> 
@@ -199,13 +207,13 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
                 <div style={{ height: "1px", background: "#1a1a1a" }} /> 
                 <div> 
                   <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px", }}> Discord </h3> 
-                  {user.discordUsername ? ( 
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}> 
-                      <p style={{ color: "#555", fontSize: "13px" }}> Linked as <span style={{ color: "#5865F2", fontWeight: 600 }}> {user.discordUsername} </span> </p> 
-                      <UnlinkDiscordButton action={unlinkDiscordAction} /> 
-                    </div> 
-                  ) : ( 
-                    <p style={{ color: "#555", fontSize: "13px" }}>No Discord account linked.</p> 
+                  {discordUsername ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+                      <p style={{ color: "#555", fontSize: "13px" }}> Linked as <span style={{ color: "#5865F2", fontWeight: 600 }}> {discordUsername} </span> </p>
+                      <UnlinkDiscordButton action={unlinkDiscordAction} />
+                    </div>
+                  ) : (
+                    <p style={{ color: "#555", fontSize: "13px" }}>No Discord account linked.</p>
                   )} 
                 </div>
                 

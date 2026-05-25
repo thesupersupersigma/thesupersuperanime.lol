@@ -18,6 +18,8 @@ export default function WatchPage() {
 
   const [anime, setAnime] = useState<AnilistMedia | null>(null);
   const [servers, setServers] = useState<ServerData[]>([]);
+  const [mirrorUsed, setMirrorUsed] = useState<number | undefined>(undefined);
+  const [fallbackReason, setFallbackReason] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
@@ -68,6 +70,8 @@ export default function WatchPage() {
         
         if (sourceData.servers && sourceData.servers.length > 0) {
           setServers(sourceData.servers);
+          setMirrorUsed(sourceData.mirrorUsed);
+          setFallbackReason(sourceData.fallbackReason);
         } else {
           throw new Error("No servers available for this episode.");
         }
@@ -85,10 +89,46 @@ export default function WatchPage() {
 
   if (loading) {
     return (
-      <div className="max-w-[1400px] mx-auto pt-4 md:pt-8" style={{ minHeight: "80vh" }}>
-        <div className="flex flex-col items-center justify-center h-[60vh] gap-4 text-white">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <p>Scraping servers...</p>
+      <div className="max-w-[1400px] mx-auto md:px-4 pt-0 md:pt-4 pb-12">
+        <style>{`
+          @keyframes playerPulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+        `}</style>
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Main player area */}
+          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: "12px" }}>
+            {/* Video rectangle */}
+            <div style={{
+              width: "100%", aspectRatio: "16/9",
+              background: "#111", border: "1px solid #2a2a2a",
+              borderRadius: "8px",
+              animation: "playerPulse 2s ease-in-out infinite",
+            }} />
+            {/* Server selector skeleton */}
+            <div style={{ display: "flex", gap: "8px" }}>
+              {[72, 64, 60].map((w, i) => (
+                <div key={i} style={{
+                  width: w, height: 30,
+                  background: "#1a1a1a", border: "1px solid #2a2a2a",
+                  borderRadius: "6px",
+                  animation: "playerPulse 2s ease-in-out infinite",
+                  animationDelay: `${i * 120}ms`,
+                }} />
+              ))}
+            </div>
+            {/* Title / episode info skeleton */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "8px" }}>
+              <div style={{ height: 18, width: "55%", background: "#1a1a1a", borderRadius: "4px", animation: "playerPulse 2s ease-in-out infinite" }} />
+              <div style={{ height: 13, width: "30%", background: "#1a1a1a", borderRadius: "4px", animation: "playerPulse 2s ease-in-out infinite", animationDelay: "80ms" }} />
+            </div>
+          </div>
+          {/* Sidebar skeleton (desktop only) */}
+          <div className="hidden md:block" style={{ width: 320, flexShrink: 0 }}>
+            <div style={{
+              background: "#1a1a1a", border: "1px solid #2a2a2a",
+              borderRadius: "8px", height: "70vh",
+              animation: "playerPulse 2s ease-in-out infinite",
+            }} />
+          </div>
         </div>
       </div>
     );
@@ -119,11 +159,13 @@ export default function WatchPage() {
         {/* Main Player Area */}
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="w-full bg-black md:rounded-lg overflow-hidden shadow-xl" style={{ border: "1px solid #2a2a2a" }}>
-            <AnimePlayer 
-              servers={servers} 
-              animeId={animeId} 
-              episodeNum={episodeNum} 
-              animeTitle={title} 
+            <AnimePlayer
+              servers={servers}
+              animeId={animeId}
+              episodeNum={episodeNum}
+              animeTitle={title}
+              mirrorUsed={mirrorUsed}
+              fallbackReason={fallbackReason}
             />
           </div>
           

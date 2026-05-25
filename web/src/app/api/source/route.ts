@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/core";
 
 interface NormalizedStream {
   provider: string;
+  type: "sub" | "dub";
   url: string;
   quality: string;
   isM3U8: boolean;
@@ -43,17 +44,18 @@ export async function POST(req: NextRequest) {
 
     console.log(`[/api/source] Fetching streams for: ${animeTitle} | Ep: ${episodeNum}`);
 
-    const allStreams = await fetchMiruro(animeId, episodeNum);
+    const { streams: allStreams, mirrorUsed, fallbackReason } = await fetchMiruro(animeId, episodeNum);
 
     if (allStreams.length === 0) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
     }
 
-    // Group by provider (becomes the server selector in the player)
+    // Group by provider + type (e.g. "kiwi:sub", "kiwi:dub")
     const serverMap = new Map<string, NormalizedStream[]>();
     for (const stream of allStreams) {
-      if (!serverMap.has(stream.provider)) serverMap.set(stream.provider, []);
-      serverMap.get(stream.provider)!.push(stream);
+      const key = `${stream.provider}:${stream.type}`;
+      if (!serverMap.has(key)) serverMap.set(key, []);
+      serverMap.get(key)!.push(stream);
     }
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
@@ -62,15 +64,18 @@ export async function POST(req: NextRequest) {
       throw new Error("ENCRYPTION_SECRET or TOKEN_SECRET is missing!");
     }
 
-    const expiresAt = new Date(Date.now() + 30 * 60_000);
-    const key = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
+    // Cover a full viewing session (episode + pauses); segment tokens minted by
+    // the proxy inherit this same expiry so the whole playback shares one window.
+    const expiresAt = new Date(Date.now() + 3 * 60 * 60_000);
+    const encKey = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
     const finalServers = [];
 
-    for (const [providerName, streams] of serverMap.entries()) {
+    for (const [mapKey, streams] of serverMap.entries()) {
+      const [providerName, streamType] = mapKey.split(":") as [string, "sub" | "dub"];
       const tokenizedSources = await Promise.all(
         streams.map(async (source) => {
           const iv = randomBytes(16);
-          const cipher = createCipheriv("aes-256-cbc", key, iv);
+          const cipher = createCipheriv("aes-256-cbc", encKey, iv);
           const payload = JSON.stringify({ url: source.url, cookies: source.cookies });
           const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
           const encryptedUrl = iv.toString("hex") + ":" + encrypted;
@@ -102,11 +107,11 @@ export async function POST(req: NextRequest) {
         })
       );
 
-      finalServers.push({ name: providerName, sources: tokenizedSources });
+      finalServers.push({ name: providerName, type: streamType, sources: tokenizedSources });
     }
 
     console.log(`[/api/source] Compiled ${finalServers.length} servers for ${animeTitle} ep ${episodeNum}`);
-    return NextResponse.json({ servers: finalServers });
+    return NextResponse.json({ servers: finalServers, mirrorUsed, fallbackReason });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -117,7 +122,10 @@ export async function POST(req: NextRequest) {
 // ── Miruro ───────────────────────────────────────────────────────────────────
 // Tries MIRURO_API_URL first, falls back to MIRURO_API_URL_2 and _3 if set
 
-async function fetchMiruro(animeId: number, episodeNum: number): Promise<NormalizedStream[]> {
+async function fetchMiruro(
+  animeId: number,
+  episodeNum: number
+): Promise<{ streams: NormalizedStream[]; mirrorUsed: number; fallbackReason: string }> {
   const urls = [
     process.env.MIRURO_API_URL,
     process.env.MIRURO_API_URL_2,
@@ -125,22 +133,34 @@ async function fetchMiruro(animeId: number, episodeNum: number): Promise<Normali
   ].filter(Boolean) as string[];
 
   const apiKey = process.env.MIRURO_API_KEY ?? "";
+  // Records why mirror 1 (primary) failed, so we can surface it in the badge
+  let firstFailureReason = "primary";
 
-  for (const baseUrl of urls) {
+  for (let i = 0; i < urls.length; i++) {
     try {
-      console.log(`[fetchMiruro] Trying ${baseUrl}`);
-      const streams = await fetchMiruroFromUrl(baseUrl, apiKey, animeId, episodeNum);
+      console.log(`[fetchMiruro] Trying ${urls[i]}`);
+      const streams = await fetchMiruroFromUrl(urls[i], apiKey, animeId, episodeNum);
       if (streams.length > 0) {
-        console.log(`[fetchMiruro] Got ${streams.length} streams from ${baseUrl}`);
-        return streams;
+        console.log(`[fetchMiruro] Got ${streams.length} streams from ${urls[i]}`);
+        return {
+          streams,
+          mirrorUsed: i + 1, // 1-indexed: 1 = primary, 2 = mirror 2, …
+          fallbackReason: i === 0 ? "primary" : firstFailureReason,
+        };
       }
-      console.log(`[fetchMiruro] No streams from ${baseUrl}, trying next...`);
+      console.log(`[fetchMiruro] No streams from ${urls[i]}, trying next...`);
+      if (i === 0) firstFailureReason = "not_found";
     } catch (err) {
-      console.log(`[fetchMiruro] ${baseUrl} failed: ${err instanceof Error ? err.message : err}`);
+      const name = err instanceof Error ? err.name : "";
+      console.log(`[fetchMiruro] ${urls[i]} failed: ${err instanceof Error ? err.message : err}`);
+      if (i === 0) {
+        firstFailureReason =
+          name === "TimeoutError" || name === "AbortError" ? "timeout" : "error";
+      }
     }
   }
 
-  return [];
+  return { streams: [], mirrorUsed: 0, fallbackReason: firstFailureReason };
 }
 
 async function fetchMiruroFromUrl(
@@ -158,66 +178,70 @@ async function fetchMiruroFromUrl(
   const epsData = await epsRes.json();
 
   const allProviders = ["kiwi", "ally", "arc", "zoro", "jet", "bee"];
+  const audioTypes = ["sub", "dub"] as const;
   const validStreams: NormalizedStream[] = [];
 
   await Promise.all(
-    allProviders.map(async (provider) => {
-      const subEps = epsData?.providers?.[provider]?.episodes?.sub;
-      if (!Array.isArray(subEps)) return;
+    allProviders.flatMap((provider) =>
+      audioTypes.map(async (audioType) => {
+        const eps = epsData?.providers?.[provider]?.episodes?.[audioType];
+        if (!Array.isArray(eps)) return;
 
-      const ep = subEps.find((e: { number: number; id: string }) => e.number === episodeNum);
-      if (!ep?.id) return;
+        const ep = eps.find((e: { number: number; id: string }) => e.number === episodeNum);
+        if (!ep?.id) return;
 
-      try {
-        const streamRes = await fetch(`${baseUrl}/${ep.id}`, {
-          headers: { "x-api-key": apiKey },
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!streamRes.ok) return;
-
-        const streamData = await streamRes.json();
-        const hlsStreams = (streamData.streams ?? []).filter(
-          (s: { type?: string; url?: string }) =>
-            s.type === "hls" || s.url?.includes(".m3u8")
-        );
-        if (hlsStreams.length === 0) return;
-
-        // Proper liveness check — verify it actually responds with a valid m3u8,
-        // not just any HTTP 200 (catches bee/anikoto returning garbage)
         try {
-          const checkRes = await fetch(hlsStreams[0].url, {
-            method: "GET",
-            headers: {
-              "User-Agent": "Mozilla/5.0",
-              "Referer": "https://kwik.cx/",
-            },
-            signal: AbortSignal.timeout(4000),
+          const streamRes = await fetch(`${baseUrl}/${ep.id}`, {
+            headers: { "x-api-key": apiKey },
+            signal: AbortSignal.timeout(8000),
           });
+          if (!streamRes.ok) return;
 
-          if (!checkRes.ok) return;
+          const streamData = await streamRes.json();
+          const hlsStreams = (streamData.streams ?? []).filter(
+            (s: { type?: string; url?: string }) =>
+              s.type === "hls" || s.url?.includes(".m3u8")
+          );
+          if (hlsStreams.length === 0) return;
 
-          const text = await checkRes.text();
-          if (!text.includes("#EXTM3U")) {
-            console.log(`[fetchMiruro] ${provider} failed m3u8 validation, skipping`);
+          // Liveness check — verify it responds with a valid m3u8,
+          // not just any HTTP 200 (catches bee/anikoto returning garbage)
+          try {
+            const checkRes = await fetch(hlsStreams[0].url, {
+              method: "GET",
+              headers: {
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://kwik.cx/",
+              },
+              signal: AbortSignal.timeout(4000),
+            });
+
+            if (!checkRes.ok) return;
+
+            const text = await checkRes.text();
+            if (!text.includes("#EXTM3U")) {
+              console.log(`[fetchMiruro] ${provider}/${audioType} failed m3u8 validation, skipping`);
+              return;
+            }
+          } catch {
             return;
           }
-        } catch {
-          return;
-        }
 
-        for (const s of hlsStreams) {
-          validStreams.push({
-            provider,
-            url: s.url,
-            quality: s.quality ? String(s.quality) : "auto",
-            isM3U8: true,
-            cookies: s.cookies ?? "",
-          });
+          for (const s of hlsStreams) {
+            validStreams.push({
+              provider,
+              type: audioType,
+              url: s.url,
+              quality: s.quality ? String(s.quality) : "auto",
+              isM3U8: true,
+              cookies: s.cookies ?? "",
+            });
+          }
+        } catch {
+          // provider timed out or errored, skip silently
         }
-      } catch {
-        // provider timed out, skip silently
-      }
-    })
+      })
+    )
   );
 
   // Sort so kiwi/ally always appear first in the server selector

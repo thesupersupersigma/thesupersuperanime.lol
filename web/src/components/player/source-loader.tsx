@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { AnimePlayer, ServerData } from "./anime-player"; // import ServerData from the player
+import { AnimePlayer, ServerData } from "./anime-player";
 
 interface SourceLoaderProps {
   animeId: number;
@@ -11,11 +11,84 @@ interface SourceLoaderProps {
 
 type LoadingPhase = "idle" | "loading" | "waking" | "done" | "error";
 
+const SKELETON_PULSE = `
+  @keyframes playerPulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.45; }
+  }
+`;
+
+function PlayerSkeleton({ waking }: { waking: boolean }) {
+  return (
+    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "12px" }}>
+      <style>{SKELETON_PULSE}</style>
+
+      {/* Video rectangle */}
+      <div style={{
+        width: "100%",
+        aspectRatio: "16/9",
+        background: "#111",
+        border: "1px solid #2a2a2a",
+        borderRadius: "4px",
+        animation: "playerPulse 2s ease-in-out infinite",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        paddingBottom: "14px",
+      }}>
+        {waking && (
+          <span style={{ color: "#3a3a3a", fontSize: "12px" }}>
+            Waking up scraper — first load ~10s
+          </span>
+        )}
+      </div>
+
+      {/* Server selector skeleton */}
+      <div style={{ display: "flex", gap: "8px" }}>
+        {[72, 64, 60].map((w, i) => (
+          <div key={i} style={{
+            width: w,
+            height: 30,
+            background: "#1a1a1a",
+            border: "1px solid #2a2a2a",
+            borderRadius: "6px",
+            animation: "playerPulse 2s ease-in-out infinite",
+            animationDelay: `${i * 120}ms`,
+          }} />
+        ))}
+      </div>
+
+      {/* Title / episode info skeleton */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "4px" }}>
+        <div style={{
+          height: 16,
+          width: "52%",
+          background: "#1a1a1a",
+          borderRadius: "4px",
+          animation: "playerPulse 2s ease-in-out infinite",
+        }} />
+        <div style={{
+          height: 12,
+          width: "28%",
+          background: "#1a1a1a",
+          borderRadius: "4px",
+          animation: "playerPulse 2s ease-in-out infinite",
+          animationDelay: "80ms",
+        }} />
+      </div>
+    </div>
+  );
+}
+
 export function SourceLoader({ animeId, episodeNum, animeTitle }: SourceLoaderProps) {
-  const [servers, setServers] = useState<ServerData[] | null>(null); // use ServerData, not inline type
+  const [servers, setServers] = useState<ServerData[] | null>(null);
+  const [mirrorUsed, setMirrorUsed] = useState<number | undefined>(undefined);
+  const [fallbackReason, setFallbackReason] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<LoadingPhase>("idle");
   const hasFetched = useRef(false);
+  const lastLoadAtRef = useRef(0);       // when sources last loaded successfully
+  const reloadAttemptsRef = useRef(0);   // consecutive rapid reloads — loop guard
 
   const loadSources = useCallback(async () => {
     setError(null);
@@ -41,7 +114,10 @@ export function SourceLoader({ animeId, episodeNum, animeTitle }: SourceLoaderPr
       }
 
       setServers(data.servers);
+      setMirrorUsed(data.mirrorUsed);
+      setFallbackReason(data.fallbackReason);
       setPhase("done");
+      lastLoadAtRef.current = Date.now();
     } catch (err) {
       clearTimeout(wakeTimer);
       console.error("[SourceLoader]", err);
@@ -49,6 +125,22 @@ export function SourceLoader({ animeId, episodeNum, animeTitle }: SourceLoaderPr
       setPhase("error");
     }
   }, [animeId, episodeNum, animeTitle]);
+
+  // The player calls this when playback dies on dead tokens (expiry / upstream
+  // drop). Re-fetch fresh sources, but bail to the error UI if it's looping —
+  // a stream that fails again within 60 s of reloading won't be fixed by more
+  // reloads, whereas a token that expires hours later legitimately needs one.
+  const reloadSources = useCallback(() => {
+    const now = Date.now();
+    reloadAttemptsRef.current =
+      now - lastLoadAtRef.current < 60_000 ? reloadAttemptsRef.current + 1 : 1;
+    if (reloadAttemptsRef.current > 2) {
+      setError("Stream keeps dropping — try another server or reload the page");
+      setPhase("error");
+      return;
+    }
+    loadSources();
+  }, [loadSources]);
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -58,7 +150,7 @@ export function SourceLoader({ animeId, episodeNum, animeTitle }: SourceLoaderPr
 
   if (phase === "error") {
     return (
-      <div style={containerStyle}>
+      <div style={errorContainerStyle}>
         <p style={{ color: "#e5e5e5", marginBottom: "16px", fontSize: "14px" }}>{error}</p>
         <button
           onClick={() => { hasFetched.current = false; loadSources(); }}
@@ -75,27 +167,7 @@ export function SourceLoader({ animeId, episodeNum, animeTitle }: SourceLoaderPr
   }
 
   if (phase === "loading" || phase === "waking") {
-    return (
-      <div style={containerStyle}>
-        <div style={{
-          width: "36px", height: "36px",
-          border: "3px solid rgba(59,130,246,0.2)",
-          borderTopColor: "#3b82f6",
-          borderRadius: "50%",
-          animation: "spin 0.9s linear infinite",
-          marginBottom: "16px",
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <p style={{ color: "#888", fontSize: "13px", textAlign: "center" }}>
-          {phase === "waking" ? "Waking up scraper — hang tight..." : "Finding stream..."}
-        </p>
-        {phase === "waking" && (
-          <p style={{ color: "#555", fontSize: "12px", marginTop: "8px", textAlign: "center" }}>
-            First load can take ~10s
-          </p>
-        )}
-      </div>
-    );
+    return <PlayerSkeleton waking={phase === "waking"} />;
   }
 
   if (!servers) return null;
@@ -106,11 +178,14 @@ export function SourceLoader({ animeId, episodeNum, animeTitle }: SourceLoaderPr
       animeId={animeId}
       episodeNum={episodeNum}
       animeTitle={animeTitle}
+      mirrorUsed={mirrorUsed}
+      fallbackReason={fallbackReason}
+      onSourceFailure={reloadSources}
     />
   );
 }
 
-const containerStyle: React.CSSProperties = {
+const errorContainerStyle: React.CSSProperties = {
   width: "100%",
   aspectRatio: "16/9",
   background: "#000",

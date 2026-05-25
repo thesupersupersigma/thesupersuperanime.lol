@@ -7,5 +7,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     userId: user.id,
     discordLinked: !!user.discordId,
+    discordUsername: user.discordUsername ?? null,
   });
 }

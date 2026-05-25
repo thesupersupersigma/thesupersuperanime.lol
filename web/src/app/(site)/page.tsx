@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getTrending, getSeasonal, getDisplayTitle } from "@/lib/anilist";
-import { AnimeCard, AnimeRowSkeleton } from "@/components/anime-card";
+import { AnimeRowSkeleton } from "@/components/anime-card";
+import { WatchlistAwareRow } from "@/components/watchlist-aware-row";
 import { ContinueWatching } from "@/components/continue-watching";
 import type { Metadata } from "next";
 
@@ -129,26 +130,10 @@ async function HeroBanner() {
 
 async function TrendingRow() {
   const trending = await getTrending(1, 20);
-  return (
-    <div className="scroll-row">
-      {trending.slice(0, 10).map((anime) => (
-        <div key={anime.id} style={{ width: "160px", minWidth: "140px", flexShrink: 0 }}>
-          <AnimeCard anime={anime} />
-        </div>
-      ))}
-    </div>
-  );
+  return <WatchlistAwareRow anime={trending.slice(0, 10)} />;
 }
 
 async function SeasonalRow() {
   const seasonal = await getSeasonal(1, 20);
-  return (
-    <div className="scroll-row">
-      {seasonal.slice(0, 10).map((anime) => (
-        <div key={anime.id} style={{ width: "160px", minWidth: "140px", flexShrink: 0 }}>
-          <AnimeCard anime={anime} />
-        </div>
-      ))}
-    </div>
-  );
+  return <WatchlistAwareRow anime={seasonal.slice(0, 10)} />;
 }

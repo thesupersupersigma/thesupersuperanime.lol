@@ -1,4 +1,5 @@
 .
+├── CLAUDE.md
 ├── eslint.config.mjs
 ├── next-env.d.ts
 ├── next.config.ts
@@ -185,4 +186,4 @@
 ├── tree.txt
 └── tsconfig.json
 
-55 directories, 131 files
+55 directories, 132 files
