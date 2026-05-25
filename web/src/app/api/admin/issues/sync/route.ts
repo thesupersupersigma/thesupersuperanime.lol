@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-
-// Auth handled by middleware — only reachable with valid admin-auth cookie
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 interface GitHubIssue {
   html_url: string;
@@ -9,6 +8,11 @@ interface GitHubIssue {
 }
 
 export async function GET() {
+  const user = await getCurrentUser();
+  if (!isAdmin(user?.discordId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const ghRepo = process.env.GITHUB_ISSUES_REPO;
   const ghToken = process.env.GITHUB_PAT;
 

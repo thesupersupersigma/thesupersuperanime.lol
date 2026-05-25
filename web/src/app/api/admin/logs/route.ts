@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 /** GET /api/admin/logs — get recent provider logs (last 50)
  *  Query params:
@@ -7,6 +8,11 @@ import { db } from "@/lib/db";
  *    ?level=error           — filter to one log level
  */
 export async function GET(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!isAdmin(user?.discordId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { searchParams } = req.nextUrl;
   const providerId = searchParams.get("providerId") ?? undefined;
   const level = searchParams.get("level") ?? undefined;

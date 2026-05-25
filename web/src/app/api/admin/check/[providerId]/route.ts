@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSingleProviderCheck } from "@/lib/health-check";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 interface Params {
   params: Promise<{ providerId: string }>;
@@ -7,6 +8,11 @@ interface Params {
 
 /** POST /api/admin/check/[providerId] — run health check on one provider */
 export async function POST(_req: NextRequest, { params }: Params) {
+  const user = await getCurrentUser();
+  if (!isAdmin(user?.discordId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { providerId } = await params;
 
   try {

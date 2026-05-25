@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { providers } from "@/providers/index";
 import { DashboardClient } from "./components/dashboard-client";
 import { IssuesPanel } from "./components/issues-panel";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -13,6 +15,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
+  const currentUser = await getCurrentUser();
+  if (!isAdmin(currentUser?.discordId)) {
+    redirect("/");
+  }
+
   // Fetch all stored provider statuses from DB
   const dbStatuses = await db.providerStatus.findMany();
   const statusMap = new Map(dbStatuses.map((s) => [s.providerId, s]));

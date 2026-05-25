@@ -99,6 +99,34 @@ export function verifyPassword(password: string, hash: string): boolean {
   return timingSafeEqual(keyBuffer, derivedKey);
 }
 
+// ==========================================
+// 3. DISCORD-BASED ADMIN ALLOWLIST
+// ==========================================
+
+/**
+ * Build the list of allowed admin Discord IDs from env vars.
+ * Pattern: ADMIN_1, ADMIN_2, ADMIN_3, ... (stops at the first missing index).
+ */
+function getAdminDiscordIds(): string[] {
+  const ids: string[] = [];
+  let i = 1;
+  while (true) {
+    const val = process.env[`ADMIN_${i}`];
+    if (!val) break;
+    ids.push(val.trim());
+    i++;
+  }
+  return ids;
+}
+
+/**
+ * Returns true if the given Discord ID appears in the ADMIN_n env var allowlist.
+ */
+export function isAdmin(discordId: string | null | undefined): boolean {
+  if (!discordId) return false;
+  return getAdminDiscordIds().includes(discordId);
+}
+
 /**
  * Get the currently logged-in user from the database
  */
