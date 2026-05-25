@@ -8,6 +8,7 @@ const ISSUE_TYPES = [
   "Missing episode",
   "Wrong subtitles",
   "Site bug",
+  "Suggestion",
   "Other",
 ] as const;
 
@@ -75,7 +76,7 @@ export default function IssuesPage() {
             fontSize: "20px", fontWeight: 700,
             color: "#e5e5e5", marginBottom: "10px", letterSpacing: "-0.02em",
           }}>
-            Report submitted
+            Submitted
           </h2>
           <p style={{ color: "#666", fontSize: "13px", marginBottom: "28px", lineHeight: "1.6" }}>
             Thanks for letting us know. We&apos;ll look into it.
@@ -121,17 +122,17 @@ export default function IssuesPage() {
           color: "#e5e5e5", letterSpacing: "-0.02em",
           marginBottom: "8px",
         }}>
-          Report an issue
+          Issues &amp; Suggestions
         </h1>
         <p style={{ color: "#555", fontSize: "13px", lineHeight: "1.6" }}>
-          Broken video? Missing episode? Something not working right? Let us know.
+          Broken video? Missing episode? Have an idea? Let us know.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
         {/* Issue type */}
         <div>
-          <label style={labelStyle}>Issue type <span style={{ color: "#ef4444" }}>*</span></label>
+          <label style={labelStyle}>Type <span style={{ color: "#ef4444" }}>*</span></label>
           <div style={{ position: "relative" }}>
             <select
               value={type}
@@ -237,7 +238,7 @@ export default function IssuesPage() {
               </svg>
               Submitting…
             </>
-          ) : "Submit report"}
+          ) : "Submit"}
         </button>
       </form>
 

@@ -329,6 +329,32 @@ export async function getAnimeById(
 }
 
 /**
+ * Get top anime for a genre, sorted by score descending.
+ * Fetches more than needed so the caller can re-rank with community votes.
+ */
+export async function getAnimeByGenre(
+  genre: string,
+  perPage = 50
+): Promise<AnilistMedia[]> {
+  const query = `
+    ${MEDIA_FRAGMENT}
+    query AnimeByGenre($genre: String, $perPage: Int) {
+      Page(page: 1, perPage: $perPage) {
+        media(genre: $genre, sort: SCORE_DESC, type: ANIME, isAdult: false) {
+          ...MediaFields
+        }
+      }
+    }
+  `;
+
+  const data = await anilistFetch<{
+    Page: { media: AnilistMedia[] };
+  }>(query, { genre, perPage }, "force-cache", 3600);
+
+  return data.Page.media;
+}
+
+/**
  * Get display title — prefers English, falls back to Romaji
  */
 export function getDisplayTitle(title: AnilistTitle): string {

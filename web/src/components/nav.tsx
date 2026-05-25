@@ -78,6 +78,26 @@ export function Nav() {
           {/* Right — account or sign in */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             
+            {/* Genres */}
+            <Link href="/genres" style={{
+              display: "flex", alignItems: "center",
+              color: pathname.startsWith("/genres") ? "#e5e5e5" : "#888",
+              textDecoration: "none", transition: "color 150ms ease",
+            }}
+              title="Browse by Genre"
+              onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
+              onMouseLeave={e => (e.currentTarget.style.color = pathname.startsWith("/genres") ? "#e5e5e5" : "#888")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </Link>
+
             {/* Leaderboard/Ranks bookmark */}
             <Link href="/leaderboard" style={{
               display: "flex", alignItems: "center",
@@ -103,7 +123,7 @@ export function Nav() {
               color: pathname === "/issues" ? "#e5e5e5" : "#888",
               textDecoration: "none", transition: "color 150ms ease",
             }}
-              title="Report an issue"
+              title="Issues &amp; Suggestions"
               onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
               onMouseLeave={e => (e.currentTarget.style.color = pathname === "/issues" ? "#e5e5e5" : "#888")}
             >
@@ -201,6 +221,16 @@ export function Nav() {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         } />
+        <MobileTab href="/genres" label="Genres" active={pathname.startsWith("/genres")} icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
+        } />
         <MobileTab href="/leaderboard" label="Ranks" active={pathname === "/leaderboard"} icon={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
@@ -211,7 +241,7 @@ export function Nav() {
             <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
           </svg>
         } />
-        <MobileTab href="/issues" label="Report" active={pathname === "/issues"} icon={
+        <MobileTab href="/issues" label="Issues" active={pathname === "/issues"} icon={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
             <line x1="12" y1="8" x2="12" y2="12" />

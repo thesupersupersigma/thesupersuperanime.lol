@@ -31,6 +31,7 @@ const TYPE_COLOR: Record<string, string> = {
   "Missing episode": "#f97316",
   "Wrong subtitles": "#eab308",
   "Site bug": "#a855f7",
+  "Suggestion": "#22c55e",
   "Other": "#888",
 };
 
@@ -71,7 +72,7 @@ export function IssuesPanel({ initialIssues }: IssuesPanelProps) {
             fontSize: "11px", fontWeight: 600, color: "#555",
             textTransform: "uppercase", letterSpacing: "0.08em", margin: 0,
           }}>
-            User Reports
+            Issues &amp; Suggestions
           </h2>
           {openCount > 0 && (
             <span style={{

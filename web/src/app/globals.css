@@ -138,3 +138,13 @@ body {
     width: 160px !important;
   }
 }
+
+/* Genre page breadcrumb */
+.breadcrumb-link {
+  color: #555;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+.breadcrumb-link:hover {
+  color: #e5e5e5;
+}

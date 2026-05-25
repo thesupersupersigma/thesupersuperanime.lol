@@ -7,6 +7,7 @@ const VALID_TYPES = [
   "Missing episode",
   "Wrong subtitles",
   "Site bug",
+  "Suggestion",
   "Other",
 ] as const;
 

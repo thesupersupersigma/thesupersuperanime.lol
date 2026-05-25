@@ -22,6 +22,7 @@ model User {
   comments            Comment[]
   commentLikes        CommentLike[]
   issues              Issue[]
+  genreVotes          GenreVote[]
 }
 
 model PasswordResetToken {
@@ -132,6 +133,7 @@ model CommentLike {
 
 model Issue {
   id          String   @id @default(cuid())
+  // Valid values: "Video not playing" | "Missing episode" | "Wrong subtitles" | "Site bug" | "Suggestion" | "Other"
   type        String
   description String
   animeInfo   String?
@@ -142,4 +144,17 @@ model Issue {
 
   @@index([status])
   @@index([createdAt])
+}
+
+model GenreVote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  animeId   Int
+  genre     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, animeId, genre])
+  @@index([animeId, genre])
+  @@index([genre])
 }
