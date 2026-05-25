@@ -8,11 +8,9 @@ import { db } from "@/lib/db";
  * (handled by middleware — this route only runs if the token is valid)
  */
 export async function POST(_req: NextRequest) {
-  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
-
   try {
     const { count } = await db.sourceToken.deleteMany({
-      where: { expiresAt: { lt: cutoff } },
+      where: { expiresAt: { lt: new Date() } },
     });
 
     return NextResponse.json({ ok: true, deleted: count });
