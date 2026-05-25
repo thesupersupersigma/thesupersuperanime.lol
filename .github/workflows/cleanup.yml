@@ -1,0 +1,23 @@
+name: Cleanup Expired Tokens
+
+on:
+  schedule:
+    - cron: "0 */2 * * *" # every 2 hours
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Run cleanup
+        run: |
+          curl -f -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            https://thesupersuperanime.lol/api/cron/cleanup
+
+      - name: Print result
+        if: always()
+        run: echo "Cleanup job completed."
