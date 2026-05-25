@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
 
   const issues = await db.issue.findMany({
     where: status ? { status } : undefined,
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
     take: 200,
     include: {
       user: {

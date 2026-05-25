@@ -1,6 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+
+export async function GET() {
+  const issues = await db.issue.findMany({
+    orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      type: true,
+      description: true,
+      animeInfo: true,
+      status: true,
+      priority: true,
+      createdAt: true,
+    },
+  });
+  return NextResponse.json({ issues });
+}
 
 const VALID_TYPES = [
   "Video not playing",

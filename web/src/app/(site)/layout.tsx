@@ -1,6 +1,9 @@
 import { DiscordGateCheck } from "./discord-gate-check";
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
+  // DISCORD_GATE=off disables the client-side gate check too (default: on)
+  const discordGateEnabled = process.env.DISCORD_GATE !== "off";
+
   return (
     <main
       className="site-main"
@@ -11,7 +14,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         minHeight: "calc(100vh - 56px)",
       }}
     >
-      <DiscordGateCheck />
+      {discordGateEnabled && <DiscordGateCheck />}
       {children}
     </main>
   );

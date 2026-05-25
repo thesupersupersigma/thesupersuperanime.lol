@@ -41,12 +41,16 @@ export function proxy(req: NextRequest) {
   }
 
   // ── Site-wide password lock ─────────────────────────────────────────────
-  const siteAuth = req.cookies.get("site-auth");
-  if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // SITE_PASSWORD_GATE=off bypasses the check entirely (default: on)
+  const sitePasswordGateEnabled = process.env.SITE_PASSWORD_GATE !== "off";
+  if (sitePasswordGateEnabled) {
+    const siteAuth = req.cookies.get("site-auth");
+    if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      return NextResponse.redirect(new URL("/login", req.url));
     }
-    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // ── Admin routes (after site auth passes) ──────────────────────────────
@@ -62,38 +66,43 @@ export function proxy(req: NextRequest) {
   }
 
   // ── Discord link gate ───────────────────────────────────────────────────
-  const exemptFromDiscordGate =
-    pathname === "/account" ||
-    pathname.startsWith("/account/") ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/import") ||
-    pathname.startsWith("/api/watchlist") ||
-    pathname.startsWith("/api/progress") ||
-    pathname === "/leaderboard" ||
-    pathname === "/api/auth/me" ||
-    pathname.startsWith("/user/");
+  // DISCORD_GATE=off skips the gate entirely (default: on)
+  const discordGateEnabled = process.env.DISCORD_GATE !== "off";
 
-  if (!exemptFromDiscordGate) {
-    const userId = req.cookies.get("user-session")?.value;
+  if (discordGateEnabled) {
+    const exemptFromDiscordGate =
+      pathname === "/account" ||
+      pathname.startsWith("/account/") ||
+      pathname.startsWith("/api/auth") ||
+      pathname.startsWith("/api/import") ||
+      pathname.startsWith("/api/watchlist") ||
+      pathname.startsWith("/api/progress") ||
+      pathname === "/leaderboard" ||
+      pathname === "/api/auth/me" ||
+      pathname.startsWith("/user/");
 
-    // 1. If they have NO account/session, kick them to the login page
-    if (!userId) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    if (!exemptFromDiscordGate) {
+      const userId = req.cookies.get("user-session")?.value;
+
+      // 1. If they have NO account/session, kick them to the login page
+      if (!userId) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+        }
+        return NextResponse.redirect(new URL("/account", req.url));
       }
-      return NextResponse.redirect(new URL("/account", req.url));
-    }
 
-    // 2. If they ARE logged in, but haven't linked Discord, kick to the link page
-    const discordLinked = req.cookies.get("discord-linked")?.value;
-    if (!discordLinked || discordLinked !== "1") {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Discord account required", code: "DISCORD_REQUIRED" },
-          { status: 403 }
-        );
+      // 2. If they ARE logged in, but haven't linked Discord, kick to the link page
+      const discordLinked = req.cookies.get("discord-linked")?.value;
+      if (!discordLinked || discordLinked !== "1") {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Discord account required", code: "DISCORD_REQUIRED" },
+            { status: 403 }
+          );
+        }
+        return NextResponse.redirect(new URL("/account/link-discord", req.url));
       }
-      return NextResponse.redirect(new URL("/account/link-discord", req.url));
     }
   }
 

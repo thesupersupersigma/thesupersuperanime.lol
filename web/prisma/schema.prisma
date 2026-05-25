@@ -139,10 +139,13 @@ model Issue {
   animeInfo   String?
   userId      String?
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Status values: "open" | "in_progress" | "fixed" | "wont_fix" | "duplicate" | "resolved" (legacy)
   status      String   @default("open")
+  priority    Int      @default(0)
   createdAt   DateTime @default(now())
 
   @@index([status])
+  @@index([priority])
   @@index([createdAt])
 }
 

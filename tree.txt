@@ -1,189 +1,710 @@
 .
-├── CLAUDE.md
-├── eslint.config.mjs
-├── next-env.d.ts
-├── next.config.ts
-├── package-lock.json
-├── package.json
-├── postcss.config.mjs
-├── prisma
-│   └── schema.prisma
-├── public
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── next.svg
-│   ├── vercel.svg
-│   └── window.svg
+├── currentTODO.md
+├── FIX.md
+├── LICENSE
+├── main.md
+├── Please audit the Phase 3 implementation .md
 ├── README.md
-├── src
-│   ├── app
-│   │   ├── (auth)
-│   │   │   └── login
-│   │   │       ├── actions.ts
-│   │   │       └── page.tsx
-│   │   ├── (site)
-│   │   │   ├── anime
-│   │   │   │   └── [id]
-│   │   │   │       ├── page.tsx
-│   │   │   │       └── watchlist-button.tsx
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── search
-│   │   │   │   └── page.tsx
-│   │   │   └── watch
-│   │   │       └── [animeId]
-│   │   │           └── [episodeNum]
-│   │   │               └── page.tsx
-│   │   ├── account
-│   │   │   ├── account-buttons.tsx
-│   │   │   ├── account-dashboard.tsx
-│   │   │   ├── actions.ts
-│   │   │   ├── link-discord
-│   │   │   │   └── page.tsx
-│   │   │   ├── login-form.tsx
-│   │   │   ├── page.bak
-│   │   │   ├── page.tsx
-│   │   │   └── reset-password
-│   │   │       └── page.tsx
-│   │   ├── admin
-│   │   │   ├── components
-│   │   │   │   ├── dashboard-client.tsx
-│   │   │   │   ├── log-feed.tsx
-│   │   │   │   └── status-card.tsx
-│   │   │   ├── login
-│   │   │   │   ├── actions.ts
-│   │   │   │   └── page.tsx
-│   │   │   └── page.tsx
-│   │   ├── api
-│   │   │   ├── admin
-│   │   │   │   ├── check
-│   │   │   │   │   ├── [providerId]
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── logs
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── status
-│   │   │   │       └── route.ts
-│   │   │   ├── anilist
-│   │   │   │   ├── [id]
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── search
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── trending
-│   │   │   │       └── route.ts
-│   │   │   ├── auth
-│   │   │   │   ├── discord
-│   │   │   │   │   └── callback
-│   │   │   │   │       └── route.ts
-│   │   │   │   └── me
-│   │   │   │       └── route.ts
-│   │   │   ├── comments
-│   │   │   │   ├── like
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── cron
-│   │   │   │   └── health-check
-│   │   │   │       └── route.ts
-│   │   │   ├── import
-│   │   │   │   └── route.ts
-│   │   │   ├── progress
-│   │   │   │   └── route.ts
-│   │   │   ├── proxy
-│   │   │   │   └── [token]
-│   │   │   │       └── route.ts
-│   │   │   ├── source
-│   │   │   │   └── route.ts
-│   │   │   └── watchlist
-│   │   │       └── route.ts
-│   │   ├── favicon.ico
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── leaderboard
-│   │       ├── leaderboard-row.tsx
-│   │       └── page.tsx
-│   ├── components
-│   │   ├── anime-card.tsx
-│   │   ├── comments.tsx
-│   │   ├── continue-watching.tsx
-│   │   ├── episode-list.tsx
-│   │   ├── nav.tsx
-│   │   ├── next-episode-countdown.tsx
-│   │   ├── player
-│   │   │   ├── anime-player.tsx
-│   │   │   ├── quality-menu.tsx
-│   │   │   └── source-loader.tsx
-│   │   ├── search-bar.tsx
-│   │   └── watch
-│   │       ├── episode-sidebar.tsx
-│   │       └── watch-info.tsx
-│   ├── lib
-│   │   ├── anilist.ts
-│   │   ├── auth.ts
-│   │   ├── core-dist
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.d.ts.map
-│   │   │   ├── index.js
-│   │   │   ├── index.js.map
-│   │   │   ├── lib
-│   │   │   │   ├── extractors
-│   │   │   │   │   ├── base.d.ts
-│   │   │   │   │   ├── base.d.ts.map
-│   │   │   │   │   ├── base.js
-│   │   │   │   │   ├── base.js.map
-│   │   │   │   │   ├── index.d.ts
-│   │   │   │   │   ├── index.d.ts.map
-│   │   │   │   │   ├── index.js
-│   │   │   │   │   ├── index.js.map
-│   │   │   │   │   ├── s3taku.d.ts
-│   │   │   │   │   ├── s3taku.d.ts.map
-│   │   │   │   │   ├── s3taku.js
-│   │   │   │   │   ├── s3taku.js.map
-│   │   │   │   │   ├── streamtape.d.ts
-│   │   │   │   │   ├── streamtape.d.ts.map
-│   │   │   │   │   ├── streamtape.js
-│   │   │   │   │   ├── streamtape.js.map
-│   │   │   │   │   ├── vibeplayer.d.ts
-│   │   │   │   │   ├── vibeplayer.d.ts.map
-│   │   │   │   │   ├── vibeplayer.js
-│   │   │   │   │   └── vibeplayer.js.map
-│   │   │   │   ├── fetch.d.ts
-│   │   │   │   ├── fetch.d.ts.map
-│   │   │   │   ├── fetch.js
-│   │   │   │   ├── fetch.js.map
-│   │   │   │   ├── rate-limit.d.ts
-│   │   │   │   ├── rate-limit.d.ts.map
-│   │   │   │   ├── rate-limit.js
-│   │   │   │   └── rate-limit.js.map
-│   │   │   └── providers
-│   │   │       ├── aniwave.d.ts
-│   │   │       ├── aniwave.d.ts.map
-│   │   │       ├── aniwave.js
-│   │   │       ├── aniwave.js.map
-│   │   │       ├── base.d.ts
-│   │   │       ├── base.d.ts.map
-│   │   │       ├── base.js
-│   │   │       ├── base.js.map
-│   │   │       ├── gogoanime.d.ts
-│   │   │       ├── gogoanime.d.ts.map
-│   │   │       ├── gogoanime.js
-│   │   │       ├── gogoanime.js.map
-│   │   │       ├── index.d.ts
-│   │   │       ├── index.d.ts.map
-│   │   │       ├── index.js
-│   │   │       └── index.js.map
-│   │   ├── core.ts
-│   │   ├── db.ts
-│   │   ├── discord.ts
-│   │   ├── health-check.ts
-│   │   ├── importers
-│   │   │   ├── anikai.ts
-│   │   │   └── route.ts
-│   │   └── resend.ts
-│   ├── middleware.ts
-│   └── providers
-│       ├── base.ts
-│       └── index.ts
+├── ROADMAP.md
 ├── tree.txt
-└── tsconfig.json
+└── web
+    ├── CLAUDE.md
+    ├── eslint.config.mjs
+    ├── graphify-out
+    │   ├── 2026-05-24
+    │   │   ├── cost.json
+    │   │   ├── GRAPH_REPORT.md
+    │   │   ├── graph.json
+    │   │   └── manifest.json
+    │   ├── cache
+    │   │   ├── ast
+    │   │   │   ├── 39253254c0a56e81ddcde3516750933c8fdee1388f04fc3409f4be7305af7fc8.json
+    │   │   │   ├── d49f9da44357fc5f0b79040606bb08e75546d2fa4105e302fed3c37db1d8bf6f.json
+    │   │   │   └── ddb3cf2c209eed0aca4b661a45ea265f915504e141d1b47807fb89a58fd6a05b.json
+    │   │   ├── semantic
+    │   │   │   ├── 0b44daaa94766d385f056c95e8aabb30ad6e49ef3aa9c7eb9e32606055f4eaf2.json
+    │   │   │   ├── 52163ecb5257da6ecb3ddf8967f0d51a0da93d79d48caa09e9d307ea1c1d3f17.json
+    │   │   │   ├── 58d233ee9a0b0231d74f31667bfd20bc006b78d64d40f6521293bd71f06d435e.json
+    │   │   │   ├── 8c99baedee05ada37bd392e179350c9a8e893c25c08cb2e1a8ec25f4f8a33868.json
+    │   │   │   ├── 9caa34ac82b48d59fd2add4c0dbf6fcceaf3c3904254c3ccd89dd00644b375ad.json
+    │   │   │   ├── a0cf90219cf87dd3ead67e2edb6561266caa99b092dda5c2dc1929631ceefa9f.json
+    │   │   │   └── dd579ec801cede14607350aa14a79bf784424d7144e1b63dbcbc4b9e32c12474.json
+    │   │   └── stat-index.json
+    │   ├── cost.json
+    │   ├── GRAPH_REPORT.md
+    │   ├── graph.html
+    │   ├── graph.json
+    │   ├── manifest.json
+    │   └── obsidian
+    │       ├── _COMMUNITY_Account Dashboard UI.md
+    │       ├── _COMMUNITY_Admin Dashboard.md
+    │       ├── _COMMUNITY_Admin Login.md
+    │       ├── _COMMUNITY_AniKai Import System.md
+    │       ├── _COMMUNITY_Anime Cards & Home Feed.md
+    │       ├── _COMMUNITY_AniSkip API Route.md
+    │       ├── _COMMUNITY_Architecture Docs & SVGs.md
+    │       ├── _COMMUNITY_Auth Routes & Account API.md
+    │       ├── _COMMUNITY_Comments & Episode List.md
+    │       ├── _COMMUNITY_Core Extractor Types (dist).md
+    │       ├── _COMMUNITY_Core Fetch Helper (dist).md
+    │       ├── _COMMUNITY_Core Provider Types (dist).md
+    │       ├── _COMMUNITY_Core Rate Limit (dist).md
+    │       ├── _COMMUNITY_Discord Gate & Site Layout.md
+    │       ├── _COMMUNITY_ESLint Config.md
+    │       ├── _COMMUNITY_File SVG Asset.md
+    │       ├── _COMMUNITY_Health Check & Discord Alerts.md
+    │       ├── _COMMUNITY_Leaderboard.md
+    │       ├── _COMMUNITY_Middleware.md
+    │       ├── _COMMUNITY_Next.js Config.md
+    │       ├── _COMMUNITY_Package Dependencies.md
+    │       ├── _COMMUNITY_PostCSS Config.md
+    │       ├── _COMMUNITY_Proxy Token Route.md
+    │       ├── _COMMUNITY_Public SVGs (GlobeWindow).md
+    │       ├── _COMMUNITY_Root Layout & Navigation.md
+    │       ├── _COMMUNITY_TypeScript Config.md
+    │       ├── _COMMUNITY_Vercel Cron Config.md
+    │       ├── _COMMUNITY_Video Extractors (S3TakuVibePlyerStreamtape).md
+    │       ├── _COMMUNITY_Video Player Components.md
+    │       ├── @.md
+    │       ├── @prismaclient.md
+    │       ├── @tailwindcsspostcss.md
+    │       ├── @tssscore_1.md
+    │       ├── @tssscore.md
+    │       ├── @typesnode.md
+    │       ├── @typesreact.md
+    │       ├── @vidstackreact.md
+    │       ├── account-buttons.tsx.md
+    │       ├── account-dashboard.tsx.md
+    │       ├── AccountPage().md
+    │       ├── actions.ts_1.md
+    │       ├── actions.ts_2.md
+    │       ├── actions.ts.md
+    │       ├── Admin Gate (admin-auth cookie).md
+    │       ├── AdminDashboard().md
+    │       ├── adminLoginAction().md
+    │       ├── AdminLoginPage().md
+    │       ├── allowJs.md
+    │       ├── anikai.ts.md
+    │       ├── AniList GraphQL Data Fetching.md
+    │       ├── anilist.ts.md
+    │       ├── AnilistCoverImage.md
+    │       ├── anilistFetch().md
+    │       ├── AnilistMedia.md
+    │       ├── AnilistSearchResult.md
+    │       ├── AnilistStudio.md
+    │       ├── AnilistStudioConnection.md
+    │       ├── AnilistTitle.md
+    │       ├── anime-card.tsx.md
+    │       ├── anime-player.tsx.md
+    │       ├── AnimeCardProps.md
+    │       ├── AnimeCardSkeleton().md
+    │       ├── AnimeData.md
+    │       ├── AnimeDetailPage().md
+    │       ├── AnimePlayer().md
+    │       ├── AnimePlayerProps.md
+    │       ├── AnimeRowSkeleton().md
+    │       ├── AniSkipInterval.md
+    │       ├── AniSkipResponse.md
+    │       ├── AniSkipResult.md
+    │       ├── aniwave_1.md
+    │       ├── aniwave.d.ts.md
+    │       ├── aniwave.js.md
+    │       ├── AniWaveProvider_1.md
+    │       ├── AniWaveProvider.md
+    │       ├── auth.ts.md
+    │       ├── Avatar().md
+    │       ├── base.d.ts_1.md
+    │       ├── base.d.ts.md
+    │       ├── base.js_1.md
+    │       ├── base.js.md
+    │       ├── base.ts.md
+    │       ├── BaseExtractor.md
+    │       ├── BaseProvider_1.md
+    │       ├── BaseProvider.md
+    │       ├── build.md
+    │       ├── buildDiscordOAuthUrl().md
+    │       ├── buildTokenData().md
+    │       ├── checkRateLimit().md
+    │       ├── CheckSummary.md
+    │       ├── CLAUDE.md - Project Architecture Guide.md
+    │       ├── CommentCard().md
+    │       ├── CommentData.md
+    │       ├── comments.tsx.md
+    │       ├── Comments().md
+    │       ├── CommentUser.md
+    │       ├── compilerOptions.md
+    │       ├── config_1.md
+    │       ├── config.md
+    │       ├── continue-watching.tsx.md
+    │       ├── ContinueWatching().md
+    │       ├── Core Package - Scraper Logic.md
+    │       ├── core.md
+    │       ├── core.ts.md
+    │       ├── CoreProviderAdapter.md
+    │       ├── crons.md
+    │       ├── crypto_js_1.md
+    │       ├── crypto-js.md
+    │       ├── CURRENT_YEAR.md
+    │       ├── DashboardClient().md
+    │       ├── DashboardClientProps.md
+    │       ├── db.ts.md
+    │       ├── decryptSources().md
+    │       ├── DELETE()_1.md
+    │       ├── DELETE().md
+    │       ├── deleteAccountAction().md
+    │       ├── DeleteAccountButton().md
+    │       ├── dependencies.md
+    │       ├── detectJsonSource().md
+    │       ├── detectTxtSource().md
+    │       ├── dev.md
+    │       ├── devDependencies.md
+    │       ├── Discord Link Gate (discord-linked cookie).md
+    │       ├── discord-gate-check.tsx.md
+    │       ├── discord.ts.md
+    │       ├── DiscordAlert.md
+    │       ├── dmSans.md
+    │       ├── EMPTY_FILTERS.md
+    │       ├── EmptyState().md
+    │       ├── episode-list.tsx.md
+    │       ├── episode-sidebar.tsx.md
+    │       ├── EpisodeListProps.md
+    │       ├── EpisodeRow().md
+    │       ├── EpisodeSidebar().md
+    │       ├── EpisodeSidebarProps.md
+    │       ├── EpisodeSource.md
+    │       ├── errorContainerStyle.md
+    │       ├── eslint.config.mjs.md
+    │       ├── eslint.md
+    │       ├── esModuleInterop.md
+    │       ├── exclude.md
+    │       ├── EXEMPT.md
+    │       ├── ExpandableDescription().md
+    │       ├── extractAnilistId().md
+    │       ├── extractMalId().md
+    │       ├── ExtractorResult.md
+    │       ├── extractors.md
+    │       ├── extractSource().md
+    │       ├── fetch_1_1.md
+    │       ├── fetch_1.md
+    │       ├── fetch.d.ts.md
+    │       ├── fetch.js.md
+    │       ├── fetchMiruro().md
+    │       ├── fetchMiruroFromUrl().md
+    │       ├── File Icon SVG - Generic DocumentFile Representation.md
+    │       ├── Filters.md
+    │       ├── filterSelectStyle().md
+    │       ├── formatLabel().md
+    │       ├── formatProgress()_1.md
+    │       ├── formatProgress().md
+    │       ├── FORMATS.md
+    │       ├── formatStatus().md
+    │       ├── generateId().md
+    │       ├── generateMetadata()_1.md
+    │       ├── generateMetadata().md
+    │       ├── GENRES.md
+    │       ├── GET()_1.md
+    │       ├── GET()_10.md
+    │       ├── GET()_11.md
+    │       ├── GET()_2.md
+    │       ├── GET()_3.md
+    │       ├── GET()_4.md
+    │       ├── GET()_5.md
+    │       ├── GET()_6.md
+    │       ├── GET()_7.md
+    │       ├── GET()_8.md
+    │       ├── GET()_9.md
+    │       ├── GET().md
+    │       ├── getAnimeById().md
+    │       ├── getCurrentUser().md
+    │       ├── getDisplayTitle().md
+    │       ├── getExtractor().md
+    │       ├── getLeaderboard().md
+    │       ├── getMainStudio().md
+    │       ├── getProvider().md
+    │       ├── getRacedSources - Multi-Provider Video Source Racer.md
+    │       ├── getRacedSources().md
+    │       ├── getSeasonal().md
+    │       ├── getSessionId().md
+    │       ├── getTimeLeft().md
+    │       ├── getTrending().md
+    │       ├── globalForPrisma.md
+    │       ├── Globe Icon SVG - WebGlobal Navigation.md
+    │       ├── gogoanime_1.md
+    │       ├── gogoanime.d.ts.md
+    │       ├── GogoAnimeProvider_1.md
+    │       ├── GogoAnimeProvider.md
+    │       ├── graph.canvas
+    │       ├── handleRequest().md
+    │       ├── hashPassword().md
+    │       ├── HEAD().md
+    │       ├── health-check.ts.md
+    │       ├── HeroBanner().md
+    │       ├── HistoryEntry_1.md
+    │       ├── HistoryEntry.md
+    │       ├── HomePage().md
+    │       ├── ImportButton().md
+    │       ├── ImportFormat.md
+    │       ├── ImportSource.md
+    │       ├── ImportStatus.md
+    │       ├── include.md
+    │       ├── incremental.md
+    │       ├── index_1_1.md
+    │       ├── index_1.md
+    │       ├── index.d.ts_1.md
+    │       ├── index.d.ts_2.md
+    │       ├── index.d.ts.md
+    │       ├── index.js_1.md
+    │       ├── index.js_2.md
+    │       ├── index.js.md
+    │       ├── index.ts.md
+    │       ├── isolatedModules.md
+    │       ├── jsx.md
+    │       ├── layout.tsx_1.md
+    │       ├── layout.tsx.md
+    │       ├── leaderboard-row.tsx.md
+    │       ├── LeaderboardEntry.md
+    │       ├── LeaderboardPage().md
+    │       ├── LEVEL_COLORS.md
+    │       ├── lib.md
+    │       ├── LinkDiscordPage().md
+    │       ├── lint.md
+    │       ├── LoadingPhase.md
+    │       ├── log-feed.tsx.md
+    │       ├── LogEntry.md
+    │       ├── LogFeed().md
+    │       ├── loginAction().md
+    │       ├── LoginForm().md
+    │       ├── LoginPage().md
+    │       ├── logOutAction().md
+    │       ├── Medal().md
+    │       ├── MetaBadge().md
+    │       ├── metadata_1.md
+    │       ├── metadata_2.md
+    │       ├── metadata_3.md
+    │       ├── metadata_4.md
+    │       ├── metadata.md
+    │       ├── MetaRow().md
+    │       ├── middleware.ts.md
+    │       ├── MobileTab().md
+    │       ├── module.md
+    │       ├── moduleResolution.md
+    │       ├── Multi-Layer Authentication System.md
+    │       ├── name.md
+    │       ├── nav.tsx.md
+    │       ├── Nav().md
+    │       ├── Nested Comments System (soft-delete, CommentLike).md
+    │       ├── next-episode-countdown.tsx.md
+    │       ├── next.config.ts.md
+    │       ├── Next.js 15 App Router Architecture.md
+    │       ├── Next.js Logo SVG - Framework Branding.md
+    │       ├── next.md
+    │       ├── noEmit.md
+    │       ├── NormalizedEntry.md
+    │       ├── NormalizedStream.md
+    │       ├── normalizeStatus().md
+    │       ├── package.json.md
+    │       ├── page.tsx_1.md
+    │       ├── page.tsx_10.md
+    │       ├── page.tsx_11.md
+    │       ├── page.tsx_2.md
+    │       ├── page.tsx_3.md
+    │       ├── page.tsx_4.md
+    │       ├── page.tsx_5.md
+    │       ├── page.tsx_6.md
+    │       ├── page.tsx_7.md
+    │       ├── page.tsx_8.md
+    │       ├── page.tsx_9.md
+    │       ├── page.tsx.md
+    │       ├── PageProps_1.md
+    │       ├── PageProps_2.md
+    │       ├── PageProps.md
+    │       ├── Params_1.md
+    │       ├── Params.md
+    │       ├── parseAniKaiExport.md
+    │       ├── parseAniKaiJson().md
+    │       ├── parseAniKaiTxt().md
+    │       ├── parseHiAnimeJson().md
+    │       ├── parseHiAnimeTxt().md
+    │       ├── parseImportExport().md
+    │       ├── parseXml().md
+    │       ├── PATCH().md
+    │       ├── paths.md
+    │       ├── Pill().md
+    │       ├── PlayerSkeleton().md
+    │       ├── playwright-extra-plugin-stealth.md
+    │       ├── playwright-extra.md
+    │       ├── playwright.md
+    │       ├── playwrightFetch().md
+    │       ├── plugins.md
+    │       ├── POST()_1.md
+    │       ├── POST()_10.md
+    │       ├── POST()_2.md
+    │       ├── POST()_3.md
+    │       ├── POST()_4.md
+    │       ├── POST()_5.md
+    │       ├── POST()_6.md
+    │       ├── POST()_7.md
+    │       ├── POST()_8.md
+    │       ├── POST()_9.md
+    │       ├── POST().md
+    │       ├── postcss.config.mjs.md
+    │       ├── postToDiscord().md
+    │       ├── prebuild.md
+    │       ├── predev.md
+    │       ├── Prisma DB Schema (User, WatchHistory, Watchlist, Comment, etc.).md
+    │       ├── prisma.md
+    │       ├── private.md
+    │       ├── Props_1.md
+    │       ├── Props_2.md
+    │       ├── Props_3.md
+    │       ├── Props.md
+    │       ├── PROVIDER_PRIORITY.md
+    │       ├── ProviderCheckResult_1.md
+    │       ├── ProviderCheckResult.md
+    │       ├── providers.md
+    │       ├── ProviderState.md
+    │       ├── Proxy Endpoint (GET apiproxytoken).md
+    │       ├── puppeteer-extra-plugin-stealth.md
+    │       ├── QualityMenu().md
+    │       ├── QualityMenuProps.md
+    │       ├── rate-limit.d.ts.md
+    │       ├── rate-limit.js.md
+    │       ├── rateLimitMap.md
+    │       ├── react-dom.md
+    │       ├── react.md
+    │       ├── README - Next.js Project Bootstrap.md
+    │       ├── relativeTime()_1.md
+    │       ├── relativeTime()_2.md
+    │       ├── relativeTime()_3.md
+    │       ├── relativeTime().md
+    │       ├── requestPasswordResetAction().md
+    │       ├── requests.md
+    │       ├── resend.ts.md
+    │       ├── resetPasswordAction().md
+    │       ├── ResetPasswordForm().md
+    │       ├── ResetPasswordPage().md
+    │       ├── resolveJsonModule.md
+    │       ├── resolveMalIds().md
+    │       ├── RootLayout().md
+    │       ├── route.ts_1.md
+    │       ├── route.ts_10.md
+    │       ├── route.ts_11.md
+    │       ├── route.ts_12.md
+    │       ├── route.ts_13.md
+    │       ├── route.ts_14.md
+    │       ├── route.ts_15.md
+    │       ├── route.ts_16.md
+    │       ├── route.ts_17.md
+    │       ├── route.ts_18.md
+    │       ├── route.ts_19.md
+    │       ├── route.ts_2.md
+    │       ├── route.ts_3.md
+    │       ├── route.ts_4.md
+    │       ├── route.ts_5.md
+    │       ├── route.ts_6.md
+    │       ├── route.ts_7.md
+    │       ├── route.ts_8.md
+    │       ├── route.ts_9.md
+    │       ├── route.ts.md
+    │       ├── runAllProviderChecks().md
+    │       ├── runProviderCheck().md
+    │       ├── runSingleProviderCheck().md
+    │       ├── s3taku_1.md
+    │       ├── s3taku.d.ts.md
+    │       ├── s3taku.js.md
+    │       ├── S3takuExtractor_1.md
+    │       ├── S3takuExtractor.md
+    │       ├── scripts.md
+    │       ├── search-bar.tsx.md
+    │       ├── searchAnime().md
+    │       ├── SearchBar().md
+    │       ├── SearchContent().md
+    │       ├── SearchFilters.md
+    │       ├── SearchPage().md
+    │       ├── SeasonalRow().md
+    │       ├── SEASONS.md
+    │       ├── Section().md
+    │       ├── SectionLabel().md
+    │       ├── sendPasswordResetEmail().md
+    │       ├── sendProviderAlert().md
+    │       ├── sendProviderRecovery().md
+    │       ├── ServerData.md
+    │       ├── setAuthCookie().md
+    │       ├── signInAction().md
+    │       ├── SignOutButton().md
+    │       ├── signUpAction().md
+    │       ├── Site Password Gate (site-auth cookie).md
+    │       ├── SiteLayout().md
+    │       ├── skipLibCheck.md
+    │       ├── smartFetch().md
+    │       ├── SourceLoader().md
+    │       ├── SourceLoaderProps.md
+    │       ├── SourceToken - Encrypted Video URL Token (DB, 30-min expiry).md
+    │       ├── Spinner()_1.md
+    │       ├── Spinner().md
+    │       ├── start.md
+    │       ├── STATUS_COLORS_1.md
+    │       ├── STATUS_COLORS_2.md
+    │       ├── STATUS_COLORS_3.md
+    │       ├── STATUS_COLORS.md
+    │       ├── STATUS_LABELS.md
+    │       ├── Status.md
+    │       ├── StatusCard().md
+    │       ├── StatusCardProps.md
+    │       ├── STATUSES.md
+    │       ├── streamtape_1.md
+    │       ├── streamtape.d.ts.md
+    │       ├── StreamtapeExtractor_1.md
+    │       ├── StreamtapeExtractor.md
+    │       ├── strict.md
+    │       ├── Subtitle.md
+    │       ├── syne.md
+    │       ├── Tab.md
+    │       ├── TABS.md
+    │       ├── Tailwind CSS v4 (PostCSS) Styling.md
+    │       ├── tailwindcss.md
+    │       ├── target.md
+    │       ├── timeAgo()_1.md
+    │       ├── timeAgo().md
+    │       ├── TimeLeft.md
+    │       ├── TokenInsertData.md
+    │       ├── TrendingRow().md
+    │       ├── tsconfig.json.md
+    │       ├── Two-Package Monorepo (core + web).md
+    │       ├── typescript.md
+    │       ├── unlinkDiscordAction().md
+    │       ├── UnlinkDiscordButton().md
+    │       ├── User Session Gate (user-session  session-id cookie).md
+    │       ├── UserProfilePage().md
+    │       ├── Vercel Logo SVG - TrianglePlatform Branding.md
+    │       ├── vercel.json.md
+    │       ├── verifyAuth().md
+    │       ├── verifyPassword().md
+    │       ├── version.md
+    │       ├── vibeplayer_1.md
+    │       ├── vibeplayer.js.md
+    │       ├── VibePlayerExtractor_1.md
+    │       ├── VibePlayerExtractor.md
+    │       ├── Video Source Pipeline (POST apisource).md
+    │       ├── VideoSource.md
+    │       ├── vidstack.md
+    │       ├── View.md
+    │       ├── Watch Progress Dual-Tracking (userId + sessionId).md
+    │       ├── watch-info.tsx.md
+    │       ├── WatchInfo().md
+    │       ├── WatchlistButton().md
+    │       ├── WatchlistEntry.md
+    │       ├── WatchPage().md
+    │       ├── WindowBrowser Icon SVG - UI Window Representation.md
+    │       └── YEARS.md
+    ├── next-env.d.ts
+    ├── next.config.ts
+    ├── package-lock.json
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── prisma
+    │   └── schema.prisma
+    ├── public
+    │   ├── file.svg
+    │   ├── globe.svg
+    │   ├── next.svg
+    │   ├── vercel.svg
+    │   └── window.svg
+    ├── README.md
+    ├── src
+    │   ├── app
+    │   │   ├── (auth)
+    │   │   │   └── login
+    │   │   │       ├── actions.ts
+    │   │   │       └── page.tsx
+    │   │   ├── (site)
+    │   │   │   ├── anime
+    │   │   │   │   └── [id]
+    │   │   │   │       ├── page.tsx
+    │   │   │   │       └── watchlist-button.tsx
+    │   │   │   ├── discord-gate-check.tsx
+    │   │   │   ├── genres
+    │   │   │   │   ├── [genre]
+    │   │   │   │   │   ├── genre-vote-list.tsx
+    │   │   │   │   │   └── page.tsx
+    │   │   │   │   ├── genre-grid.tsx
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── issues
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── layout.tsx
+    │   │   │   ├── page.tsx
+    │   │   │   ├── search
+    │   │   │   │   └── page.tsx
+    │   │   │   └── watch
+    │   │   │       └── [animeId]
+    │   │   │           └── [episodeNum]
+    │   │   │               └── page.tsx
+    │   │   ├── account
+    │   │   │   ├── account-buttons.tsx
+    │   │   │   ├── account-dashboard.tsx
+    │   │   │   ├── actions.ts
+    │   │   │   ├── link-discord
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── login-form.tsx
+    │   │   │   ├── page.bak
+    │   │   │   ├── page.tsx
+    │   │   │   └── reset-password
+    │   │   │       └── page.tsx
+    │   │   ├── admin
+    │   │   │   ├── components
+    │   │   │   │   ├── dashboard-client.tsx
+    │   │   │   │   ├── issues-panel.tsx
+    │   │   │   │   ├── log-feed.tsx
+    │   │   │   │   └── status-card.tsx
+    │   │   │   ├── login
+    │   │   │   │   ├── actions.ts
+    │   │   │   │   └── page.tsx
+    │   │   │   └── page.tsx
+    │   │   ├── api
+    │   │   │   ├── admin
+    │   │   │   │   ├── check
+    │   │   │   │   │   ├── [providerId]
+    │   │   │   │   │   │   └── route.ts
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── issues
+    │   │   │   │   │   ├── [id]
+    │   │   │   │   │   │   └── route.ts
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── logs
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── status
+    │   │   │   │       └── route.ts
+    │   │   │   ├── anilist
+    │   │   │   │   ├── [id]
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── search
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── trending
+    │   │   │   │       └── route.ts
+    │   │   │   ├── auth
+    │   │   │   │   ├── discord
+    │   │   │   │   │   └── callback
+    │   │   │   │   │       └── route.ts
+    │   │   │   │   └── me
+    │   │   │   │       └── route.ts
+    │   │   │   ├── comments
+    │   │   │   │   ├── like
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── route.ts
+    │   │   │   ├── cron
+    │   │   │   │   ├── cleanup
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── health-check
+    │   │   │   │       └── route.ts
+    │   │   │   ├── genre-votes
+    │   │   │   │   └── route.ts
+    │   │   │   ├── import
+    │   │   │   │   └── route.ts
+    │   │   │   ├── issues
+    │   │   │   │   └── route.ts
+    │   │   │   ├── progress
+    │   │   │   │   └── route.ts
+    │   │   │   ├── proxy
+    │   │   │   │   └── [token]
+    │   │   │   │       └── route.ts
+    │   │   │   ├── source
+    │   │   │   │   └── route.ts
+    │   │   │   └── watchlist
+    │   │   │       └── route.ts
+    │   │   ├── favicon.ico
+    │   │   ├── globals.css
+    │   │   ├── layout.tsx
+    │   │   ├── leaderboard
+    │   │   │   ├── leaderboard-row.tsx
+    │   │   │   └── page.tsx
+    │   │   └── user
+    │   │       └── [username]
+    │   │           └── page.tsx
+    │   ├── components
+    │   │   ├── anime-card.tsx
+    │   │   ├── comments.tsx
+    │   │   ├── continue-watching.tsx
+    │   │   ├── episode-list.tsx
+    │   │   ├── nav.tsx
+    │   │   ├── next-episode-countdown.tsx
+    │   │   ├── player
+    │   │   │   ├── anime-player.tsx
+    │   │   │   ├── quality-menu.tsx
+    │   │   │   └── source-loader.tsx
+    │   │   ├── search-bar.tsx
+    │   │   ├── watch
+    │   │   │   ├── episode-sidebar.tsx
+    │   │   │   └── watch-info.tsx
+    │   │   └── watchlist-aware-row.tsx
+    │   ├── lib
+    │   │   ├── anilist.ts
+    │   │   ├── auth.ts
+    │   │   ├── core-dist
+    │   │   │   ├── index.d.ts
+    │   │   │   ├── index.d.ts.map
+    │   │   │   ├── index.js
+    │   │   │   ├── index.js.map
+    │   │   │   ├── lib
+    │   │   │   │   ├── extractors
+    │   │   │   │   │   ├── base.d.ts
+    │   │   │   │   │   ├── base.d.ts.map
+    │   │   │   │   │   ├── base.js
+    │   │   │   │   │   ├── base.js.map
+    │   │   │   │   │   ├── index.d.ts
+    │   │   │   │   │   ├── index.d.ts.map
+    │   │   │   │   │   ├── index.js
+    │   │   │   │   │   ├── index.js.map
+    │   │   │   │   │   ├── s3taku.d.ts
+    │   │   │   │   │   ├── s3taku.d.ts.map
+    │   │   │   │   │   ├── s3taku.js
+    │   │   │   │   │   ├── s3taku.js.map
+    │   │   │   │   │   ├── streamtape.d.ts
+    │   │   │   │   │   ├── streamtape.d.ts.map
+    │   │   │   │   │   ├── streamtape.js
+    │   │   │   │   │   ├── streamtape.js.map
+    │   │   │   │   │   ├── vibeplayer.d.ts
+    │   │   │   │   │   ├── vibeplayer.d.ts.map
+    │   │   │   │   │   ├── vibeplayer.js
+    │   │   │   │   │   └── vibeplayer.js.map
+    │   │   │   │   ├── fetch.d.ts
+    │   │   │   │   ├── fetch.d.ts.map
+    │   │   │   │   ├── fetch.js
+    │   │   │   │   ├── fetch.js.map
+    │   │   │   │   ├── rate-limit.d.ts
+    │   │   │   │   ├── rate-limit.d.ts.map
+    │   │   │   │   ├── rate-limit.js
+    │   │   │   │   └── rate-limit.js.map
+    │   │   │   └── providers
+    │   │   │       ├── aniwave.d.ts
+    │   │   │       ├── aniwave.d.ts.map
+    │   │   │       ├── aniwave.js
+    │   │   │       ├── aniwave.js.map
+    │   │   │       ├── base.d.ts
+    │   │   │       ├── base.d.ts.map
+    │   │   │       ├── base.js
+    │   │   │       ├── base.js.map
+    │   │   │       ├── gogoanime.d.ts
+    │   │   │       ├── gogoanime.d.ts.map
+    │   │   │       ├── gogoanime.js
+    │   │   │       ├── gogoanime.js.map
+    │   │   │       ├── index.d.ts
+    │   │   │       ├── index.d.ts.map
+    │   │   │       ├── index.js
+    │   │   │       └── index.js.map
+    │   │   ├── core.ts
+    │   │   ├── db.ts
+    │   │   ├── discord.ts
+    │   │   ├── genres.ts
+    │   │   ├── health-check.ts
+    │   │   ├── importers
+    │   │   │   ├── anikai.ts
+    │   │   │   └── route.ts
+    │   │   └── resend.ts
+    │   ├── providers
+    │   │   ├── base.ts
+    │   │   └── index.ts
+    │   └── proxy.ts
+    ├── tsconfig.json
+    └── tsconfig.tsbuildinfo
 
-55 directories, 132 files
+72 directories, 636 files
