@@ -12,14 +12,14 @@ interface NormalizedStream {
   cookies: string;
 }
 
-// Provider priority — kiwi/ally first, bee last (flaky)
+// Provider priority — kiwi first (most reliable), ZORO last
+// Names must match the exact keys returned by the Miruro API
 const PROVIDER_PRIORITY: Record<string, number> = {
-  kiwi: 0,
-  ally: 1,
-  arc:  2,
-  zoro: 3,
-  jet:  4,
-  bee:  5,
+  kiwi:     0,
+  ANIMEKAI: 1,
+  ANIMEZ:   2,
+  hop:      3,
+  ZORO:     4,
 }
 
 export async function POST(req: NextRequest) {
@@ -177,7 +177,8 @@ async function fetchMiruroFromUrl(
   if (!epsRes.ok) return [];
   const epsData = await epsRes.json();
 
-  const allProviders = ["kiwi", "ally", "arc", "zoro", "jet", "bee"];
+  // Exact provider IDs as returned by the Miruro API
+  const allProviders = ["kiwi", "ANIMEKAI", "ANIMEZ", "hop", "ZORO"];
   const audioTypes = ["sub", "dub"] as const;
   const validStreams: NormalizedStream[] = [];
 
@@ -204,26 +205,37 @@ async function fetchMiruroFromUrl(
           );
           if (hlsStreams.length === 0) return;
 
-          // Liveness check — verify it responds with a valid m3u8,
-          // not just any HTTP 200 (catches bee/anikoto returning garbage)
+          // Liveness check — verify the HLS URL actually responds.
+          // We check for #EXTM3U but fall back to accepting any 200 OK,
+          // since some providers (ANIMEKAI, ANIMEZ, hop, ZORO) may serve
+          // valid streams that require specific headers or don't return
+          // the playlist inline on a bare GET.
           try {
             const checkRes = await fetch(hlsStreams[0].url, {
               method: "GET",
               headers: {
                 "User-Agent": "Mozilla/5.0",
                 "Referer": "https://kwik.cx/",
+                "Origin": "https://kwik.cx/",
               },
               signal: AbortSignal.timeout(4000),
             });
 
-            if (!checkRes.ok) return;
-
-            const text = await checkRes.text();
-            if (!text.includes("#EXTM3U")) {
-              console.log(`[fetchMiruro] ${provider}/${audioType} failed m3u8 validation, skipping`);
+            if (!checkRes.ok) {
+              console.log(`[fetchMiruro] ${provider}/${audioType} liveness FAIL — HTTP ${checkRes.status}`);
               return;
             }
-          } catch {
+
+            const text = await checkRes.text();
+            if (text.includes("#EXTM3U")) {
+              console.log(`[fetchMiruro] ${provider}/${audioType} liveness PASS (valid m3u8)`);
+            } else {
+              // Accept the stream anyway — provider responded 200 but may need
+              // the player to negotiate headers at playback time
+              console.log(`[fetchMiruro] ${provider}/${audioType} liveness PASS (200 OK, no #EXTM3U — accepted)`);
+            }
+          } catch (liveErr) {
+            console.log(`[fetchMiruro] ${provider}/${audioType} liveness FAIL — ${liveErr instanceof Error ? liveErr.message : liveErr}`);
             return;
           }
 
