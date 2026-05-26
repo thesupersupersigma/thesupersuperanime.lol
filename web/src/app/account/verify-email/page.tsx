@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { verifyEmailAction } from "@/app/account/actions";
 
 type State = "loading" | "success" | "error";
@@ -9,7 +9,6 @@ type State = "loading" | "success" | "error";
 // Inner component — isolated here so useSearchParams() is inside a Suspense boundary
 function VerifyEmailInner() {
   const params = useSearchParams();
-  const router = useRouter();
   const token = params.get("token");
 
   const [state, setState] = useState<State>("loading");
@@ -25,8 +24,8 @@ function VerifyEmailInner() {
     verifyEmailAction(token).then(result => {
       if ("success" in result && result.success) {
         setState("success");
-        // Redirect after a brief success message so the user sees feedback
-        setTimeout(() => router.replace("/account/setup-profile"), 2000);
+        // No redirect — Tab A is polling and will advance automatically.
+        // Browsers block window.close() so we just show a static message.
       } else {
         setState("error");
         setErrorMsg("error" in result ? (result.error ?? "Something went wrong.") : "Something went wrong.");
@@ -68,11 +67,20 @@ function VerifyEmailInner() {
       {state === "success" && (
         <>
           <div style={{ fontSize: "40px", marginBottom: "16px" }}>✅</div>
-          <h1 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "12px" }}>
+          <h1
+            style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: "20px",
+              fontWeight: 700,
+              color: "#e5e5e5",
+              marginBottom: "12px",
+              letterSpacing: "-0.01em",
+            }}
+          >
             Email verified!
           </h1>
-          <p style={{ color: "#888", fontSize: "14px" }}>
-            Email confirmed! Setting up your profile…
+          <p style={{ color: "#888", fontSize: "14px", lineHeight: 1.6 }}>
+            You can close this tab and continue in the other one.
           </p>
         </>
       )}

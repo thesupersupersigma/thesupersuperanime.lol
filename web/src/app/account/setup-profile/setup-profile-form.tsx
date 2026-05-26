@@ -29,6 +29,10 @@ function AvatarPicker({
             borderRadius: "50%",
             cursor: "pointer",
             transition: "border-color 0.15s",
+            overflow: "hidden",
+            width: 44,
+            height: 44,
+            flexShrink: 0,
           }}
           onMouseEnter={e => {
             if (selected !== n) e.currentTarget.style.borderColor = "#2a2a2a";

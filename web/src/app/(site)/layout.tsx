@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { DiscordGateCheck } from "./discord-gate-check";
 
@@ -24,17 +25,41 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <main
-      className="site-main"
-      style={{
-        maxWidth: "1280px",
-        margin: "0 auto",
-        padding: "24px 24px 80px",
-        minHeight: "calc(100vh - 56px)",
-      }}
-    >
-      {discordGateEnabled && <DiscordGateCheck />}
-      {children}
-    </main>
+    <>
+      <main
+        className="site-main"
+        style={{
+          maxWidth: "1280px",
+          margin: "0 auto",
+          padding: "24px 24px 80px",
+          minHeight: "calc(100vh - 56px)",
+        }}
+      >
+        {discordGateEnabled && <DiscordGateCheck />}
+        {children}
+      </main>
+      <footer
+        style={{
+          borderTop: "1px solid #1a1a1a",
+          padding: "20px 24px",
+          display: "flex",
+          justifyContent: "center",
+          gap: "24px",
+        }}
+      >
+        <Link
+          href="/privacy"
+          style={{ color: "#404040", fontSize: "12px", textDecoration: "none" }}
+        >
+          Privacy Policy
+        </Link>
+        <Link
+          href="/terms"
+          style={{ color: "#404040", fontSize: "12px", textDecoration: "none" }}
+        >
+          Terms of Service
+        </Link>
+      </footer>
+    </>
   );
 }

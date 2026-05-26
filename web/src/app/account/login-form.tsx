@@ -12,13 +12,22 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [termsError, setTermsError] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setSuccess(null);
+    setTermsError(false);
 
+    // Block signup if terms not agreed
+    if (view === "signup" && !agreedToTerms) {
+      setTermsError(true);
+      return;
+    }
+
+    setLoading(true);
     const formData = new FormData(e.currentTarget);
 
     try {
@@ -156,6 +165,50 @@ export function LoginForm() {
           </div>
         )}
 
+        {/* Terms checkbox — signup only */}
+        {view === "signup" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <label style={{
+              display: "flex", alignItems: "flex-start", gap: "10px",
+              cursor: "pointer", fontSize: "13px", color: "#888", lineHeight: "1.5",
+            }}>
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={e => { setAgreedToTerms(e.target.checked); setTermsError(false); }}
+                style={{ marginTop: "2px", accentColor: "#3b82f6", flexShrink: 0, cursor: "pointer" }}
+              />
+              <span>
+                I agree to the{" "}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#a3a3a3", textDecoration: "underline" }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  Terms of Service
+                </a>
+                {" "}and{" "}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#a3a3a3", textDecoration: "underline" }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  Privacy Policy
+                </a>
+              </span>
+            </label>
+            {termsError && (
+              <p style={{ color: "#f87171", fontSize: "12px", margin: 0, paddingLeft: "24px" }}>
+                You must agree to the Terms of Service and Privacy Policy to sign up.
+              </p>
+            )}
+          </div>
+        )}
+
         <button
           type="submit" disabled={loading}
           style={{
@@ -184,7 +237,12 @@ export function LoginForm() {
           <p style={{ fontSize: "13px", color: "#555" }}>
             {view === "login" ? "Don't have an account? " : "Already have an account? "}
             <button type="button"
-              onClick={() => { setView(view === "login" ? "signup" : "login"); setError(null); }}
+              onClick={() => {
+                setView(view === "login" ? "signup" : "login");
+                setError(null);
+                setAgreedToTerms(false);
+                setTermsError(false);
+              }}
               style={{ background: "none", border: "none", color: "#a3a3a3", fontWeight: 600, cursor: "pointer", fontSize: "13px", padding: 0 }}
               onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
               onMouseLeave={e => (e.currentTarget.style.color = "#a3a3a3")}

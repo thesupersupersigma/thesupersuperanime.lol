@@ -5,6 +5,8 @@ export async function sendVerificationEmail(email: string, verifyUrl: string) {
     return;
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thesupersuperanime.lol";
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -29,6 +31,14 @@ export async function sendVerificationEmail(email: string, verifyUrl: string) {
           <p style="color: #555; font-size: 12px; margin-top: 32px;">
             This link expires in 24 hours. If you didn't create an account, you can ignore this email.
           </p>
+          <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #1f1f1f;">
+            <p style="color: #444; font-size: 11px; line-height: 1.6; margin: 0;">
+              By verifying your email you agree to our
+              <a href="${siteUrl}/terms" style="color: #666; text-decoration: underline;">Terms of Service</a>
+              and
+              <a href="${siteUrl}/privacy" style="color: #666; text-decoration: underline;">Privacy Policy</a>.
+            </p>
+          </div>
         </div>
       `,
     }),
@@ -49,6 +59,8 @@ export async function sendWelcomeEmail(email: string) {
     return;
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thesupersuperanime.lol";
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -68,11 +80,19 @@ export async function sendWelcomeEmail(email: string) {
             Thanks for signing up to <strong style="color: #e5e5e5;">thesupersuperanime.lol</strong> — your email is verified and your account is ready to go.
           </p>
           <p style="color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 32px;">
-            If you have suggestions or bugs to report, head to <a href="https://thesupersuperanime.lol/issues" style="color: #2563eb; text-decoration: none;">thesupersuperanime.lol/issues</a> — I respond to all of them.
+            If you have suggestions or bugs to report, head to <a href="${siteUrl}/issues" style="color: #2563eb; text-decoration: none;">thesupersuperanime.lol/issues</a> — I respond to all of them.
           </p>
           <p style="color: #555; font-size: 12px; margin-top: 32px;">
             This email was sent to ${email} because you created an account. Reply here if you have questions.
           </p>
+          <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #1f1f1f;">
+            <p style="color: #444; font-size: 11px; line-height: 1.6; margin: 0;">
+              By using thesupersuperanime.lol you agree to our
+              <a href="${siteUrl}/terms" style="color: #666; text-decoration: underline;">Terms of Service</a>
+              and
+              <a href="${siteUrl}/privacy" style="color: #666; text-decoration: underline;">Privacy Policy</a>.
+            </p>
+          </div>
         </div>
       `,
     }),
