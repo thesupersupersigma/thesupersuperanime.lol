@@ -1,14 +1,29 @@
-"use client"; 
-import { useState, useEffect } from "react"; 
-import { useSearchParams } from "next/navigation"; 
-import Link from "next/link"; 
-import Image from "next/image"; 
-import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton } from "./account-buttons"; 
-import { unlinkDiscordAction, deleteAccountAction } from "./actions"; 
+"use client";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton } from "./account-buttons";
+import { unlinkDiscordAction, deleteAccountAction, updateProfileAction } from "./actions";
+import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
-interface HistoryEntry { episodeId: string; animeId: number; progress: number; duration: number; updatedAt: string; title: string; cover: string; } 
-interface WatchlistEntry { animeId: number; status: string; addedAt: string; title: string; cover: string; } 
-interface Props { user: { id: string; email: string; discordUsername?: string | null }; history: HistoryEntry[]; watchlist: WatchlistEntry[]; logOutAction: () => Promise<void>; } 
+interface HistoryEntry { episodeId: string; animeId: number; progress: number; duration: number; updatedAt: string; title: string; cover: string; }
+interface WatchlistEntry { animeId: number; status: string; addedAt: string; title: string; cover: string; }
+interface Props {
+  user: {
+    id: string;
+    email: string;
+    discordId?: string | null;
+    discordUsername?: string | null;
+    discordAvatar?: string | null;
+    avatarPreset?: number | null;
+    username?: string | null;
+    displayName?: string | null;
+  };
+  history: HistoryEntry[];
+  watchlist: WatchlistEntry[];
+  logOutAction: () => Promise<void>;
+} 
 type Tab = "history" | "watchlist" | "import" | "settings"; 
 
 const TABS: { id: Tab; label: string }[] = [ 
@@ -65,15 +80,20 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
         {/* Header */} 
         <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "16px", padding: "28px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", position: "relative", overflow: "hidden", }}> 
           <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "1px", background: "linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)", }} /> 
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}> 
-            {/* Avatar placeholder */} 
-            <div style={{ width: "44px", height: "44px", borderRadius: "50%", background: "#1a1a1a", border: "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: 700, color: "#3b82f6", fontFamily: "'Syne', sans-serif", }}> 
-              {user.email[0].toUpperCase()} 
-            </div> 
-            <div> 
-              <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "18px", fontWeight: 700, color: "#e5e5e5", letterSpacing: "-0.02em", marginBottom: "3px", }}> My Account </h1> 
-              <p style={{ color: "#555", fontSize: "12px" }}>{user.email}</p> 
-            </div> 
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <Image
+              src={getUserAvatar(user)}
+              alt={getUserDisplayName(user)}
+              width={44}
+              height={44}
+              style={{ borderRadius: "50%", border: "1px solid #2a2a2a", flexShrink: 0, objectFit: "cover" }}
+            />
+            <div>
+              <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "18px", fontWeight: 700, color: "#e5e5e5", letterSpacing: "-0.02em", marginBottom: "3px" }}>
+                {getUserDisplayName(user)}
+              </h1>
+              <p style={{ color: "#555", fontSize: "12px" }}>{user.email}</p>
+            </div>
           </div> 
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}> 
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}> 
@@ -191,18 +211,27 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
               </div> 
             )} 
 
-            {/* SETTINGS TAB */} 
-            {activeTab === "settings" && ( 
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "480px" }}> 
-                <div> 
-                  <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px", }}> Account </h3> 
-                  <p style={{ color: "#555", fontSize: "13px", marginBottom: "16px" }}> Signed in as <span style={{ color: "#a3a3a3" }}>{user.email}</span> </p> 
-                  <SignOutButton action={logOutAction} /> 
-                </div> 
-                <div style={{ height: "1px", background: "#1a1a1a" }} /> 
-                <div> 
-                  <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px", }}> Password </h3> 
-                  <p style={{ color: "#555", fontSize: "13px", marginBottom: "16px" }}> To change your password, sign out and use the "Forgot password?" link on the login screen. </p> 
+            {/* SETTINGS TAB */}
+            {activeTab === "settings" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "480px" }}>
+                <div>
+                  <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px" }}> Account </h3>
+                  <p style={{ color: "#555", fontSize: "13px", marginBottom: "16px" }}> Signed in as <span style={{ color: "#a3a3a3" }}>{user.email}</span> </p>
+                  <SignOutButton action={logOutAction} />
+                </div>
+
+                {/* Profile editor — email-only users only */}
+                {!user.discordId && (
+                  <>
+                    <div style={{ height: "1px", background: "#1a1a1a" }} />
+                    <ProfileEditor user={user} />
+                  </>
+                )}
+
+                <div style={{ height: "1px", background: "#1a1a1a" }} />
+                <div>
+                  <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px" }}> Password </h3>
+                  <p style={{ color: "#555", fontSize: "13px", marginBottom: "16px" }}> To change your password, sign out and use the "Forgot password?" link on the login screen. </p>
                 </div> 
                 <div style={{ height: "1px", background: "#1a1a1a" }} /> 
                 <div> 
@@ -239,10 +268,170 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
   ); 
 } 
 
-function EmptyState({ message }: { message: string }) { 
-  return ( 
-    <div style={{ padding: "48px 24px", textAlign: "center", color: "#444", fontSize: "13px", }}> 
-      {message} 
-    </div> 
-  ); 
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div style={{ padding: "48px 24px", textAlign: "center", color: "#444", fontSize: "13px" }}>
+      {message}
+    </div>
+  );
+}
+
+// ── Profile editor (email-only users) ─────────────────────────────────────────
+
+interface ProfileEditorProps {
+  user: {
+    avatarPreset?: number | null;
+    username?: string | null;
+    displayName?: string | null;
+  };
+}
+
+function AvatarPicker({ selected, onSelect }: { selected: number; onSelect: (n: number) => void }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px" }}>
+      {Array.from({ length: 14 }, (_, i) => i + 1).map(n => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onSelect(n)}
+          title={`Avatar ${n}`}
+          style={{
+            padding: 0,
+            background: "none",
+            border: `2px solid ${selected === n ? "#3b82f6" : "transparent"}`,
+            borderRadius: "50%",
+            cursor: "pointer",
+            outline: selected === n ? "none" : undefined,
+            transition: "border-color 0.15s",
+          }}
+          onMouseEnter={e => { if (selected !== n) e.currentTarget.style.borderColor = "#2a2a2a"; }}
+          onMouseLeave={e => { if (selected !== n) e.currentTarget.style.borderColor = "transparent"; }}
+        >
+          <Image
+            src={`/avatars/PP_${n}.png`}
+            alt={`Avatar ${n}`}
+            width={44}
+            height={44}
+            style={{ borderRadius: "50%", display: "block", objectFit: "cover" }}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ProfileEditor({ user }: ProfileEditorProps) {
+  const [username, setUsername] = useState(user.username ?? "");
+  const [displayName, setDisplayName] = useState(user.displayName ?? "");
+  const [avatarPreset, setAvatarPreset] = useState(user.avatarPreset ?? 1);
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<{ ok?: true; error?: string } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setResult(null);
+    const fd = new FormData(formRef.current!);
+    fd.set("avatarPreset", String(avatarPreset));
+    const res = await updateProfileAction(fd);
+    setSaving(false);
+    if ("success" in res && res.success) {
+      setResult({ ok: true });
+    } else {
+      setResult({ error: "error" in res ? (res.error ?? "Something went wrong.") : "Something went wrong." });
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "16px" }}>
+        Profile
+      </h3>
+      <form ref={formRef} onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {/* Avatar picker */}
+        <div>
+          <label style={{ display: "block", fontSize: "12px", color: "#666", marginBottom: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Avatar
+          </label>
+          <AvatarPicker selected={avatarPreset} onSelect={setAvatarPreset} />
+          <input type="hidden" name="avatarPreset" value={avatarPreset} />
+        </div>
+
+        {/* Username */}
+        <div>
+          <label style={{ display: "block", fontSize: "12px", color: "#666", marginBottom: "6px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Username
+          </label>
+          <input
+            type="text"
+            name="username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="e.g. animefan99"
+            maxLength={30}
+            style={{
+              width: "100%", background: "#0f0f0f", border: "1px solid #2a2a2a",
+              borderRadius: "8px", padding: "9px 12px", color: "#e5e5e5",
+              fontSize: "13px", outline: "none", boxSizing: "border-box",
+            }}
+            onFocus={e => (e.target.style.borderColor = "#3b82f6")}
+            onBlur={e => (e.target.style.borderColor = "#2a2a2a")}
+          />
+          <p style={{ color: "#444", fontSize: "11px", marginTop: "4px" }}>
+            3–30 chars, letters/numbers/_ or - only. Used in your public profile URL.
+          </p>
+        </div>
+
+        {/* Display name */}
+        <div>
+          <label style={{ display: "block", fontSize: "12px", color: "#666", marginBottom: "6px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Display Name
+          </label>
+          <input
+            type="text"
+            name="displayName"
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            placeholder="Shown on comments and leaderboard"
+            maxLength={50}
+            style={{
+              width: "100%", background: "#0f0f0f", border: "1px solid #2a2a2a",
+              borderRadius: "8px", padding: "9px 12px", color: "#e5e5e5",
+              fontSize: "13px", outline: "none", boxSizing: "border-box",
+            }}
+            onFocus={e => (e.target.style.borderColor = "#3b82f6")}
+            onBlur={e => (e.target.style.borderColor = "#2a2a2a")}
+          />
+          <p style={{ color: "#444", fontSize: "11px", marginTop: "4px" }}>
+            Shown everywhere your name appears. Falls back to your username, then email prefix.
+          </p>
+        </div>
+
+        {/* Result feedback */}
+        {result?.error && (
+          <p style={{ color: "#f87171", fontSize: "13px", margin: 0 }}>{result.error}</p>
+        )}
+        {result?.ok && (
+          <p style={{ color: "#22c55e", fontSize: "13px", margin: 0 }}>Profile saved!</p>
+        )}
+
+        <div>
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              background: saving ? "#1e3a8a" : "#2563eb",
+              color: "#fff", border: "none", borderRadius: "8px",
+              padding: "10px 24px", fontSize: "13px", fontWeight: 600,
+              cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.7 : 1,
+            }}
+          >
+            {saving ? "Saving…" : "Save Profile"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }

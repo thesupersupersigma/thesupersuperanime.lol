@@ -46,6 +46,54 @@ async function postToDiscord(payload: object): Promise<void> {
 }
 
 /**
+ * Fires when a new user signs up.
+ * Sends a direct message to the owner via the Discord REST API.
+ */
+export async function sendNewSignupAlert(email: string): Promise<void> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  const recipientId = process.env.DISCORD_ALERT_USER_ID;
+
+  if (!botToken || !recipientId) {
+    console.warn("[discord] DISCORD_BOT_TOKEN or DISCORD_ALERT_USER_ID not set — skipping signup DM");
+    return;
+  }
+
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bot ${botToken}`,
+  };
+
+  try {
+    // Step 1: open (or retrieve) the DM channel with the recipient
+    const dmRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ recipient_id: recipientId }),
+    });
+
+    if (!dmRes.ok) {
+      console.error(`[discord] Failed to create DM channel: ${dmRes.status} ${await dmRes.text()}`);
+      return;
+    }
+
+    const { id: channelId } = await dmRes.json();
+
+    // Step 2: send the message into that DM channel
+    const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ content: `📬 New signup: **${email}**` }),
+    });
+
+    if (!msgRes.ok) {
+      console.error(`[discord] Failed to send signup DM: ${msgRes.status} ${await msgRes.text()}`);
+    }
+  } catch (err) {
+    console.error("[discord] sendNewSignupAlert error:", err);
+  }
+}
+
+/**
  * Fires when a provider hits 3+ consecutive failures.
  */
 export async function sendProviderAlert(alert: DiscordAlert): Promise<void> {

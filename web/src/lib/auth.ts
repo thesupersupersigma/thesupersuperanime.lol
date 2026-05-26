@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { db } from "./db";
+export { getUserAvatar, getUserDisplayName } from "./user-utils";
 
 const AUTH_COOKIE = "site-auth";
 const SESSION_COOKIE = "session-id";
@@ -128,7 +129,12 @@ export function isAdmin(discordId: string | null | undefined): boolean {
 }
 
 /**
- * Get the currently logged-in user from the database
+ * Get the currently logged-in user from the database.
+ *
+ * Includes `needsEmailVerification: true` when the user signed up with
+ * email+password but hasn't verified yet (has a pending token).
+ * Users who linked Discord are considered verified for gate purposes.
+ * Pre-feature users (emailVerifyToken === null) are grandfathered through.
  */
 export async function getCurrentUser() {
   const cookieStore = await cookies();
@@ -141,11 +147,31 @@ export async function getCurrentUser() {
       id: true,
       email: true,
       createdAt: true,
-      discordId: true,        // needed for the gate check
-      discordUsername: true,  // needed for comments/leaderboard later
-      discordAvatar: true,    // needed for comments/leaderboard later
+      discordId: true,          // needed for the gate check
+      discordUsername: true,    // needed for comments/leaderboard later
+      discordAvatar: true,      // needed for comments/leaderboard later
+      emailVerified: true,      // needed for email verification gate
+      emailVerifyToken: true,   // null = old/already-verified user; non-null = pending
+      username: true,           // custom username for email-only users
+      displayName: true,        // custom display name for email-only users
+      avatarPreset: true,       // 1-14 preset avatar for email-only users
     },
   });
 
-  return user;
+  if (!user) return null;
+
+  return {
+    ...user,
+    // Only block users who are actively in the new verification flow.
+    // Conditions (all must be true):
+    //   1. logged in (guaranteed — we only reach this line if user != null)
+    //   2. email not yet verified
+    //   3. an actual token string is stored (typeof guards against both null AND
+    //      undefined, which rules out pre-feature users who have no token)
+    //   4. no Discord linked (Discord-linked users are considered verified)
+    needsEmailVerification:
+      user.emailVerified === false &&
+      typeof user.emailVerifyToken === "string" &&
+      user.discordId === null,
+  };
 }

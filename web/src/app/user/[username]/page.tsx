@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { getAnimeById, getDisplayTitle } from "@/lib/anilist";
+import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -26,9 +27,22 @@ export default async function UserProfilePage({ params }: PageProps) {
   const { username } = await params;
   const decodedUsername = decodeURIComponent(username);
 
+  // Look up by discordUsername first, then by custom email-user username
   const user = await db.user.findFirst({
-    where: { discordUsername: decodedUsername },
-    select: { id: true, discordUsername: true, discordAvatar: true },
+    where: {
+      OR: [
+        { discordUsername: decodedUsername },
+        { username: decodedUsername },
+      ],
+    },
+    select: {
+      id: true,
+      discordUsername: true,
+      discordAvatar: true,
+      username: true,
+      displayName: true,
+      avatarPreset: true,
+    },
   });
 
   if (!user) notFound();
@@ -122,30 +136,18 @@ export default async function UserProfilePage({ params }: PageProps) {
             position: "absolute", top: 0, left: 0, width: "100%", height: "1px",
             background: "linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)",
           }} />
-          {user.discordAvatar ? (
-            <Image
-              src={user.discordAvatar}
-              alt={user.discordUsername ?? ""}
-              width={56} height={56}
-              style={{ borderRadius: "50%", border: "2px solid #2a2a2a", flexShrink: 0 }}
-            />
-          ) : (
-            <div style={{
-              width: 56, height: 56, borderRadius: "50%",
-              background: "#1a1a1a", border: "1px solid #2a2a2a", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "22px", fontWeight: 700, color: "#3b82f6",
-              fontFamily: "'Syne', sans-serif",
-            }}>
-              {(user.discordUsername ?? "?")[0].toUpperCase()}
-            </div>
-          )}
+          <Image
+            src={getUserAvatar(user)}
+            alt={getUserDisplayName(user)}
+            width={56} height={56}
+            style={{ borderRadius: "50%", border: "2px solid #2a2a2a", flexShrink: 0, objectFit: "cover" }}
+          />
           <div>
             <h1 style={{
               fontFamily: "'Syne', sans-serif", fontSize: "20px",
               fontWeight: 700, color: "#e5e5e5", letterSpacing: "-0.02em", marginBottom: "3px",
             }}>
-              {user.discordUsername}
+              {getUserDisplayName(user)}
             </h1>
             <p style={{ color: "#555", fontSize: "12px" }}>Public profile</p>
           </div>

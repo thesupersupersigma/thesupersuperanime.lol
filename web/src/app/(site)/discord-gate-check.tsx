@@ -3,7 +3,14 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-const EXEMPT = ["/account", "/account/link-discord"];
+// Paths inside the (site) group that must never trigger a gate redirect
+const EXEMPT = [
+  "/account",
+  "/account/link-discord",
+  "/account/verify-email-pending",
+  "/account/verify-email",
+  "/account/verify-email-error",
+];
 
 export function DiscordGateCheck() {
   const router = useRouter();
@@ -15,7 +22,8 @@ export function DiscordGateCheck() {
     fetch("/api/auth/me")
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (data?.discordLinked === false) {
+        // User passes the gate if they have Discord linked OR a verified email
+        if (data && !data.discordLinked && !data.emailVerified) {
           router.push("/account/link-discord");
         }
       })

@@ -20,8 +20,9 @@ export function Nav() {
           return;
         }
         setIsLoggedIn(true);
-        // If logged in but Discord not linked, gate them
-        if (!data.discordLinked) {
+        // Gate: must have Discord linked OR verified email to browse the site.
+        // emailVerified users are allowed through without Discord.
+        if (!data.discordLinked && !data.emailVerified) {
           const exempt =
             pathname === "/account" ||
             pathname.startsWith("/account/");

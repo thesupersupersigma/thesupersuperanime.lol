@@ -1,34 +1,107 @@
-"use server"; 
-import { db } from "@/lib/db"; 
+"use server";
+import { db } from "@/lib/db";
 import { hashPassword, verifyPassword, getCurrentUser } from "@/lib/auth";
-import { sendPasswordResetEmail } from "@/lib/resend"; 
-import { cookies } from "next/headers"; 
-import { revalidatePath } from "next/cache"; 
-import { randomBytes } from "crypto"; 
+import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "@/lib/resend";
+import { sendNewSignupAlert } from "@/lib/discord";
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { randomBytes } from "crypto";
 
-export async function signUpAction(formData: FormData) { 
-  const email = formData.get("email")?.toString().toLowerCase().trim(); 
-  const password = formData.get("password")?.toString(); 
-  if (!email || !password || password.length < 6) { 
-    return { error: "Invalid email or password too short (min 6 chars)." }; 
-  } 
-  try { 
-    const existingUser = await db.user.findUnique({ where: { email } }); 
-    if (existingUser) return { error: "Email already in use." }; 
-    const passwordHash = hashPassword(password); 
-    const user = await db.user.create({ data: { email, passwordHash } }); 
-    const cookieStore = await cookies(); 
-    cookieStore.set("user-session", user.id, { 
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === "production", 
-      sameSite: "lax", 
-      maxAge: 60 * 60 * 24 * 30, 
-    }); 
-    revalidatePath("/account"); 
-    return { success: true }; 
-  } catch { 
-    return { error: "Something went wrong." }; 
-  } 
+export async function signUpAction(formData: FormData) {
+  const email = formData.get("email")?.toString().toLowerCase().trim();
+  const password = formData.get("password")?.toString();
+  if (!email || !password || password.length < 6) {
+    return { error: "Invalid email or password too short (min 6 chars)." };
+  }
+  try {
+    const existingUser = await db.user.findUnique({ where: { email } });
+    if (existingUser) return { error: "Email already in use." };
+    const passwordHash = hashPassword(password);
+    const verifyToken = randomBytes(32).toString("hex");
+    const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const user = await db.user.create({
+      data: {
+        email,
+        passwordHash,
+        emailVerified: false,
+        emailVerifyToken: verifyToken,
+        emailVerifyExpires: verifyExpires,
+      },
+    });
+    const cookieStore = await cookies();
+    cookieStore.set("user-session", user.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    // Fire-and-forget — don't block signup on email/discord
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const verifyUrl = `${siteUrl}/account/verify-email?token=${verifyToken}`;
+    void sendVerificationEmail(email, verifyUrl).catch(err =>
+      console.error("[signUp] verification email failed:", err)
+    );
+    void sendNewSignupAlert(email).catch(err =>
+      console.error("[signUp] discord alert failed:", err)
+    );
+    revalidatePath("/account");
+    return { success: true };
+  } catch {
+    return { error: "Something went wrong." };
+  }
+}
+
+/**
+ * Called from /account/verify-email page — verifies the token in-page
+ * rather than doing a redirect so the page can show a proper result.
+ */
+export async function verifyEmailAction(token: string) {
+  if (!token) return { error: "Missing verification token." };
+  try {
+    const user = await db.user.findUnique({ where: { emailVerifyToken: token } });
+    if (!user) return { error: "Invalid or expired verification link." };
+    if (!user.emailVerifyExpires || user.emailVerifyExpires < new Date()) {
+      return { error: "This verification link has expired. Request a new one from your account page." };
+    }
+    await db.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifyToken: null, emailVerifyExpires: null },
+    });
+    // Send welcome email (fire-and-forget)
+    void sendWelcomeEmail(user.email).catch(err =>
+      console.error("[verifyEmail] welcome email failed:", err)
+    );
+    return { success: true };
+  } catch (err) {
+    console.error("[verifyEmail]", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+/**
+ * Re-sends the verification email for the currently logged-in user.
+ * Generates a fresh token so the old link is invalidated.
+ */
+export async function resendVerificationEmailAction() {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not logged in." };
+  if (user.emailVerified) return { error: "Email already verified." };
+
+  try {
+    const verifyToken = randomBytes(32).toString("hex");
+    const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db.user.update({
+      where: { id: user.id },
+      data: { emailVerifyToken: verifyToken, emailVerifyExpires: verifyExpires },
+    });
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const verifyUrl = `${siteUrl}/account/verify-email?token=${verifyToken}`;
+    await sendVerificationEmail(user.email, verifyUrl);
+    return { success: true };
+  } catch (err) {
+    console.error("[resendVerification]", err);
+    return { error: "Failed to send email. Please try again." };
+  }
 } 
 
 export async function signInAction(formData: FormData) { 
@@ -130,6 +203,52 @@ export async function resetPasswordAction(formData: FormData) {
     return { error: "Something went wrong." } 
   } 
 } 
+
+/**
+ * Update username, displayName, and/or avatarPreset for an email-only user.
+ * Discord users already get these values from their Discord profile.
+ */
+export async function updateProfileAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not logged in." };
+  if (user.discordId) return { error: "Discord users cannot set a manual profile." };
+
+  const rawUsername = formData.get("username")?.toString().trim() || null;
+  const displayName = formData.get("displayName")?.toString().trim() || null;
+  const presetRaw = formData.get("avatarPreset")?.toString();
+  const avatarPreset = presetRaw ? Number(presetRaw) : null;
+
+  // Validate username format
+  if (rawUsername !== null) {
+    if (!/^[a-zA-Z0-9_-]{3,30}$/.test(rawUsername)) {
+      return { error: "Username must be 3–30 characters using only letters, numbers, _ or -." };
+    }
+    // Uniqueness check — exclude the current user
+    const taken = await db.user.findFirst({
+      where: { username: rawUsername, NOT: { id: user.id } },
+      select: { id: true },
+    });
+    if (taken) return { error: "That username is already taken." };
+  }
+
+  // Validate displayName length
+  if (displayName !== null && displayName.length > 50) {
+    return { error: "Display name must be 50 characters or fewer." };
+  }
+
+  // Validate avatarPreset range
+  if (avatarPreset !== null && (avatarPreset < 1 || avatarPreset > 14 || !Number.isInteger(avatarPreset))) {
+    return { error: "Invalid avatar selection." };
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { username: rawUsername, displayName, avatarPreset },
+  });
+
+  revalidatePath("/account");
+  return { success: true };
+}
 
 export async function unlinkDiscordAction() { 
   const user = await getCurrentUser(); 

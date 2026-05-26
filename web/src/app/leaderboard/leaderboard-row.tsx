@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ReactNode } from "react";
 import type { LeaderboardEntry } from "./page";
+import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
 function formatWatchTime(minutes: number): string {
   if (minutes < 1) return "< 1 min";
@@ -35,28 +36,17 @@ export default function LeaderboardRow({ entry, isLast, rankNode }: Props) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
-        {entry.discordAvatar ? (
-          <Image
-            src={entry.discordAvatar}
-            alt={entry.discordUsername ?? ""}
-            width={32} height={32}
-            style={{ borderRadius: "50%", flexShrink: 0 }}
-          />
-        ) : (
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: "#1a1a1a", flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "13px", fontWeight: 700, color: "#3b82f6",
-          }}>
-            {(entry.discordUsername ?? "?")[0].toUpperCase()}
-          </div>
-        )}
+        <Image
+          src={getUserAvatar(entry)}
+          alt={getUserDisplayName(entry)}
+          width={32} height={32}
+          style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
+        />
         <div style={{
           color: "#e5e5e5", fontSize: "13px", fontWeight: 500,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
-          {entry.discordUsername ?? "Anonymous"}
+          {getUserDisplayName(entry)}
         </div>
       </div>
 
@@ -72,10 +62,12 @@ export default function LeaderboardRow({ entry, isLast, rankNode }: Props) {
     </>
   );
 
-  if (entry.discordUsername) {
+  // Link to profile if they have a Discord username or a custom username
+  const profileSlug = entry.discordUsername ?? entry.username;
+  if (profileSlug) {
     return (
       <Link
-        href={`/user/${entry.discordUsername}`}
+        href={`/user/${encodeURIComponent(profileSlug)}`}
         style={rowStyle}
         onMouseEnter={e => (e.currentTarget.style.background = "#0f0f0f")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}

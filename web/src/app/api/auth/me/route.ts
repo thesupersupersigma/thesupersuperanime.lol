@@ -8,5 +8,6 @@ export async function GET(req: NextRequest) {
     userId: user.id,
     discordLinked: !!user.discordId,
     discordUsername: user.discordUsername ?? null,
+    emailVerified: user.emailVerified,
   });
 }

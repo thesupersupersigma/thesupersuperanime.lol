@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import LeaderboardRow from "./leaderboard-row";
+import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
 export const metadata: Metadata = {
   title: "Leaderboard — thesupersuperanime",
@@ -14,6 +15,9 @@ export interface LeaderboardEntry {
   userId: string;
   discordUsername: string | null;
   discordAvatar: string | null;
+  username: string | null;
+  displayName: string | null;
+  avatarPreset: number | null;
   episodesWatched: number;
   showsCompleted: number;
   minutesWatched: number;
@@ -48,7 +52,14 @@ async function getLeaderboard(): Promise<LeaderboardEntry[]> {
 
   const users = await db.user.findMany({
     where: { id: { in: userIds } },
-    select: { id: true, discordUsername: true, discordAvatar: true },
+    select: {
+      id: true,
+      discordUsername: true,
+      discordAvatar: true,
+      username: true,
+      displayName: true,
+      avatarPreset: true,
+    },
   });
 
   const userMap = new Map(users.map(u => [u.id, u]));
@@ -61,6 +72,9 @@ async function getLeaderboard(): Promise<LeaderboardEntry[]> {
         userId: h.userId!,
         discordUsername: user.discordUsername,
         discordAvatar: user.discordAvatar,
+        username: user.username,
+        displayName: user.displayName,
+        avatarPreset: user.avatarPreset,
         episodesWatched: h._count.episodeId,
         showsCompleted: completedMap.get(h.userId!) ?? 0,
         minutesWatched: Math.floor((h._sum.watchedSeconds ?? 0) / 60),
@@ -121,23 +135,12 @@ export default async function LeaderboardPage() {
                   ? "linear-gradient(to right, transparent, rgba(192,192,192,0.5), transparent)"
                   : "linear-gradient(to right, transparent, rgba(205,127,50,0.5), transparent)",
               }} />
-              {entry.discordAvatar ? (
-                <Image
-                  src={entry.discordAvatar}
-                  alt={entry.discordUsername ?? ""}
-                  width={48} height={48}
-                  style={{ borderRadius: "50%", margin: "0 auto 10px" }}
-                />
-              ) : (
-                <div style={{
-                  width: 48, height: 48, borderRadius: "50%",
-                  background: "#1a1a1a", margin: "0 auto 10px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "18px", fontWeight: 700, color: "#3b82f6",
-                }}>
-                  {(entry.discordUsername ?? "?")[0].toUpperCase()}
-                </div>
-              )}
+              <Image
+                src={getUserAvatar(entry)}
+                alt={getUserDisplayName(entry)}
+                width={48} height={48}
+                style={{ borderRadius: "50%", margin: "0 auto 10px", objectFit: "cover" }}
+              />
               <Medal rank={i + 1} />
               <div style={{
                 fontFamily: "'Syne', sans-serif",
@@ -145,7 +148,7 @@ export default async function LeaderboardPage() {
                 color: "#e5e5e5", marginTop: "6px",
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>
-                {entry.discordUsername ?? "Anonymous"}
+                {getUserDisplayName(entry)}
               </div>
               <div style={{ color: "#3b82f6", fontSize: "20px", fontWeight: 700, marginTop: "8px" }}>
                 {entry.episodesWatched}

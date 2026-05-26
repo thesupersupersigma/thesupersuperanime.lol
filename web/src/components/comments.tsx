@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
 interface CommentUser {
   id: string;
   discordUsername: string | null;
   discordAvatar: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  avatarPreset?: number | null;
 }
 
 interface CommentData {
@@ -35,26 +39,16 @@ function timeAgo(iso: string) {
 }
 
 function Avatar({ user }: { user: CommentUser }) {
-  if (user.discordAvatar) {
-    return (
-      <Image
-        src={user.discordAvatar}
-        alt={user.discordUsername ?? "User"}
-        width={32}
-        height={32}
-        style={{ borderRadius: "50%", flexShrink: 0 }}
-      />
-    );
-  }
+  const src = getUserAvatar(user);
+  const name = getUserDisplayName(user);
   return (
-    <div style={{
-      width: 32, height: 32, borderRadius: "50%",
-      background: "#1a1a1a", border: "1px solid #2a2a2a",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: "13px", fontWeight: 700, color: "#3b82f6", flexShrink: 0,
-    }}>
-      {(user.discordUsername ?? "?")[0].toUpperCase()}
-    </div>
+    <Image
+      src={src}
+      alt={name}
+      width={32}
+      height={32}
+      style={{ borderRadius: "50%", flexShrink: 0, objectFit: "cover" }}
+    />
   );
 }
 
@@ -146,9 +140,9 @@ function CommentCard({
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
           <span style={{ fontSize: "13px", fontWeight: 600, color: "#e5e5e5" }}>
-            {comment.user.discordUsername ?? "Unknown"}
+            {getUserDisplayName(comment.user)}
           </span>
-          {comment.user.discordAvatar && (
+          {comment.user.discordUsername && (
             <span style={{
               fontSize: "10px", color: "#5865F2", fontWeight: 600,
               background: "rgba(88,101,242,0.1)", padding: "1px 6px", borderRadius: "4px",
