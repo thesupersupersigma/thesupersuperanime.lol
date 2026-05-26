@@ -9,5 +9,8 @@ export async function GET(req: NextRequest) {
     discordLinked: !!user.discordId,
     discordUsername: user.discordUsername ?? null,
     emailVerified: user.emailVerified,
+    // Expose gate status so client components (Nav, DiscordGateCheck) can
+    // respect DISCORD_GATE=off without needing a NEXT_PUBLIC_ variable.
+    gateEnabled: process.env.DISCORD_GATE !== "off",
   });
 }

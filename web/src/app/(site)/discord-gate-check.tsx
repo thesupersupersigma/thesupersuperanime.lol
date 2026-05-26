@@ -10,6 +10,7 @@ const EXEMPT = [
   "/account/verify-email-pending",
   "/account/verify-email",
   "/account/verify-email-error",
+  "/account/setup-profile",
 ];
 
 export function DiscordGateCheck() {
@@ -22,8 +23,10 @@ export function DiscordGateCheck() {
     fetch("/api/auth/me")
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        // User passes the gate if they have Discord linked OR a verified email
-        if (data && !data.discordLinked && !data.emailVerified) {
+        // Gate is off — bail out immediately, no redirect logic runs at all.
+        if (!data?.gateEnabled) return;
+        // User passes the gate if they have Discord linked OR a verified email.
+        if (!data.discordLinked && !data.emailVerified) {
           router.push("/account/link-discord");
         }
       })

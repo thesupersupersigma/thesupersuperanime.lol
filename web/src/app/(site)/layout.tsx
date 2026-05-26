@@ -14,6 +14,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   //      have emailVerifyToken = null and must NEVER be redirected here)
   const user = await getCurrentUser();
   if (
+    discordGateEnabled &&
     user !== null &&
     user.discordId === null &&
     user.emailVerified === false &&

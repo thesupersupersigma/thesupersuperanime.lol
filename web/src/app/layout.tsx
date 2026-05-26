@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
-import Script from "next/script";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -20,11 +19,22 @@ const syne = Syne({
 
 export const metadata: Metadata = {
   title: "thesupersuperanime",
-  description: "Your private anime streaming site",
+  description: "I solo every other site btw jus bcus im that goated",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
-  icons: { icon: "/favicon.ico" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
+  other: {
+    referrer: "no-referrer-when-downgrade",
+  },
 };
 
 export default function RootLayout({
@@ -33,12 +43,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} ${syne.variable}`}>
       <body>
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6213625151530719"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
         <Nav />
         {children}
       </body>

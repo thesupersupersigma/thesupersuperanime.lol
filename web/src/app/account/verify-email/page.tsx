@@ -26,7 +26,7 @@ function VerifyEmailInner() {
       if ("success" in result && result.success) {
         setState("success");
         // Redirect after a brief success message so the user sees feedback
-        setTimeout(() => router.replace("/account?verified=1"), 2000);
+        setTimeout(() => router.replace("/account/setup-profile"), 2000);
       } else {
         setState("error");
         setErrorMsg("error" in result ? (result.error ?? "Something went wrong.") : "Something went wrong.");
@@ -72,7 +72,7 @@ function VerifyEmailInner() {
             Email verified!
           </h1>
           <p style={{ color: "#888", fontSize: "14px" }}>
-            You&apos;re all set. Redirecting you to your account…
+            Email confirmed! Setting up your profile…
           </p>
         </>
       )}

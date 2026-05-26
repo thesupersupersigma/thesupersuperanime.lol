@@ -23,7 +23,7 @@ No test suite is configured. TypeScript build errors are ignored (`ignoreBuildEr
 
 ## Architecture Overview
 
-This is a **Next.js 15 App Router** anime streaming site backed by PostgreSQL (Neon) via Prisma. It is part of a two-package monorepo:
+This is a **Next.js 16 App Router** anime streaming site backed by PostgreSQL (Neon) via Prisma. It is part of a two-package monorepo:
 
 - **`../core`** — Scraper logic (Playwright + stealth plugins, provider implementations). Built to `../core/dist`, then copied to `src/lib/core-dist/` by `predev`. Referenced as `@tsss/core` via tsconfig path alias.
 - **`web/`** (this package) — Next.js frontend + API routes.
@@ -32,11 +32,11 @@ The core is only rebuilt during `predev`. The `prebuild` script skips the core r
 
 ## Request Lifecycle & Auth Layers
 
-All authentication is enforced in **`src/middleware.ts`** before any route handler runs. The layers in order:
+All authentication is enforced in **`src/proxy.ts`** before any route handler runs. (Next.js 16 renamed the `middleware` file convention to `proxy` — `src/proxy.ts` *is* the middleware and holds the matcher `config`; don't rename it back to `middleware.ts`. Note: `.next/.../middleware-manifest.json` can read empty even though the proxy is active — verify with `curl -sI`, not the manifest.) The layers in order:
 
 1. **Site password** (`site-auth` cookie vs `SITE_PASSWORD`) — gates the entire site
 2. **User session** (`user-session` cookie → `db.user`) or guest session (`session-id` cookie, 1-year)
-3. **Discord link gate** (`discord-linked` cookie) — required for most site routes; exempt: `/account`, `/api/auth/*`
+3. **Discord link gate** (`discord-linked` **or** `email-verified` cookie) — logged-in users pass with either a linked Discord account or a verified email; required for most site routes; exempt: `/account`, `/api/auth/*`
 4. **Admin gate** (`admin-auth` cookie vs `ADMIN_PASSWORD`) — guards `/admin/*` and `/api/admin/*`
 
 Auth helpers live in `src/lib/auth.ts` (scrypt + HMAC password hashing, no bcrypt).

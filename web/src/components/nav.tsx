@@ -20,8 +20,9 @@ export function Nav() {
           return;
         }
         setIsLoggedIn(true);
+        // Gate is off — stop here, router.push is never called.
+        if (!data.gateEnabled) return;
         // Gate: must have Discord linked OR verified email to browse the site.
-        // emailVerified users are allowed through without Discord.
         if (!data.discordLinked && !data.emailVerified) {
           const exempt =
             pathname === "/account" ||

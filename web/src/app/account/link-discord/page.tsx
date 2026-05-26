@@ -29,9 +29,17 @@ export default async function LinkDiscordPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/account");
-  // Already has Discord OR already verified email — gate not needed
-  if (user.discordId) redirect("/");
-  if (user.emailVerified) redirect("/");
+
+  const gateEnabled = process.env.DISCORD_GATE !== "off";
+
+  // When the gate is off this is a voluntary link page — render immediately
+  // without inspecting discordId or emailVerified.
+  // When the gate is on, enforce: already-linked or already-verified users
+  // don't need to be here.
+  if (gateEnabled) {
+    if (user.discordId) redirect("/");
+    if (user.emailVerified) redirect("/");
+  }
 
   const { error } = await searchParams;
 

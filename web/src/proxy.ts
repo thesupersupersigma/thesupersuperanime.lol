@@ -92,12 +92,15 @@ export function proxy(req: NextRequest) {
         return NextResponse.redirect(new URL("/account", req.url));
       }
 
-      // 2. If they ARE logged in, but haven't linked Discord, kick to the link page
-      const discordLinked = req.cookies.get("discord-linked")?.value;
-      if (!discordLinked || discordLinked !== "1") {
+      // 2. Logged-in users pass the gate with EITHER a linked Discord account
+      //    OR a verified email. Both are mirrored into cookies because this
+      //    middleware runs on the Edge and cannot query the database.
+      const discordLinked = req.cookies.get("discord-linked")?.value === "1";
+      const emailVerified = req.cookies.get("email-verified")?.value === "1";
+      if (!discordLinked && !emailVerified) {
         if (pathname.startsWith("/api/")) {
           return NextResponse.json(
-            { error: "Discord account required", code: "DISCORD_REQUIRED" },
+            { error: "Verification required", code: "VERIFICATION_REQUIRED" },
             { status: 403 }
           );
         }
