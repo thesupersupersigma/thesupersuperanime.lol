@@ -67,16 +67,6 @@ s.async = true;
 s.referrerPolicy = 'no-referrer-when-downgrade';
 l.parentNode.insertBefore(s, l);
 })({})`}</Script>
-        <Script id="hta-banner" strategy="afterInteractive">{`(function(venjc){
-var d = document,
-    s = d.createElement('script'),
-    l = d.scripts[d.scripts.length - 1];
-s.settings = venjc || {};
-s.src = "//deliciouslip.com/b/X.Vtsxd/Gnlw0TYbWkcr/yeHmM9gu/ZlUFl/kaPgTEcswrOyDPIQxnMIj/k/txNmzHAp4_MrjlEYzVMJwp";
-s.async = true;
-s.referrerPolicy = 'no-referrer-when-downgrade';
-l.parentNode.insertBefore(s, l);
-})({})`}</Script>
       </body>
     </html>
   );
