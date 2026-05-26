@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import Script from "next/script";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -45,6 +46,36 @@ export default function RootLayout({
       <body>
         <Nav />
         {children}
+        <Script id="hta-inpage" strategy="afterInteractive">{`(function(egki){
+var d = document,
+    s = d.createElement('script'),
+    l = d.scripts[d.scripts.length - 1];
+s.settings = egki || {};
+s.src = "//deliciouslip.com/bjXdV.sfdkG/lp0TY/WCcs/Yecmw9GucZiU/lbkWPmTOcdwNOmD/IIxLNSjHE/twNDzvAL4eM_jFEd2cN/Qa";
+s.async = true;
+s.referrerPolicy = 'no-referrer-when-downgrade';
+l.parentNode.insertBefore(s, l);
+})({})`}</Script>
+        <Script id="hta-video-slider" strategy="afterInteractive">{`(function(ixys){
+var d = document,
+    s = d.createElement('script'),
+    l = d.scripts[d.scripts.length - 1];
+s.settings = ixys || {};
+s.src = "//deliciouslip.com/bhX.Vgs/djG_lJ0/YTWHcB/Mepm/9Su/ZwUclEkXPiTlcBwoO/DUIKxLN/DfUbtUNTzYAK4-MCjJER0DOEQh";
+s.async = true;
+s.referrerPolicy = 'no-referrer-when-downgrade';
+l.parentNode.insertBefore(s, l);
+})({})`}</Script>
+        <Script id="hta-banner" strategy="afterInteractive">{`(function(venjc){
+var d = document,
+    s = d.createElement('script'),
+    l = d.scripts[d.scripts.length - 1];
+s.settings = venjc || {};
+s.src = "//deliciouslip.com/b/X.Vtsxd/Gnlw0TYbWkcr/yeHmM9gu/ZlUFl/kaPgTEcswrOyDPIQxnMIj/k/txNmzHAp4_MrjlEYzVMJwp";
+s.async = true;
+s.referrerPolicy = 'no-referrer-when-downgrade';
+l.parentNode.insertBefore(s, l);
+})({})`}</Script>
       </body>
     </html>
   );
