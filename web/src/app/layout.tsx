@@ -34,6 +34,7 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
   other: {
     referrer: "no-referrer-when-downgrade",
+    "794d5429a9f3fc1e88336d09f22103435994976e": "794d5429a9f3fc1e88336d09f22103435994976e",
   },
 };
 
