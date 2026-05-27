@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -44,15 +44,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Description too long (max 2000 chars)" }, { status: 400 });
   }
 
-  // Attach to logged-in user if one exists — anonymous submissions are fine too
-  const user = await getCurrentUser();
+  // Require a logged-in user — anonymous submissions are not accepted
+  const user = await requireAuth();
+  if (!user) {
+    return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+  }
 
   const issue = await db.issue.create({
     data: {
       type,
       description: description.trim(),
       animeInfo: animeInfo?.trim() || null,
-      userId: user?.id ?? null,
+      userId: user.id,
     },
   });
 
@@ -71,11 +74,11 @@ export async function POST(req: NextRequest) {
         bodyLines.push(`## Anime / Episode\n\n${animeInfo.trim()}`);
       }
 
-      const submitter = user?.discordUsername
+      const submitter = user.discordUsername
         ? `Discord: \`${user.discordUsername}\``
-        : user?.email
+        : user.email
         ? `Email: \`${user.email}\``
-        : "Anonymous";
+        : `User ID: \`${user.id}\``;
       bodyLines.push(`## Submitted by\n\n${submitter}`);
 
       const ghRes = await fetch(`https://api.github.com/repos/${ghRepo}/issues`, {

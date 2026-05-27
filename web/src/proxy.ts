@@ -67,7 +67,11 @@ export function proxy(req: NextRequest) {
 
   // ── Discord link gate ───────────────────────────────────────────────────
   // DISCORD_GATE=off skips the gate entirely (default: on)
+  // MASTER_GATE=off allows unauthenticated browsing within the discord gate
+  //   (when DISCORD_GATE=on but MASTER_GATE=off, anonymous users pass through;
+  //    logged-in users still need discord/email verification)
   const discordGateEnabled = process.env.DISCORD_GATE !== "off";
+  const masterGateEnabled = process.env.MASTER_GATE !== "off";
 
   if (discordGateEnabled) {
     const exemptFromDiscordGate =
@@ -84,27 +88,30 @@ export function proxy(req: NextRequest) {
     if (!exemptFromDiscordGate) {
       const userId = req.cookies.get("user-session")?.value;
 
-      // 1. If they have NO account/session, kick them to the login page
       if (!userId) {
-        if (pathname.startsWith("/api/")) {
-          return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+        // 1. No session — block unless MASTER_GATE=off allows anonymous browsing
+        if (masterGateEnabled) {
+          if (pathname.startsWith("/api/")) {
+            return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+          }
+          return NextResponse.redirect(new URL("/account", req.url));
         }
-        return NextResponse.redirect(new URL("/account", req.url));
-      }
-
-      // 2. Logged-in users pass the gate with EITHER a linked Discord account
-      //    OR a verified email. Both are mirrored into cookies because this
-      //    middleware runs on the Edge and cannot query the database.
-      const discordLinked = req.cookies.get("discord-linked")?.value === "1";
-      const emailVerified = req.cookies.get("email-verified")?.value === "1";
-      if (!discordLinked && !emailVerified) {
-        if (pathname.startsWith("/api/")) {
-          return NextResponse.json(
-            { error: "Verification required", code: "VERIFICATION_REQUIRED" },
-            { status: 403 }
-          );
+        // MASTER_GATE=off: anonymous user passes through without discord check
+      } else {
+        // 2. Logged-in users pass the gate with EITHER a linked Discord account
+        //    OR a verified email. Both are mirrored into cookies because this
+        //    middleware runs on the Edge and cannot query the database.
+        const discordLinked = req.cookies.get("discord-linked")?.value === "1";
+        const emailVerified = req.cookies.get("email-verified")?.value === "1";
+        if (!discordLinked && !emailVerified) {
+          if (pathname.startsWith("/api/")) {
+            return NextResponse.json(
+              { error: "Verification required", code: "VERIFICATION_REQUIRED" },
+              { status: 403 }
+            );
+          }
+          return NextResponse.redirect(new URL("/account/link-discord", req.url));
         }
-        return NextResponse.redirect(new URL("/account/link-discord", req.url));
       }
     }
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Simple in-memory rate limit — 1 comment per 30s per user
@@ -53,11 +53,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  
+  const user = await requireAuth();
+
   // Added !user.id to ensure TypeScript knows both the user and the ID exist
   if (!user || !user.id) {
-    return NextResponse.json({ error: "Login required" }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
   }
 
   // Rate limit
@@ -117,8 +117,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Login required" }, { status: 401 });
+    const user = await requireAuth();
+    if (!user) return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
 
     const { commentId } = await req.json();
     if (!commentId) return NextResponse.json({ error: "commentId required" }, { status: 400 });

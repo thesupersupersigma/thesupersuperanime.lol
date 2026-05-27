@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionId, getCurrentUser } from "@/lib/auth";
+import { getSessionId, getCurrentUser, requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -21,25 +21,23 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await requireAuth();
+    if (!user) {
+      return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+    }
+
     const sessionId = await getSessionId();
-    const user = await getCurrentUser();
     const { animeId } = await req.json();
 
     if (!animeId) {
       return NextResponse.json({ error: "animeId is required" }, { status: 400 });
     }
 
-    const entry = user
-      ? await db.watchlist.upsert({
-          where: { userId_animeId: { userId: user.id, animeId: Number(animeId) } },
-          update: {},
-          create: { userId: user.id, sessionId, animeId: Number(animeId) },
-        })
-      : await db.watchlist.upsert({
-          where: { sessionId_animeId: { sessionId, animeId: Number(animeId) } },
-          update: {},
-          create: { sessionId, animeId: Number(animeId) },
-        });
+    const entry = await db.watchlist.upsert({
+      where: { userId_animeId: { userId: user.id, animeId: Number(animeId) } },
+      update: {},
+      create: { userId: user.id, sessionId, animeId: Number(animeId) },
+    });
 
     return NextResponse.json({ entry });
   } catch (error) {
@@ -50,8 +48,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const sessionId = await getSessionId();
-    const user = await getCurrentUser();
+    const user = await requireAuth();
+    if (!user) {
+      return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+    }
+
     const { animeId } = await req.json();
 
     if (!animeId) {
@@ -59,9 +60,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await db.watchlist.deleteMany({
-      where: user
-        ? { userId: user.id, animeId: Number(animeId) }
-        : { sessionId, animeId: Number(animeId) },
+      where: { userId: user.id, animeId: Number(animeId) },
     });
 
     return NextResponse.json({ success: true });
@@ -73,8 +72,11 @@ export async function DELETE(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const sessionId = await getSessionId();
-    const user = await getCurrentUser();
+    const user = await requireAuth();
+    if (!user) {
+      return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+    }
+
     const { animeId, status } = await req.json();
 
     const validStatuses = ["Planning", "Watching", "Completed", "Paused", "Dropped"];
@@ -82,15 +84,10 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Invalid animeId or status" }, { status: 400 });
     }
 
-    const entry = user
-      ? await db.watchlist.updateMany({
-          where: { userId: user.id, animeId: Number(animeId) },
-          data: { status },
-        })
-      : await db.watchlist.updateMany({
-          where: { sessionId, animeId: Number(animeId) },
-          data: { status },
-        });
+    const entry = await db.watchlist.updateMany({
+      where: { userId: user.id, animeId: Number(animeId) },
+      data: { status },
+    });
 
     return NextResponse.json({ success: true, entry });
   } catch (error) {

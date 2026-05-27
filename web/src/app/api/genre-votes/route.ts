@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // POST /api/genre-votes  — cast a vote (idempotent: ignore duplicate)
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireAuth();
   if (!user) {
-    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
@@ -30,9 +30,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/genre-votes  — remove a vote
 export async function DELETE(req: NextRequest) {
-  const user = await getCurrentUser();
+  const user = await requireAuth();
   if (!user) {
-    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);

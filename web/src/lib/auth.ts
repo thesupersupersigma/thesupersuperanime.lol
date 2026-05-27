@@ -129,6 +129,20 @@ export function isAdmin(discordId: string | null | undefined): boolean {
 }
 
 /**
+ * Returns the currently logged-in user, or null if not authenticated.
+ *
+ * Use this in API routes that require a user action (comments, votes,
+ * watchlist mutations, issue submissions). When it returns null, respond with:
+ *   return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+ *
+ * This is a semantic alias for getCurrentUser() — same query, different name
+ * to make auth-required routes self-documenting.
+ */
+export async function requireAuth() {
+  return getCurrentUser();
+}
+
+/**
  * Get the currently logged-in user from the database.
  *
  * Includes `needsEmailVerification: true` when the user signed up with
