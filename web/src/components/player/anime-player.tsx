@@ -22,13 +22,17 @@ interface AnimePlayerProps {
   animeTitle: string;
   mirrorUsed?: number;
   fallbackReason?: string;
+  // Saved resume position in seconds (0 = start from the beginning). Resolved by
+  // the parent BEFORE mount so hls.js can begin buffering at this offset on its
+  // very first manifest load — see onProviderChange below.
+  resumeTime?: number;
   // Called when playback fails fatally (commonly dead/expired proxy tokens) so
   // the parent can re-fetch fresh sources. SourceLoader guards against loops.
   onSourceFailure?: () => void;
 }
 
 export function AnimePlayer({
-  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, onSourceFailure,
+  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure,
 }: AnimePlayerProps) {
   const router = useRouter();
   const playerRef = useRef<MediaPlayerInstance>(null);
@@ -45,16 +49,23 @@ export function AnimePlayer({
   const [showServerTimeout, setShowServerTimeout] = useState(false);
 
   // --- REFS ---
-  const targetSeekTimeRef     = useRef<number | null>(null);
   const lastSavedTimeRef      = useRef<number>(0);
   const durationRef           = useRef<number>(0);          // avoids stale closure in onTimeUpdate
   const autoNextTimeoutRef    = useRef<NodeJS.Timeout | null>(null);
   const serverTimeoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Resume-seek refs: avoid passing resumeTime as a reactive prop so the seek
-  // only fires once the player is ready to buffer that position.
-  const pendingResumeRef    = useRef<number | null>(null); // saved progress, set by fetchProgress
-  const hasResumedRef       = useRef<boolean>(false);      // ensures we seek at most once
+  // Unified "where should the next source load start" (seconds). Initialised to
+  // the saved resume position at mount (the player remounts per episode, so this
+  // captures each episode's value), and overwritten with the live currentTime
+  // when the user switches server/audio/quality. Applied via startPosition for
+  // hls.js (no seek) and via currentTime for native engines.
+  const startPositionRef    = useRef<number>(resumeTime);
+  // True while an in-place server/audio/quality switch is settling, so onCanPlay
+  // knows to resume playback (native load() pauses the element).
+  const pendingSwitchRef    = useRef<boolean>(false);
+  // Skip the first src-change effect run (the initial mount is positioned by
+  // onProviderChange); only later switches hit the persistent-instance path.
+  const firstSrcRef         = useRef<boolean>(true);
 
   // Soft-stall watchdog timer.
   const stallTimerRef       = useRef<NodeJS.Timeout | null>(null);
@@ -118,10 +129,19 @@ export function AnimePlayer({
 
   // ── SERVER / AUDIO / QUALITY HANDLERS ─────────────────────────────────────
 
+  // Stash the live position as the next source's start position and flag the
+  // switch so playback resumes once the new stream is ready.
+  const stashSwitchPosition = () => {
+    const player = playerRef.current;
+    if (player) {
+      startPositionRef.current = player.currentTime;
+      pendingSwitchRef.current = true;
+    }
+  };
+
   const handleServerChange = (newServerName: string) => {
     if (newServerName === selectedServerName) return;
-    const player = playerRef.current;
-    if (player) targetSeekTimeRef.current = player.currentTime;
+    stashSwitchPosition();
     setSelectedServerName(newServerName);
     localStorage.setItem("preferred-server", newServerName);
     setPlayerError(null);
@@ -129,8 +149,7 @@ export function AnimePlayer({
 
   const handleAudioTypeChange = (newType: "sub" | "dub") => {
     if (newType === audioType) return;
-    const player = playerRef.current;
-    if (player) targetSeekTimeRef.current = player.currentTime;
+    stashSwitchPosition();
     setAudioType(newType);
     setPlayerError(null);
     localStorage.setItem("preferred-audio", newType);
@@ -142,29 +161,30 @@ export function AnimePlayer({
 
   const handleQualityChange = (newQuality: string) => {
     if (newQuality === selectedQuality) return;
-    const player = playerRef.current;
-    if (player) targetSeekTimeRef.current = player.currentTime;
+    stashSwitchPosition();
     setSelectedQuality(newQuality);
   };
 
-  // ── PROGRESS LOGIC ─────────────────────────────────────────────────────────
-
+  // ── RESUME-ON-SWITCH (persistent hls.js instance) ──────────────────────────
+  // A server/audio/quality change swaps the source on the SAME hls.js instance:
+  // Vidstack only fires onProviderChange on a provider *type* change, not a
+  // same-type src swap, so the initial-resume hook below doesn't run. Feed the
+  // stashed position in as the live instance's startPosition instead, so the
+  // reloaded manifest buffers there from its first fragment — the exact no-seek
+  // mechanism the initial resume uses. (Native engines reset currentTime to 0 on
+  // load() and are handled in onCanPlay; the first run is skipped because the
+  // initial source is positioned by onProviderChange.)
   useEffect(() => {
-    async function fetchProgress() {
-      try {
-        const res = await fetch(`/api/progress?episodeId=${animeId}-${episodeNum}`);
-        if (res.ok) {
-          const data = await res.json();
-          const rec  = data.history?.find((h: { episodeId: string; progress: number }) => h.episodeId === `${animeId}-${episodeNum}`);
-          // Only resume if the saved position is meaningfully into the video (>10 s).
-          if (rec && rec.progress > 10) {
-            pendingResumeRef.current = rec.progress;
-          }
-        }
-      } catch {}
+    if (firstSrcRef.current) { firstSrcRef.current = false; return; }
+    const provider = playerRef.current?.provider;
+    if (isHLSProvider(provider) && provider.instance) {
+      const start = startPositionRef.current;
+      provider.instance.config.startPosition = start > 0 ? start : 0;
+      console.log('[resume] src changed — persistent hls.js startPosition =', start);
     }
-    fetchProgress();
-  }, [animeId, episodeNum]);
+  }, [srcUrl]);
+
+  // ── PROGRESS LOGIC ─────────────────────────────────────────────────────────
 
   const saveProgress = useCallback(async (ct: number, dur: number) => {
     if (ct < 1 || dur < 1) return;
@@ -187,32 +207,56 @@ export function AnimePlayer({
   const onCanPlay = () => {
     const player = playerRef.current;
     if (!player) return;
+    const _prov = player.provider as any;
+    console.log('[resume][diag] onCanPlay — provider.type:', _prov?.type, '| isHLS(provider):', isHLSProvider(player.provider), '| duration:', player.duration);
 
     // Server responded with a valid stream — dismiss the timeout overlay.
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
     setShowServerTimeout(false);
 
-    // Server / audio / quality switch — restore playback position and resume.
-    if (targetSeekTimeRef.current !== null) {
-      player.currentTime = targetSeekTimeRef.current;
-      targetSeekTimeRef.current = null;
+    const isNative = !isHLSProvider(player.provider);
+
+    // Native HLS (Safari/iOS) and MP4 reset currentTime to 0 on every (re)load
+    // and handle arbitrary-position range requests reliably, so they resume by
+    // seeking here. hls.js engines are positioned via startPosition
+    // (onProviderChange + the src-change effect) and must NOT be seeked here —
+    // that is the original freeze. This branch also restores position across
+    // native server/quality switches (load() zeroed currentTime above).
+    if (isNative) {
+      const start = startPositionRef.current;
+      if (start > 0) {
+        const dur = player.duration || 0;
+        const target = dur > 0 ? Math.min(start, dur - 5) : start;
+        player.currentTime = target;
+        console.log('[resume] onCanPlay native seek →', target, '(raw', start + ')');
+      }
+      startPositionRef.current = 0; // consume so a later canPlay can't re-seek
+    }
+
+    // Resume playback after an in-place server/audio/quality switch so the swap
+    // is seamless. Native load() pauses the element; hls.js keeps playing, where
+    // play() is a harmless no-op.
+    if (pendingSwitchRef.current) {
+      pendingSwitchRef.current = false;
       setTimeout(async () => {
         try { await player.play(); } catch { /* browser blocked auto-play */ }
-      }, 150);
-      return;
+      }, isNative ? 150 : 0);
     }
   };
 
   // ── STALL & FAILURE RECOVERY ─────────────────────────────────────────────
   // Three independent layers, in order of how often they fire:
   //
-  //   1. onProviderChange tunes hls.js to clear buffer holes on its own, so an
-  //      aggressive seek doesn't strand the player on a gap in the first place.
+  //   1. onProviderChange tunes hls.js (buffer-hole tolerance) AND starts
+  //      buffering at the resume offset, so the player never strands itself on a
+  //      gap or a play-from-0-then-seek to begin with.
   //
   //   2. onWaiting watchdog catches a stall that produces no error at all (e.g.
   //      a quietly hung segment fetch): after 6 s we re-kick the loader with
   //      startLoad() — no position argument, since passing one previously made
-  //      the player jump to the end of the episode.
+  //      the player jump to the end of the episode. It deliberately does NOTHING
+  //      near the end or while paused, so a tail-end stall can't be "recovered"
+  //      into an end-of-stream / false `ended`.
   //
   //   3. onPlaybackError handles a *fatal* failure. Vidstack already auto-runs
   //      recoverMediaError() for fatal media errors; what it can't fix is dead
@@ -231,6 +275,12 @@ export function AnimePlayer({
     stallTimerRef.current = setTimeout(() => {
       const player = playerRef.current;
       if (!player) return;
+      // A "stall" at the very end is just the stream finishing, and a paused
+      // player isn't stalled at all — re-kicking the loader in either case can
+      // shove MSE into end-of-stream and fire a false `ended`. Leave them be.
+      if (player.paused) return;
+      const dur = player.duration || durationRef.current || 0;
+      if (dur > 0 && player.currentTime >= dur - 2) return;
       const provider = player.provider;
       if (isHLSProvider(provider) && provider.instance) {
         provider.instance.startLoad();              // resume loading from current position
@@ -241,45 +291,31 @@ export function AnimePlayer({
   }, [clearStallTimer]);
 
   const onPlaying = useCallback(() => {
+    console.log('[resume] onPlaying — currentTime:', playerRef.current?.currentTime, 'duration:', durationRef.current);
     clearStallTimer();
     // Playback actually started — server is alive, no need for the timeout overlay.
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
     setShowServerTimeout(false);
-
-    // Saved-progress resume — deferred here from onCanPlay so hls.js has a live
-    // pipe open. Seeking now lets it issue a targeted range request instead of
-    // buffering forward from 0, which stalled forever when resuming near the end.
-    if (!hasResumedRef.current && pendingResumeRef.current !== null) {
-      const player = playerRef.current;
-      if (player) {
-        const resumeAt = pendingResumeRef.current;
-        hasResumedRef.current = true;
-        // Clamp away from the very edge of the episode (past all buffered content),
-        // but only once the duration is actually known.
-        const target = durationRef.current > 0
-          ? Math.min(resumeAt, durationRef.current - 5)
-          : resumeAt;
-        player.currentTime = target;
-        // Point hls.js at the resume position so it fetches those segments directly
-        // rather than continuing to load from wherever it was.
-        const provider = playerRef.current?.provider;
-        if (isHLSProvider(provider) && provider.instance) {
-          provider.instance.startLoad(target);
-        }
-        pendingResumeRef.current = null;
-      }
-    }
   }, [clearStallTimer]);
 
-  // Make hls.js tolerate buffer holes so a hard seek clears itself rather than
-  // stalling. Config must be set here, before the instance is created.
+  // onProviderChange fires BEFORE the hls.js instance is created, so config set
+  // here is spread into the constructor. This is the heart of the resume fix:
+  // `startPosition` makes hls.js request the fragment AT the resume offset first
+  // and buffer outward from there — no play-from-0-then-seek, so no buffer flush,
+  // no refetch-through-the-proxy stall, no starvation, no false `ended`. The
+  // buffer-hole tolerances stay for ordinary mid-stream stalls.
   const onProviderChange = (provider: unknown) => {
+    const _arg = provider as any;
+    console.log('[resume][diag] onProviderChange — arg.type:', _arg?.type, '| arg.detail?.type:', _arg?.detail?.type, '| isHLS(arg):', isHLSProvider(provider), '| isHLS(arg.detail):', isHLSProvider(_arg?.detail));
     if (isHLSProvider(provider)) {
+      const start = startPositionRef.current;
       provider.config = {
         ...provider.config,
+        ...(start > 0 ? { startPosition: start } : {}),
         maxBufferHole: 0.5, // jump holes up to 0.5s instead of stalling (default 0.1)
         nudgeMaxRetry: 5,   // more automatic nudge attempts before a stall turns fatal
       };
+      console.log('[resume] onProviderChange — hls.js startPosition =', start > 0 ? start : '(default 0)');
     }
   };
 
@@ -304,12 +340,27 @@ export function AnimePlayer({
       setDuration(d);
     }
 
+    // NOTE: resume is no longer a deferred seek here. Playback STARTS at the
+    // resume offset (hls.js startPosition / native currentTime-on-canplay), so
+    // there is nothing to seek to once duration is known.
+
     saveProgress(t, d);
   };
 
   const onEnded = () => {
     const player = playerRef.current;
-    if (player) saveProgress(player.duration, player.duration);
+    if (!player) return;
+    const dur = player.duration || durationRef.current || 0;
+    const ct  = player.currentTime || 0;
+    // Only auto-advance when GENUINELY at the end. A starved/false `ended` — MSE
+    // driven to end-of-stream by a stall, or a 0-duration glitch during loading —
+    // lands far from `dur` and must never trigger the next-episode prompt.
+    if (!(dur > 0 && ct >= dur - 2)) {
+      console.log('[resume] onEnded IGNORED (false ended) — currentTime', ct, 'duration', dur);
+      return;
+    }
+    console.log('[resume] onEnded — advancing at', ct, 'of', dur);
+    saveProgress(dur, dur);
     setShowNextPrompt(true);
     autoNextTimeoutRef.current = setTimeout(
       () => router.push(`/watch/${animeId}/${episodeNum + 1}`),

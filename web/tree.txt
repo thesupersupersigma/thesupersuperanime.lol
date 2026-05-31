@@ -247,9 +247,9 @@
 │   │   ├── base.ts
 │   │   └── index.ts
 │   └── proxy.ts
+├── tree.md
 ├── tree.txt
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-73 directories, 179 files
-tree -I 'node_modules|.git|dist|build|graphify-out' > tree.txt
+73 directories, 180 files

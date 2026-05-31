@@ -47,6 +47,7 @@ export default function RootLayout({
       <body>
         <Nav />
         {children}
+        {/* Ad scripts temporarily disabled to test resume-seek. Remove this comment wrapper (this line + the closing marker before </body>) to re-enable.
         <Script id="hta-inpage" strategy="afterInteractive">{`(function(egki){
 var d = document,
     s = d.createElement('script'),
@@ -67,6 +68,7 @@ s.async = true;
 s.referrerPolicy = 'no-referrer-when-downgrade';
 l.parentNode.insertBefore(s, l);
 })({})`}</Script>
+        */}
       </body>
     </html>
   );

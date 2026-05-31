@@ -20,6 +20,10 @@ export default function WatchPage() {
   const [servers, setServers] = useState<ServerData[]>([]);
   const [mirrorUsed, setMirrorUsed] = useState<number | undefined>(undefined);
   const [fallbackReason, setFallbackReason] = useState<string | undefined>(undefined);
+  // Saved resume position (seconds) for THIS episode. Fetched here — not inside
+  // the player — so it is known at mount, which is required for the hls.js
+  // `startPosition` resume mechanism to take effect on the first manifest load.
+  const [resumeTime, setResumeTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
@@ -53,6 +57,20 @@ export default function WatchPage() {
 
         const animeTitle = getDisplayTitle(data.anime.title);
 
+        // Kick off the saved-progress fetch in PARALLEL with the source request
+        // so the resume position is ready before the player mounts. A failure
+        // here must never block playback — it resolves to 0 (start from the top).
+        const progressPromise: Promise<number> = fetch(`/api/progress?episodeId=${animeId}-${episodeNum}`)
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => {
+            const rec = d?.history?.find(
+              (h: { episodeId: string; progress: number }) => h.episodeId === `${animeId}-${episodeNum}`,
+            );
+            // Only resume if the saved position is meaningfully into the video (>10 s).
+            return rec && rec.progress > 10 ? rec.progress : 0;
+          })
+          .catch(() => 0);
+
         // 2. Fetch the Servers from our new Dual-API Aggregator
         const sourceRes = await fetch("/api/source", {
           method: "POST",
@@ -69,6 +87,11 @@ export default function WatchPage() {
         const sourceData = await sourceRes.json();
         
         if (sourceData.servers && sourceData.servers.length > 0) {
+          // Resolve the resume position before flipping `loading` off so the
+          // player mounts with it already in hand.
+          const resume = await progressPromise;
+          console.log('[resume] watch page resolved resumeTime', resume);
+          setResumeTime(resume);
           setServers(sourceData.servers);
           setMirrorUsed(sourceData.mirrorUsed);
           setFallbackReason(sourceData.fallbackReason);
@@ -166,6 +189,7 @@ export default function WatchPage() {
               animeTitle={title}
               mirrorUsed={mirrorUsed}
               fallbackReason={fallbackReason}
+              resumeTime={resumeTime}
             />
           </div>
           
