@@ -54,7 +54,6 @@ export function AnimePlayer({
   // Resume-seek refs: avoid passing resumeTime as a reactive prop so the seek
   // only fires once the player is ready to buffer that position.
   const pendingResumeRef    = useRef<number | null>(null); // saved progress, set by fetchProgress
-  const playerReadyRef      = useRef<boolean>(false);      // true after first canplay fires
   const hasResumedRef       = useRef<boolean>(false);      // ensures we seek at most once
 
   // Soft-stall watchdog timer.
@@ -160,11 +159,6 @@ export function AnimePlayer({
           // Only resume if the saved position is meaningfully into the video (>10 s).
           if (rec && rec.progress > 10) {
             pendingResumeRef.current = rec.progress;
-            // If canplay already fired before the fetch returned, seek immediately.
-            if (playerReadyRef.current && !hasResumedRef.current) {
-              hasResumedRef.current = true;
-              if (playerRef.current) playerRef.current.currentTime = rec.progress;
-            }
           }
         }
       } catch {}
@@ -198,8 +192,6 @@ export function AnimePlayer({
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
     setShowServerTimeout(false);
 
-    playerReadyRef.current = true;
-
     // Server / audio / quality switch — restore playback position and resume.
     if (targetSeekTimeRef.current !== null) {
       player.currentTime = targetSeekTimeRef.current;
@@ -208,15 +200,6 @@ export function AnimePlayer({
         try { await player.play(); } catch { /* browser blocked auto-play */ }
       }, 150);
       return;
-    }
-
-    // Saved-progress resume — seek only if we haven't done so yet and there is a
-    // pending resume position (set by fetchProgress). The >10 s guard already lives
-    // in fetchProgress; we just trust pendingResumeRef here.
-    if (!hasResumedRef.current && pendingResumeRef.current !== null) {
-      hasResumedRef.current    = true;
-      player.currentTime       = pendingResumeRef.current;
-      pendingResumeRef.current = null;
     }
   };
 
@@ -262,6 +245,30 @@ export function AnimePlayer({
     // Playback actually started — server is alive, no need for the timeout overlay.
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
     setShowServerTimeout(false);
+
+    // Saved-progress resume — deferred here from onCanPlay so hls.js has a live
+    // pipe open. Seeking now lets it issue a targeted range request instead of
+    // buffering forward from 0, which stalled forever when resuming near the end.
+    if (!hasResumedRef.current && pendingResumeRef.current !== null) {
+      const player = playerRef.current;
+      if (player) {
+        const resumeAt = pendingResumeRef.current;
+        hasResumedRef.current = true;
+        // Clamp away from the very edge of the episode (past all buffered content),
+        // but only once the duration is actually known.
+        const target = durationRef.current > 0
+          ? Math.min(resumeAt, durationRef.current - 5)
+          : resumeAt;
+        player.currentTime = target;
+        // Point hls.js at the resume position so it fetches those segments directly
+        // rather than continuing to load from wherever it was.
+        const provider = playerRef.current?.provider;
+        if (isHLSProvider(provider) && provider.instance) {
+          provider.instance.startLoad(target);
+        }
+        pendingResumeRef.current = null;
+      }
+    }
   }, [clearStallTimer]);
 
   // Make hls.js tolerate buffer holes so a hard seek clears itself rather than

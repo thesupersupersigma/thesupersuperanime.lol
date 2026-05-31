@@ -7,7 +7,7 @@ import type { LeaderboardEntry } from "./page";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
 function formatWatchTime(minutes: number): string {
-  if (minutes < 1) return "< 1 min";
+  if (minutes < 1) return "0 mins";
   return `${minutes} mins`;
 }
 

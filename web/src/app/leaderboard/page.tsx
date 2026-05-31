@@ -99,6 +99,21 @@ function Medal({ rank }: { rank: number }) {
 export default async function LeaderboardPage() {
   const entries = await getLeaderboard();
 
+  // Top 3 get the podium cards; everyone else fills the table below, so no user
+  // appears twice. Podium is laid out 2 · 1 · 3 (winner center stage). If there
+  // aren't 3 users yet, skip the podium and list everyone in the table.
+  const top3 = entries.slice(0, 3);
+  const hasPodium = top3.length === 3;
+  const podium = hasPodium
+    ? [
+        { entry: top3[1], rank: 2 },
+        { entry: top3[0], rank: 1 },
+        { entry: top3[2], rank: 3 },
+      ]
+    : [];
+  const listEntries = hasPodium ? entries.slice(3) : entries;
+  const listStartIndex = hasPodium ? 3 : 0;
+
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "0 24px 80px" }}>
       <div style={{ marginBottom: "32px" }}>
@@ -115,47 +130,65 @@ export default async function LeaderboardPage() {
         </p>
       </div>
 
-      {/* Stats cards for top 3 */}
-      {entries.length >= 3 && (
+      {/* Stats cards for top 3 — laid out 2 · 1 · 3, each linking to the profile */}
+      {hasPodium && (
         <div style={{
           display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
           gap: "12px", marginBottom: "32px",
         }}>
-          {entries.slice(0, 3).map((entry, i) => (
-            <div key={entry.userId} style={{
+          {podium.map(({ entry, rank }) => {
+            const cardStyle = {
               background: "#111", border: "1px solid #2a2a2a",
               borderRadius: "16px", padding: "20px",
               textAlign: "center", position: "relative", overflow: "hidden",
-            }}>
-              <div style={{
-                position: "absolute", top: 0, left: 0, width: "100%", height: "1px",
-                background: i === 0
-                  ? "linear-gradient(to right, transparent, rgba(255,215,0,0.5), transparent)"
-                  : i === 1
-                  ? "linear-gradient(to right, transparent, rgba(192,192,192,0.5), transparent)"
-                  : "linear-gradient(to right, transparent, rgba(205,127,50,0.5), transparent)",
-              }} />
-              <Image
-                src={getUserAvatar(entry)}
-                alt={getUserDisplayName(entry)}
-                width={48} height={48}
-                style={{ borderRadius: "50%", margin: "0 auto 10px", objectFit: "cover" }}
-              />
-              <Medal rank={i + 1} />
-              <div style={{
-                fontFamily: "'Syne', sans-serif",
-                fontSize: "13px", fontWeight: 600,
-                color: "#e5e5e5", marginTop: "6px",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>
-                {getUserDisplayName(entry)}
+              display: "block", textDecoration: "none", color: "inherit",
+            } as const;
+            const accent = rank === 1
+              ? "linear-gradient(to right, transparent, rgba(255,215,0,0.5), transparent)"
+              : rank === 2
+              ? "linear-gradient(to right, transparent, rgba(192,192,192,0.5), transparent)"
+              : "linear-gradient(to right, transparent, rgba(205,127,50,0.5), transparent)";
+            const card = (
+              <>
+                <div style={{
+                  position: "absolute", top: 0, left: 0, width: "100%", height: "1px",
+                  background: accent,
+                }} />
+                <Image
+                  src={getUserAvatar(entry)}
+                  alt={getUserDisplayName(entry)}
+                  width={48} height={48}
+                  style={{ borderRadius: "50%", margin: "0 auto 10px", objectFit: "cover" }}
+                />
+                <Medal rank={rank} />
+                <div style={{
+                  fontFamily: "'Syne', sans-serif",
+                  fontSize: "13px", fontWeight: 600,
+                  color: "#e5e5e5", marginTop: "6px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  {getUserDisplayName(entry)}
+                </div>
+                <div style={{ color: "#3b82f6", fontSize: "20px", fontWeight: 700, marginTop: "8px" }}>
+                  {entry.episodesWatched}
+                </div>
+                <div style={{ color: "#555", fontSize: "11px" }}>episodes</div>
+                <div style={{ color: "#a3a3a3", fontSize: "12px", marginTop: "8px" }}>
+                  {entry.minutesWatched} mins watched
+                </div>
+              </>
+            );
+            const profileSlug = entry.discordUsername ?? entry.username;
+            return profileSlug ? (
+              <Link key={entry.userId} href={`/user/${encodeURIComponent(profileSlug)}`} style={cardStyle}>
+                {card}
+              </Link>
+            ) : (
+              <div key={entry.userId} style={cardStyle}>
+                {card}
               </div>
-              <div style={{ color: "#3b82f6", fontSize: "20px", fontWeight: 700, marginTop: "8px" }}>
-                {entry.episodesWatched}
-              </div>
-              <div style={{ color: "#555", fontSize: "11px" }}>episodes</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -180,17 +213,17 @@ export default async function LeaderboardPage() {
           <div style={{ textAlign: "right" }}>Mins Watched</div>
         </div>
 
-        {entries.length === 0 ? (
+        {listEntries.length === 0 ? (
           <div style={{ padding: "48px", textAlign: "center", color: "#444", fontSize: "13px" }}>
-            No data yet — start watching!
+            {entries.length === 0 ? "No data yet — start watching!" : "That's everyone for now."}
           </div>
         ) : (
-          entries.map((entry, i) => (
-            <LeaderboardRow 
-              key={entry.userId} 
-              entry={entry} 
-              isLast={i === entries.length - 1} 
-              rankNode={<Medal rank={i + 1} />} 
+          listEntries.map((entry, i) => (
+            <LeaderboardRow
+              key={entry.userId}
+              entry={entry}
+              isLast={i === listEntries.length - 1}
+              rankNode={<Medal rank={listStartIndex + i + 1} />}
             />
           ))
         )}

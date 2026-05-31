@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Anti-cheat: fetch previous progress to validate the delta ---
-    // progress is stored in milliseconds; we convert to seconds for the delta check.
+    // progress is stored in seconds (the player sends Math.floor of currentTime),
+    // so the delta is already in seconds — no conversion needed.
     const existing = user
       ? await db.watchHistory.findUnique({
           where: { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } },
@@ -55,9 +56,9 @@ export async function POST(req: NextRequest) {
           select: { progress: true },
         });
 
-    const prevProgressMs = existing?.progress ?? 0;
-    const newProgressMs = progress ?? 0;
-    const deltaSeconds = (newProgressMs - prevProgressMs) / 1000;
+    const prevProgress = existing?.progress ?? 0;
+    const newProgress = progress ?? 0;
+    const deltaSeconds = newProgress - prevProgress;
 
     // Valid: forward playback between 1 s and 60 s (normal save interval).
     // Skips, scrubs backward, or huge jumps don't count toward watch time.
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       ? await db.watchHistory.upsert({
           where: { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } },
           update: {
-            progress: newProgressMs,
+            progress: newProgress,
             duration: duration ?? 0,
             watchedSeconds: { increment: watchedSecondsIncrement },
           },
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
             sessionId,
             animeId: Number(animeId),
             episodeId: String(episodeId),
-            progress: newProgressMs,
+            progress: newProgress,
             duration: duration ?? 0,
             watchedSeconds: 0,
           },
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
       : await db.watchHistory.upsert({
           where: { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
           update: {
-            progress: newProgressMs,
+            progress: newProgress,
             duration: duration ?? 0,
             watchedSeconds: { increment: watchedSecondsIncrement },
           },
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
             sessionId,
             animeId: Number(animeId),
             episodeId: String(episodeId),
-            progress: newProgressMs,
+            progress: newProgress,
             duration: duration ?? 0,
             watchedSeconds: 0,
           },
