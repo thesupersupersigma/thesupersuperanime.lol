@@ -12,14 +12,9 @@ interface NormalizedStream {
   cookies: string;
 }
 
-// Provider priority — kiwi first (most reliable), ZORO last
-// Names must match the exact keys returned by the Miruro API
 const PROVIDER_PRIORITY: Record<string, number> = {
-  kiwi:     0,
-  ANIMEKAI: 1,
-  ANIMEZ:   2,
-  hop:      3,
-  ZORO:     4,
+  anikoto: 0,
+  anineko: 1,
 }
 
 export async function POST(req: NextRequest) {
@@ -44,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[/api/source] Fetching streams for: ${animeTitle} | Ep: ${episodeNum}`);
 
-    const { streams: allStreams, mirrorUsed, fallbackReason } = await fetchMiruro(animeId, episodeNum);
+    const { streams: allStreams, mirrorUsed, fallbackReason } = await fetchAnivexa(animeId, episodeNum);
 
     if (allStreams.length === 0) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
@@ -119,146 +114,102 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── Miruro ───────────────────────────────────────────────────────────────────
-// Tries MIRURO_API_URL first, falls back to MIRURO_API_URL_2 and _3 if set
-
-async function fetchMiruro(
+async function fetchAnivexa(
   animeId: number,
   episodeNum: number
 ): Promise<{ streams: NormalizedStream[]; mirrorUsed: number; fallbackReason: string }> {
-  const urls = [
-    process.env.MIRURO_API_URL,
-    process.env.MIRURO_API_URL_2,
-    process.env.MIRURO_API_URL_3,
-  ].filter(Boolean) as string[];
+  const baseUrl = process.env.ANIVEXA_API_URL;
+  if (!baseUrl) throw new Error("ANIVEXA_API_URL is not set");
 
-  const apiKey = process.env.MIRURO_API_KEY ?? "";
-  // Records why mirror 1 (primary) failed, so we can surface it in the badge
-  let firstFailureReason = "primary";
-
-  for (let i = 0; i < urls.length; i++) {
-    try {
-      console.log(`[fetchMiruro] Trying ${urls[i]}`);
-      const streams = await fetchMiruroFromUrl(urls[i], apiKey, animeId, episodeNum);
-      if (streams.length > 0) {
-        console.log(`[fetchMiruro] Got ${streams.length} streams from ${urls[i]}`);
-        return {
-          streams,
-          mirrorUsed: i + 1, // 1-indexed: 1 = primary, 2 = mirror 2, …
-          fallbackReason: i === 0 ? "primary" : firstFailureReason,
-        };
-      }
-      console.log(`[fetchMiruro] No streams from ${urls[i]}, trying next...`);
-      if (i === 0) firstFailureReason = "not_found";
-    } catch (err) {
-      const name = err instanceof Error ? err.name : "";
-      console.log(`[fetchMiruro] ${urls[i]} failed: ${err instanceof Error ? err.message : err}`);
-      if (i === 0) {
-        firstFailureReason =
-          name === "TimeoutError" || name === "AbortError" ? "timeout" : "error";
-      }
+  try {
+    const streams = await fetchAnevixaFromUrl(baseUrl, animeId, episodeNum);
+    if (streams.length > 0) {
+      return { streams, mirrorUsed: 1, fallbackReason: "primary" };
     }
+    return { streams: [], mirrorUsed: 0, fallbackReason: "not_found" };
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "";
+    const reason = name === "TimeoutError" || name === "AbortError" ? "timeout" : "error";
+    return { streams: [], mirrorUsed: 0, fallbackReason: reason };
   }
-
-  return { streams: [], mirrorUsed: 0, fallbackReason: firstFailureReason };
 }
 
-async function fetchMiruroFromUrl(
+async function fetchAnevixaFromUrl(
   baseUrl: string,
-  apiKey: string,
   animeId: number,
   episodeNum: number
 ): Promise<NormalizedStream[]> {
   const epsRes = await fetch(`${baseUrl}/episodes/${animeId}`, {
-    headers: { "x-api-key": apiKey },
     signal: AbortSignal.timeout(12000),
   });
-
   if (!epsRes.ok) return [];
   const epsData = await epsRes.json();
 
-  // Exact provider IDs as returned by the Miruro API
-  const allProviders = ["kiwi", "ANIMEKAI", "ANIMEZ", "hop", "ZORO"];
+  const providers = ["anikoto", "anineko"] as const;
   const audioTypes = ["sub", "dub"] as const;
   const validStreams: NormalizedStream[] = [];
 
   await Promise.all(
-    allProviders.flatMap((provider) =>
+    providers.flatMap((provider) =>
       audioTypes.map(async (audioType) => {
-        const eps = epsData?.providers?.[provider]?.episodes?.[audioType];
+        const eps = epsData?.[provider]?.episodes?.[audioType];
         if (!Array.isArray(eps)) return;
 
         const ep = eps.find((e: { number: number; id: string }) => e.number === episodeNum);
         if (!ep?.id) return;
 
         try {
-          const streamRes = await fetch(`${baseUrl}/${ep.id}`, {
-            headers: { "x-api-key": apiKey },
+          const watchRes = await fetch(`${baseUrl}/${ep.id}`, {
             signal: AbortSignal.timeout(8000),
           });
-          if (!streamRes.ok) return;
+          if (!watchRes.ok) return;
+          const watchData = await watchRes.json();
 
-          const streamData = await streamRes.json();
-          // The hop provider returns a different response shape:
-          //   streamData.ssub.streams (sub) or streamData.sdub.streams (dub)
-          // All other providers use streamData.streams directly.
+          // anikoto returns ssub.streams / sdub.streams
+          // anineko returns streams directly
           const rawStreams: unknown[] =
-            streamData.streams ??
-            (audioType === "sub" ? streamData.ssub?.streams : streamData.sdub?.streams) ??
+            watchData.streams ??
+            (audioType === "sub" ? watchData.ssub?.streams : watchData.sdub?.streams) ??
             [];
-          const hlsStreams = rawStreams.filter(
-            (s: unknown) => {
-              const stream = s as { type?: string; url?: string };
-              return stream.type === "hls" || stream.url?.includes(".m3u8");
-            }
-          );
+
+          const hlsStreams = rawStreams.filter((s: unknown) => {
+            const stream = s as { type?: string; url?: string };
+            return stream.type === "hls";
+          });
           if (hlsStreams.length === 0) return;
 
-          // Liveness check — verify the HLS URL actually responds.
-          // We check for #EXTM3U but fall back to accepting any 200 OK,
-          // since some providers (ANIMEKAI, ANIMEZ, hop, ZORO) may serve
-          // valid streams that require specific headers or don't return
-          // the playlist inline on a bare GET.
-          const firstStream = hlsStreams[0] as { url: string; referer?: string; quality?: string | number; cookies?: string };
-          const liveReferer = firstStream.referer ?? "https://kwik.cx/";
+          // Liveness check on first stream
+          const firstStream = hlsStreams[0] as { url: string; referer?: string };
+          const referer = firstStream.referer ?? "https://megaplay.buzz/";
           try {
             const checkRes = await fetch(firstStream.url, {
               method: "GET",
               headers: {
                 "User-Agent": "Mozilla/5.0",
-                "Referer": liveReferer,
-                "Origin": new URL(liveReferer).origin,
+                "Referer": referer,
+                "Origin": new URL(referer).origin,
               },
               signal: AbortSignal.timeout(4000),
             });
-
             if (!checkRes.ok) {
-              console.log(`[fetchMiruro] ${provider}/${audioType} liveness FAIL — HTTP ${checkRes.status}`);
+              console.log(`[fetchAnivexa] ${provider}/${audioType} liveness FAIL — HTTP ${checkRes.status}`);
               return;
             }
-
-            const text = await checkRes.text();
-            if (text.includes("#EXTM3U")) {
-              console.log(`[fetchMiruro] ${provider}/${audioType} liveness PASS (valid m3u8)`);
-            } else {
-              // Accept the stream anyway — provider responded 200 but may need
-              // the player to negotiate headers at playback time
-              console.log(`[fetchMiruro] ${provider}/${audioType} liveness PASS (200 OK, no #EXTM3U — accepted)`);
-            }
+            console.log(`[fetchAnivexa] ${provider}/${audioType} liveness PASS`);
           } catch (liveErr) {
-            console.log(`[fetchMiruro] ${provider}/${audioType} liveness FAIL — ${liveErr instanceof Error ? liveErr.message : liveErr}`);
+            console.log(`[fetchAnivexa] ${provider}/${audioType} liveness FAIL — ${liveErr instanceof Error ? liveErr.message : liveErr}`);
             return;
           }
 
           for (const _s of hlsStreams) {
-            const s = _s as { url: string; quality?: string | number; cookies?: string };
+            const s = _s as { url: string; quality?: string | number; referer?: string };
             validStreams.push({
               provider,
               type: audioType,
               url: s.url,
               quality: s.quality ? String(s.quality) : "auto",
               isM3U8: true,
-              cookies: s.cookies ?? "",
+              cookies: "",
             });
           }
         } catch {
@@ -268,7 +219,6 @@ async function fetchMiruroFromUrl(
     )
   );
 
-  // Sort so kiwi/ally always appear first in the server selector
   return validStreams.sort(
     (a, b) => (PROVIDER_PRIORITY[a.provider] ?? 99) - (PROVIDER_PRIORITY[b.provider] ?? 99)
   );
