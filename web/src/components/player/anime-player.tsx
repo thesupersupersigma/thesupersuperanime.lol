@@ -207,9 +207,6 @@ export function AnimePlayer({
   const onCanPlay = () => {
     const player = playerRef.current;
     if (!player) return;
-    const _prov = player.provider as any;
-    console.log('[resume][diag] onCanPlay — provider.type:', _prov?.type, '| isHLS(provider):', isHLSProvider(player.provider), '| duration:', player.duration);
-
     // Server responded with a valid stream — dismiss the timeout overlay.
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
     setShowServerTimeout(false);
@@ -304,19 +301,22 @@ export function AnimePlayer({
   // and buffer outward from there — no play-from-0-then-seek, so no buffer flush,
   // no refetch-through-the-proxy stall, no starvation, no false `ended`. The
   // buffer-hole tolerances stay for ordinary mid-stream stalls.
-  const onProviderChange = (provider: unknown) => {
-    const _arg = provider as any;
-    console.log('[resume][diag] onProviderChange — arg.type:', _arg?.type, '| arg.detail?.type:', _arg?.detail?.type, '| isHLS(arg):', isHLSProvider(provider), '| isHLS(arg.detail):', isHLSProvider(_arg?.detail));
-    if (isHLSProvider(provider)) {
-      const start = startPositionRef.current;
-      provider.config = {
-        ...provider.config,
-        ...(start > 0 ? { startPosition: start } : {}),
-        maxBufferHole: 0.5, // jump holes up to 0.5s instead of stalling (default 0.1)
-        nudgeMaxRetry: 5,   // more automatic nudge attempts before a stall turns fatal
-      };
-      console.log('[resume] onProviderChange — hls.js startPosition =', start > 0 ? start : '(default 0)');
-    }
+  const onProviderChange = (providerOrEvent: unknown) => {
+    const arg = providerOrEvent as any;
+    // Vidstack React may pass the provider directly OR wrap it in a DOMEvent where .detail is the provider.
+    // Handle both shapes so isHLSProvider actually sees the right object.
+    const provider = isHLSProvider(arg) ? arg : isHLSProvider(arg?.detail) ? arg.detail : null;
+
+    if (!provider) return;
+
+    const start = startPositionRef.current;
+    provider.config = {
+      ...provider.config,
+      ...(start > 0 ? { startPosition: start } : {}),
+      maxBufferHole: 0.5,
+      nudgeMaxRetry: 5,
+    };
+    console.log('[resume] onProviderChange — hls.js startPosition =', start > 0 ? start : '(default 0)');
   };
 
   // Fatal playback error — hls.js has exhausted all retries. Show the error UI
@@ -433,7 +433,7 @@ export function AnimePlayer({
             onError={onPlaybackError}
             crossOrigin
             playsInline
-            preferNativeHLS
+            preferNativeHLS={true}
           >
             <MediaProvider />
             <DefaultVideoLayout icons={defaultLayoutIcons} />
