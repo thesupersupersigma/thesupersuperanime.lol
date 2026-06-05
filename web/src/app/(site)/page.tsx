@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "thesupersuperanime — Home",
-  description: "Watch anime. No ads, no bullshit.",
+  description: "I solo every other site btw jus bcus im that goated",
 };
 
 export default function HomePage() {
