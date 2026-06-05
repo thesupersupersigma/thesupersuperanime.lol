@@ -26,15 +26,24 @@ export const metadata: Metadata = {
   ),
   openGraph: {
     title: "thesupersuperanime",
-    description: "I solo every other site btw jus bcus im that goated.",
+    description: "I solo every other site btw jus bcus im that goated fr no cap. Watch anime, track your progress, flex on the leaderboard.",
     url: process.env.NEXT_PUBLIC_SITE_URL || "https://thesupersuperanime.lol",
     siteName: "thesupersuperanime",
     type: "website",
+    images: [
+      {
+        url: "/banner.png",
+        width: 1200,
+        height: 630,
+        alt: "thesupersuperanime",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "thesupersuperanime",
-    description: "I solo every other site btw jus bcus im that goated.",
+    description: "I solo every other site btw jus bcus im that goated fr no cap. Watch anime, track your progress, flex on the leaderboard.",
+    images: ["/banner.png"],
   },
   icons: {
     icon: [
