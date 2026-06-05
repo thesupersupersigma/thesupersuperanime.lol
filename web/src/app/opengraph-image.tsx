@@ -1,13 +1,3 @@
-
----
-
-```
-Add a dynamic OG image and fix the openGraph metadata in src/app/layout.tsx, and create a new src/app/opengraph-image.tsx file.
-
-## 1. src/app/opengraph-image.tsx
-Create this file. It fetches the top 20 trending anime from AniList, picks one at random, and renders a 1200x630 OG image using Next.js ImageResponse with the anime's banner or cover image as a full-bleed background, a dark gradient overlay at the bottom, and the site name + tagline overlaid as text.
-
-```tsx
 import { ImageResponse } from "next/og";
 import { getTrending } from "@/lib/anilist";
 
@@ -104,47 +94,3 @@ export default async function Image() {
     { width: 1200, height: 630 }
   );
 }
-```
-
-## 2. src/app/layout.tsx — update metadata
-Find the existing `export const metadata: Metadata = { ... }` block and replace it with:
-
-```ts
-export const metadata: Metadata = {
-  title: "thesupersuperanime",
-  description: "I solo every other site btw jus bcus im that goated.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-  ),
-  openGraph: {
-    title: "thesupersuperanime",
-    description: "I solo every other site btw jus bcus im that goated.",
-    url: process.env.NEXT_PUBLIC_SITE_URL || "https://thesupersuperanime.lol",
-    siteName: "thesupersuperanime",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "thesupersuperanime",
-    description: "I solo every other site btw jus bcus im that goated.",
-  },
-  icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
-    ],
-    apple: "/apple-touch-icon.png",
-  },
-  manifest: "/site.webmanifest",
-  other: {
-    referrer: "no-referrer-when-downgrade",
-    "794d5429a9f3fc1e88336d09f22103435994976e": "794d5429a9f3fc1e88336d09f22103435994976e",
-  },
-};
-```
-
-Do not touch any .env or .env.local files. Do not modify anything else.
-```
-
----

@@ -20,10 +20,22 @@ const syne = Syne({
 
 export const metadata: Metadata = {
   title: "thesupersuperanime",
-  description: "I solo every other site btw jus bcus im that goated",
+  description: "I solo every other site btw jus bcus im that goated.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
+  openGraph: {
+    title: "thesupersuperanime",
+    description: "I solo every other site btw jus bcus im that goated.",
+    url: process.env.NEXT_PUBLIC_SITE_URL || "https://thesupersuperanime.lol",
+    siteName: "thesupersuperanime",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "thesupersuperanime",
+    description: "I solo every other site btw jus bcus im that goated.",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico" },
