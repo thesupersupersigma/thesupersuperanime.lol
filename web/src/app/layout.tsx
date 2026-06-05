@@ -69,6 +69,56 @@ s.referrerPolicy = 'no-referrer-when-downgrade';
 l.parentNode.insertBefore(s, l);
 })({})`}</Script>
         */}
+        <Script id="webmcp" strategy="afterInteractive">{`
+  if ('modelContext' in navigator) {
+    navigator.modelContext.provideContext({
+      tools: [
+        {
+          name: "search_anime",
+          description: "Search for anime on thesupersuperanime.lol by title or filters",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Anime title or keyword to search for" }
+            }
+          },
+          execute: async ({ query }) => {
+            window.location.href = "/search?q=" + encodeURIComponent(query || "");
+          }
+        },
+        {
+          name: "go_to_anime",
+          description: "Navigate to an anime detail page by AniList ID",
+          inputSchema: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "The AniList anime ID" }
+            },
+            required: ["id"]
+          },
+          execute: async ({ id }) => {
+            window.location.href = "/anime/" + id;
+          }
+        },
+        {
+          name: "watch_episode",
+          description: "Navigate to watch a specific episode of an anime",
+          inputSchema: {
+            type: "object",
+            properties: {
+              animeId: { type: "string", description: "The AniList anime ID" },
+              episodeNum: { type: "number", description: "Episode number to watch" }
+            },
+            required: ["animeId", "episodeNum"]
+          },
+          execute: async ({ animeId, episodeNum }) => {
+            window.location.href = "/watch/" + animeId + "/" + episodeNum;
+          }
+        }
+      ]
+    }).catch(() => {});
+  }
+`}</Script>
       </body>
     </html>
   );

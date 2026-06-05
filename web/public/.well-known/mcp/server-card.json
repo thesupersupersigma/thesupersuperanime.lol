@@ -1,0 +1,21 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/server-card.json",
+  "serverInfo": {
+    "name": "thesupersuperanime",
+    "version": "1.0.0",
+    "description": "Anime streaming site with episode library, watch history, leaderboard, and community features"
+  },
+  "transport": {
+    "type": "http",
+    "endpoint": "https://www.thesupersuperanime.lol/api"
+  },
+  "capabilities": {
+    "search": true,
+    "streaming": true,
+    "userAccounts": true,
+    "community": true
+  },
+  "contact": {
+    "url": "https://www.thesupersuperanime.lol"
+  }
+}
