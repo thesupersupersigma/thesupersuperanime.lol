@@ -42,6 +42,8 @@ export default function WatchPage() {
       return;
     }
 
+    let cancelled = false;
+
     async function loadData() {
       try {
         setLoading(true);
@@ -51,9 +53,11 @@ export default function WatchPage() {
         const infoRes = await fetch(`/api/anilist/${animeId}`);
         if (!infoRes.ok) throw new Error("Failed to fetch anime info");
         const data = await infoRes.json();
-        
+
         if (!data.anime) throw new Error("Anime not found");
-        setAnime(data.anime);
+        if (!cancelled) {
+          setAnime(data.anime);
+        }
 
         const animeTitle = getDisplayTitle(data.anime.title);
 
@@ -83,31 +87,34 @@ export default function WatchPage() {
         });
 
         if (!sourceRes.ok) throw new Error("No playable streams found");
-        
+
         const sourceData = await sourceRes.json();
-        
+
         if (sourceData.servers && sourceData.servers.length > 0) {
           // Resolve the resume position before flipping `loading` off so the
           // player mounts with it already in hand.
           const resume = await progressPromise;
           console.log('[resume] watch page resolved resumeTime', resume);
-          setResumeTime(resume);
-          setServers(sourceData.servers);
-          setMirrorUsed(sourceData.mirrorUsed);
-          setFallbackReason(sourceData.fallbackReason);
+          if (!cancelled) {
+            setResumeTime(resume);
+            setServers(sourceData.servers);
+            setMirrorUsed(sourceData.mirrorUsed);
+            setFallbackReason(sourceData.fallbackReason);
+          }
         } else {
           throw new Error("No servers available for this episode.");
         }
 
       } catch (err: any) {
         console.error(err);
-        setError(err.message);
+        if (!cancelled) setError(err.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadData();
+    return () => { cancelled = true; };
   }, [animeId, episodeNum, router]);
 
   if (loading) {
@@ -190,6 +197,12 @@ export default function WatchPage() {
               mirrorUsed={mirrorUsed}
               fallbackReason={fallbackReason}
               resumeTime={resumeTime}
+              totalEpisodes={
+                anime.nextAiringEpisode?.episode
+                  ? anime.nextAiringEpisode.episode - 1
+                  : anime.episodes ?? undefined
+              }
+              nextAiringEpisode={anime.nextAiringEpisode ?? undefined}
             />
           </div>
           

@@ -65,7 +65,11 @@ async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   const userMap = new Map(users.map(u => [u.id, u]));
 
   return history
-    .filter(h => h.userId && userMap.has(h.userId!))
+    .filter(h => {
+      if (!h.userId || !userMap.has(h.userId!)) return false;
+      const u = userMap.get(h.userId!)!;
+      return !!(u.username || u.displayName || u.discordUsername);
+    })
     .map(h => {
       const user = userMap.get(h.userId!)!;
       return {

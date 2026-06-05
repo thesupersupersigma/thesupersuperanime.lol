@@ -141,7 +141,7 @@ async function fetchAnevixaFromUrl(
   episodeNum: number
 ): Promise<NormalizedStream[]> {
   const epsRes = await fetch(`${baseUrl}/episodes/${animeId}`, {
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(20000),
   });
   if (!epsRes.ok) return [];
   const epsData = await epsRes.json();
@@ -161,7 +161,7 @@ async function fetchAnevixaFromUrl(
 
         try {
           const watchRes = await fetch(`${baseUrl}/${ep.id}`, {
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(15000),
           });
           if (!watchRes.ok) return;
           const watchData = await watchRes.json();
@@ -178,29 +178,6 @@ async function fetchAnevixaFromUrl(
             return stream.type === "hls";
           });
           if (hlsStreams.length === 0) return;
-
-          // Liveness check on first stream
-          const firstStream = hlsStreams[0] as { url: string; referer?: string };
-          const referer = firstStream.referer ?? "https://megaplay.buzz/";
-          try {
-            const checkRes = await fetch(firstStream.url, {
-              method: "GET",
-              headers: {
-                "User-Agent": "Mozilla/5.0",
-                "Referer": referer,
-                "Origin": new URL(referer).origin,
-              },
-              signal: AbortSignal.timeout(4000),
-            });
-            if (!checkRes.ok) {
-              console.log(`[fetchAnivexa] ${provider}/${audioType} liveness FAIL — HTTP ${checkRes.status}`);
-              return;
-            }
-            console.log(`[fetchAnivexa] ${provider}/${audioType} liveness PASS`);
-          } catch (liveErr) {
-            console.log(`[fetchAnivexa] ${provider}/${audioType} liveness FAIL — ${liveErr instanceof Error ? liveErr.message : liveErr}`);
-            return;
-          }
 
           for (const _s of hlsStreams) {
             const s = _s as { url: string; quality?: string | number; referer?: string };

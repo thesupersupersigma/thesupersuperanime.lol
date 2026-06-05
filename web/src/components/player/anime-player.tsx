@@ -29,10 +29,13 @@ interface AnimePlayerProps {
   // Called when playback fails fatally (commonly dead/expired proxy tokens) so
   // the parent can re-fetch fresh sources. SourceLoader guards against loops.
   onSourceFailure?: () => void;
+  totalEpisodes?: number;
+  nextAiringEpisode?: { episode: number; airingAt: number };
+  animeSlug?: string;
 }
 
 export function AnimePlayer({
-  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure,
+  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure, totalEpisodes = Infinity, nextAiringEpisode, animeSlug,
 }: AnimePlayerProps) {
   const router = useRouter();
   const playerRef = useRef<MediaPlayerInstance>(null);
@@ -361,6 +364,10 @@ export function AnimePlayer({
     }
     console.log('[resume] onEnded — advancing at', ct, 'of', dur);
     saveProgress(dur, dur);
+    if (totalEpisodes && episodeNum >= totalEpisodes) {
+      setShowNextPrompt(true);
+      return;
+    }
     setShowNextPrompt(true);
     autoNextTimeoutRef.current = setTimeout(
       () => router.push(`/watch/${animeId}/${episodeNum + 1}`),
@@ -458,21 +465,85 @@ export function AnimePlayer({
         {/* ── NEXT EPISODE PROMPT ── */}
         {showNextPrompt && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 100, color: "#fff" }}>
-            <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "24px", marginBottom: "16px" }}>Next Episode in 5s…</h2>
-            <div style={{ display: "flex", gap: "16px" }}>
-              <button
-                onClick={() => router.push(`/watch/${animeId}/${episodeNum + 1}`)}
-                style={{ background: "#3b82f6", color: "#fff", border: "none", padding: "8px 24px", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
-              >
-                Play Now
-              </button>
-              <button
-                onClick={() => { setShowNextPrompt(false); if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current); }}
-                style={{ background: "transparent", color: "#e5e5e5", border: "1px solid #2a2a2a", padding: "8px 24px", borderRadius: "6px", cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-            </div>
+            {totalEpisodes && episodeNum >= totalEpisodes && nextAiringEpisode ? (
+              <>
+                <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "20px", marginBottom: "8px", textAlign: "center" }}>
+                  You're all caught up!
+                </h2>
+                <p style={{ color: "#a3a3a3", fontSize: "13px", marginBottom: "20px", textAlign: "center" }}>
+                  Episode {nextAiringEpisode.episode} is coming in
+                </p>
+                <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+                  {[
+                    { label: "Days", value: Math.floor(Math.max(0, nextAiringEpisode.airingAt - Date.now() / 1000) / 86400) },
+                    { label: "Hours", value: Math.floor((Math.max(0, nextAiringEpisode.airingAt - Date.now() / 1000) % 86400) / 3600) },
+                    { label: "Min", value: Math.floor((Math.max(0, nextAiringEpisode.airingAt - Date.now() / 1000) % 3600) / 60) },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", padding: "10px 16px", textAlign: "center", minWidth: "60px" }}>
+                      <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "22px", fontWeight: 700, color: "#e5e5e5" }}>
+                        {String(value).padStart(2, "0")}
+                      </div>
+                      <div style={{ color: "#555", fontSize: "10px", textTransform: "uppercase" }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <button
+                    onClick={() => { setShowNextPrompt(false); if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current); }}
+                    style={{ background: "transparent", color: "#e5e5e5", border: "1px solid #2a2a2a", padding: "8px 24px", borderRadius: "6px", cursor: "pointer" }}
+                  >
+                    Keep Watching
+                  </button>
+                  <button
+                    onClick={() => router.push("/")}
+                    style={{ background: "#3b82f6", color: "#fff", border: "none", padding: "8px 24px", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Browse Anime
+                  </button>
+                </div>
+              </>
+            ) : totalEpisodes && episodeNum >= totalEpisodes ? (
+              <>
+                <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "20px", marginBottom: "8px", textAlign: "center" }}>
+                  You've finished this series!
+                </h2>
+                <p style={{ color: "#a3a3a3", fontSize: "13px", marginBottom: "20px", textAlign: "center" }}>
+                  No more episodes available.
+                </p>
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <button
+                    onClick={() => { setShowNextPrompt(false); if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current); }}
+                    style={{ background: "transparent", color: "#e5e5e5", border: "1px solid #2a2a2a", padding: "8px 24px", borderRadius: "6px", cursor: "pointer" }}
+                  >
+                    Rewatch
+                  </button>
+                  <button
+                    onClick={() => router.push("/")}
+                    style={{ background: "#3b82f6", color: "#fff", border: "none", padding: "8px 24px", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Browse Anime
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "24px", marginBottom: "16px" }}>Next Episode in 5s…</h2>
+                <div style={{ display: "flex", gap: "16px" }}>
+                  <button
+                    onClick={() => { if (episodeNum < (totalEpisodes ?? Infinity)) router.push(`/watch/${animeId}/${episodeNum + 1}`); }}
+                    style={{ background: "#3b82f6", color: "#fff", border: "none", padding: "8px 24px", borderRadius: "6px", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Play Now
+                  </button>
+                  <button
+                    onClick={() => { setShowNextPrompt(false); if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current); }}
+                    style={{ background: "transparent", color: "#e5e5e5", border: "1px solid #2a2a2a", padding: "8px 24px", borderRadius: "6px", cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
