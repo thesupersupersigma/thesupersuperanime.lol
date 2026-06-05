@@ -14,19 +14,28 @@ const nextConfig: NextConfig = {
   ],
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "s4.anilist.co",
-      },
-      {
-        protocol: "https",
-        hostname: "img.anili.st",
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.discordapp.com",
-      },
+      { protocol: "https", hostname: "s4.anilist.co" },
+      { protocol: "https", hostname: "img.anili.st" },
+      { protocol: "https", hostname: "cdn.discordapp.com" },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/",
+        headers: [
+          {
+            key: "Link",
+            value: [
+              '</sitemap.xml>; rel="sitemap"',
+              '</llms.txt>; rel="describedby"; type="text/plain"',
+              '</.well-known/mcp/server-card.json>; rel="mcp-server-card"',
+              '</.well-known/agent-skills/index.json>; rel="agent-skills"',
+            ].join(", "),
+          },
+        ],
+      },
+    ];
   },
 };
 

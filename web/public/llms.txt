@@ -1,0 +1,25 @@
+# thesupersuperanime.lol
+
+> A personal anime streaming site with a full episode library, community features, and a leaderboard.
+
+## What this site does
+- Stream anime episodes with sub and dub support
+- Track watch history and progress across episodes
+- Community comments on episodes
+- Watchlist management
+- Genre browsing and community genre voting
+- Global leaderboard ranked by minutes watched
+- User profiles
+
+## Key pages
+- / — Home feed with trending and seasonal anime
+- /search — Search and filter anime by genre, format, status, season, year
+- /anime/[id] — Anime detail page with episode list
+- /watch/[animeId]/[episodeNum] — Episode watch page
+- /leaderboard — Global watch time leaderboard
+- /genres — Browse anime by genre
+- /user/[username] — Public user profiles
+
+## Notes
+- Authentication is required to post comments, manage watchlists, and appear on the leaderboard
+- Anonymous browsing is supported when the site is in open mode

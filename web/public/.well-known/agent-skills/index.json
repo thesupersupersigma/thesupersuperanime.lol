@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agentskills.io/schema/v0.2.0/index.json",
+  "skills": [
+    {
+      "name": "search_anime",
+      "type": "http",
+      "description": "Search for anime by title, genre, format, status, season, or year",
+      "url": "https://www.thesupersuperanime.lol/search"
+    },
+    {
+      "name": "browse_genres",
+      "type": "http",
+      "description": "Browse anime organized by genre",
+      "url": "https://www.thesupersuperanime.lol/genres"
+    },
+    {
+      "name": "view_leaderboard",
+      "type": "http",
+      "description": "View the global leaderboard of most active watchers ranked by minutes watched",
+      "url": "https://www.thesupersuperanime.lol/leaderboard"
+    },
+    {
+      "name": "watch_episode",
+      "type": "http",
+      "description": "Watch an anime episode. Navigate to /watch/[animeId]/[episodeNum]",
+      "url": "https://www.thesupersuperanime.lol/watch"
+    }
+  ]
+}
