@@ -10,6 +10,7 @@ interface NormalizedStream {
   quality: string;
   isM3U8: boolean;
   cookies: string;
+  referer: string;
 }
 
 const PROVIDER_PRIORITY: Record<string, number> = {
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
         streams.map(async (source) => {
           const iv = randomBytes(16);
           const cipher = createCipheriv("aes-256-cbc", encKey, iv);
-          const payload = JSON.stringify({ url: source.url, cookies: source.cookies });
+          const payload = JSON.stringify({ url: source.url, cookies: source.cookies, referer: source.referer ?? "" });
           const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
           const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
@@ -210,6 +211,7 @@ async function fetchAnevixaFromUrl(
               quality: s.quality ? String(s.quality) : "auto",
               isM3U8: true,
               cookies: "",
+              referer: s.referer ?? "",
             });
           }
         } catch {

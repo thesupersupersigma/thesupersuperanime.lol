@@ -60,9 +60,9 @@ export function QualityMenu({ qualities, selectedQuality, onSelect }: QualityMen
           overflow: "hidden",
           backdropFilter: "blur(8px)"
         }}>
-          {qualities.map((q) => (
+          {qualities.map((q, i) => (
             <button
-              key={q}
+              key={`${q}-${i}`}
               onClick={() => {
                 onSelect(q);
                 setIsOpen(false);

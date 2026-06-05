@@ -433,7 +433,6 @@ export function AnimePlayer({
             onError={onPlaybackError}
             crossOrigin
             playsInline
-            preferNativeHLS={true}
           >
             <MediaProvider />
             <DefaultVideoLayout icons={defaultLayoutIcons} />

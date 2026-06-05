@@ -56,17 +56,23 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
 
     let decryptedUrl: string;
     let cookies = "";
+    let storedReferer = "";
     try {
       const parsed = JSON.parse(decryptedPayload);
       decryptedUrl = parsed.url;
       cookies = parsed.cookies || "";
+      storedReferer = parsed.referer || "";
     } catch {
       decryptedUrl = decryptedPayload;
     }
 
     const targetUrl = new URL(decryptedUrl);
-    let referer = targetUrl.origin + "/";
-    
+    let referer = "https://megaplay.buzz/";
+
+    if (storedReferer && !storedReferer.includes(targetUrl.hostname)) {
+      referer = storedReferer.endsWith("/") ? storedReferer : storedReferer + "/";
+    }
+
     if (decryptedUrl.includes("kwik") || decryptedUrl.includes("owocdn") || decryptedUrl.includes("uwu.m3u8") || targetUrl.hostname.endsWith(".top")) {
       referer = "https://kwik.cx/";
     }
@@ -84,7 +90,13 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         signal: req.signal // Abort if user navigates away
       });
 
-      if (!playlistRes.ok) return NextResponse.json({ error: `Failed to fetch playlist` }, { status: 502 });
+      if (!playlistRes.ok) {
+        console.error(`[proxy] upstream FAIL — ${playlistRes.status} ${playlistRes.statusText}`);
+        console.error(`[proxy] url: ${decryptedUrl}`);
+        console.error(`[proxy] referer used: ${fetchHeaders["Referer"]}`);
+        console.error(`[proxy] origin used: ${fetchHeaders["Origin"]}`);
+        return NextResponse.json({ error: `Failed to fetch playlist` }, { status: 502 });
+      }
 
       const playlist = await playlistRes.text();
       const lines = playlist.split("\n");
