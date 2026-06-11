@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   ),
   openGraph: {
     title: "thesupersuperanime",
-    description: "I solo every other site btw jus bcus im that goated fr no cap. Watch anime, track your progress, flex on the leaderboard.",
+    description: "I solo every other site btw jus bcus im that goated.",
     url: process.env.NEXT_PUBLIC_SITE_URL || "https://thesupersuperanime.lol",
     siteName: "thesupersuperanime",
     type: "website",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "thesupersuperanime",
-    description: "I solo every other site btw jus bcus im that goated fr no cap. Watch anime, track your progress, flex on the leaderboard.",
+    description: "I solo every other site btw jus bcus im that goated.",
     images: ["/banner.png"],
   },
   icons: {
