@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { MediaPlayer, MediaProvider, MediaPlayerInstance } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
 import { isHLSProvider } from "vidstack";
-import { QualityMenu } from "./quality-menu";
 import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
 import { useRouter } from "next/navigation";
@@ -43,7 +42,6 @@ export function AnimePlayer({
   // --- STATE ---
   const [audioType, setAudioType]             = useState<"sub" | "dub">("sub");
   const [selectedServerName, setSelectedServerName] = useState<string>("");
-  const [selectedQuality, setSelectedQuality] = useState<string>("");
   const [showNextPrompt, setShowNextPrompt]   = useState(false);
   const [playerError, setPlayerError]         = useState<string | null>(null);
   const [currentTime, setCurrentTime]         = useState(0);
@@ -99,18 +97,8 @@ export function AnimePlayer({
     }
   }, [servers]);
 
-  // Identify the active server within the visible set and sort its qualities
+  // Identify the active server within the visible set
   const activeServer    = visibleServers.find(s => s.name === selectedServerName) || visibleServers[0];
-  const sortedQualities = [...(activeServer?.sources || [])]
-    .map(s => s.quality)
-    .sort((a, b) => (parseInt(b) || 0) - (parseInt(a) || 0));
-
-  // If the server changes, ensure we have a valid quality selected
-  useEffect(() => {
-    if (!sortedQualities.includes(selectedQuality)) {
-      setSelectedQuality(sortedQualities[0] || "auto");
-    }
-  }, [selectedServerName, audioType, sortedQualities, selectedQuality]);
 
   // ── SERVER TIMEOUT ─────────────────────────────────────────────────────────
   // Arms a 14 s timer every time the selected server changes (including the
@@ -127,7 +115,7 @@ export function AnimePlayer({
     };
   }, [selectedServerName]);
 
-  const activeSource = activeServer?.sources.find(s => s.quality === selectedQuality) || activeServer?.sources[0];
+  const activeSource = activeServer?.sources[0];
   const srcUrl       = activeSource ? `/api/proxy/${activeSource.token}` : "";
 
   // ── SERVER / AUDIO / QUALITY HANDLERS ─────────────────────────────────────
@@ -160,12 +148,6 @@ export function AnimePlayer({
     if (available.length > 0 && !available.find(s => s.name === selectedServerName)) {
       setSelectedServerName(available[0].name);
     }
-  };
-
-  const handleQualityChange = (newQuality: string) => {
-    if (newQuality === selectedQuality) return;
-    stashSwitchPosition();
-    setSelectedQuality(newQuality);
   };
 
   // ── RESUME-ON-SWITCH (persistent hls.js instance) ──────────────────────────
@@ -443,7 +425,6 @@ export function AnimePlayer({
           >
             <MediaProvider />
             <DefaultVideoLayout icons={defaultLayoutIcons} />
-            <QualityMenu qualities={sortedQualities} selectedQuality={selectedQuality} onSelect={handleQualityChange} />
           </MediaPlayer>
         )}
 
@@ -492,7 +473,7 @@ export function AnimePlayer({
                     onClick={() => { setShowNextPrompt(false); if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current); }}
                     style={{ background: "transparent", color: "#e5e5e5", border: "1px solid #2a2a2a", padding: "8px 24px", borderRadius: "6px", cursor: "pointer" }}
                   >
-                    Keep Watching
+                    Dismiss
                   </button>
                   <button
                     onClick={() => router.push("/")}

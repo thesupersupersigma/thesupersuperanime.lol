@@ -46,12 +46,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
     }
 
-    // Group by provider + type (e.g. "kiwi:sub", "kiwi:dub")
-    const serverMap = new Map<string, NormalizedStream[]>();
-    for (const stream of allStreams) {
-      const key = `${stream.provider}:${stream.type}`;
-      if (!serverMap.has(key)) serverMap.set(key, []);
-      serverMap.get(key)!.push(stream);
+    // For each audio type, keep only the streams from the highest-priority provider
+    const typeMap = new Map<string, NormalizedStream[]>();
+    for (const type of ["sub", "dub"] as const) {
+      const streamsOfType = allStreams.filter(s => s.type === type);
+      if (streamsOfType.length === 0) continue;
+      // Pick the provider with the lowest priority number (highest priority)
+      const bestProvider = streamsOfType.reduce((best, s) =>
+        (PROVIDER_PRIORITY[s.provider] ?? 99) < (PROVIDER_PRIORITY[best.provider] ?? 99) ? s : best
+      ).provider;
+      typeMap.set(type, streamsOfType.filter(s => s.provider === bestProvider));
     }
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
@@ -66,8 +70,8 @@ export async function POST(req: NextRequest) {
     const encKey = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
     const finalServers = [];
 
-    for (const [mapKey, streams] of serverMap.entries()) {
-      const [providerName, streamType] = mapKey.split(":") as [string, "sub" | "dub"];
+    for (const [streamType, streams] of typeMap.entries()) {
+      const providerName = streams[0].provider;
       const tokenizedSources = await Promise.all(
         streams.map(async (source) => {
           const iv = randomBytes(16);
@@ -103,7 +107,7 @@ export async function POST(req: NextRequest) {
         })
       );
 
-      finalServers.push({ name: providerName, type: streamType, sources: tokenizedSources });
+      finalServers.push({ name: providerName, type: streamType as "sub" | "dub", sources: tokenizedSources });
     }
 
     console.log(`[/api/source] Compiled ${finalServers.length} servers for ${animeTitle} ep ${episodeNum}`);
@@ -141,7 +145,7 @@ async function fetchAnevixaFromUrl(
   episodeNum: number
 ): Promise<NormalizedStream[]> {
   const epsRes = await fetch(`${baseUrl}/episodes/${animeId}`, {
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(40000),
   });
   if (!epsRes.ok) return [];
   const epsData = await epsRes.json();
