@@ -113,7 +113,7 @@ export function ContinueWatching() {
                   alt={entry.title ?? ""}
                   width={160}
                   height={224}
-                  style={{ width: "100%", height: "auto", display: "block", objectFit: "cover" }}
+                  style={{ width: "100%", height: "auto", display: "block" }}
                 />
               ) : (
                 <div style={{ width: "100%", paddingTop: "140%", background: "#111" }} />

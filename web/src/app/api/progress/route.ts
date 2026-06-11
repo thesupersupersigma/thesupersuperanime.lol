@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionId, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { checkRateLimit } from "@/lib/core";
 
 export async function GET() {
   try {
@@ -36,6 +37,13 @@ export async function POST(req: NextRequest) {
   try {
     const sessionId = await getSessionId();
     const user = await getCurrentUser();
+
+    // Rate limit: max 10 progress saves per minute per session
+    const rateLimitKey = user ? `progress:user:${user.id}` : `progress:session:${sessionId}`;
+    if (!checkRateLimit(rateLimitKey, 10, 60_000)) {
+      return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+    }
+
     const body = await req.json();
     const { animeId, episodeId, progress, duration } = body;
 
@@ -63,7 +71,22 @@ export async function POST(req: NextRequest) {
     // Valid: forward playback between 1 s and 60 s (normal save interval).
     // Skips, scrubs backward, or huge jumps don't count toward watch time.
     const validDelta = deltaSeconds >= 1 && deltaSeconds <= 60;
-    const watchedSecondsIncrement = validDelta ? Math.floor(deltaSeconds) : 0;
+    let watchedSecondsIncrement = validDelta ? Math.floor(deltaSeconds) : 0;
+
+    // Cap: never let a single episode accumulate more seconds than its duration.
+    // This prevents looping an episode to farm watch time.
+    if (watchedSecondsIncrement > 0 && duration && duration > 0) {
+      const currentWatchedSeconds = existing
+        ? await db.watchHistory.findUnique({
+            where: user
+              ? { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } }
+              : { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
+            select: { watchedSeconds: true },
+          }).then(r => r?.watchedSeconds ?? 0)
+        : 0;
+      const remainingAllowance = Math.max(0, duration - currentWatchedSeconds);
+      watchedSecondsIncrement = Math.min(watchedSecondsIncrement, remainingAllowance);
+    }
 
     // If logged in, upsert by userId. Otherwise by sessionId.
     if (user) {
