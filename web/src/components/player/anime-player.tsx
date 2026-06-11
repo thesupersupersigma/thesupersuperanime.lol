@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MediaPlayer, MediaProvider, MediaPlayerInstance } from "@vidstack/react";
+import { MediaPlayer, MediaProvider, MediaPlayerInstance, useMediaState } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
 import { isHLSProvider } from "vidstack";
 import "@vidstack/react/player/styles/default/theme.css";
@@ -31,10 +31,11 @@ interface AnimePlayerProps {
   totalEpisodes?: number;
   nextAiringEpisode?: { episode: number; airingAt: number };
   animeSlug?: string;
+  malId?: number;
 }
 
 export function AnimePlayer({
-  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure, totalEpisodes = Infinity, nextAiringEpisode, animeSlug,
+  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure, totalEpisodes = Infinity, nextAiringEpisode, animeSlug, malId,
 }: AnimePlayerProps) {
   const router = useRouter();
   const playerRef = useRef<MediaPlayerInstance>(null);
@@ -48,6 +49,12 @@ export function AnimePlayer({
   const [duration, setDuration]               = useState(0);
   // True when the server hasn't produced any playable output within 14 s.
   const [showServerTimeout, setShowServerTimeout] = useState(false);
+  const controlsVisible = useMediaState('controlsVisible', playerRef);
+
+  interface SkipInterval { startTime: number; endTime: number; }
+  const [skipIntro, setSkipIntro] = useState<SkipInterval | null>(null);
+  const [skipOutro, setSkipOutro] = useState<SkipInterval | null>(null);
+  const skipFetchedRef = useRef<string>("");
 
   // --- REFS ---
   const lastSavedTimeRef      = useRef<number>(0);
@@ -323,6 +330,7 @@ export function AnimePlayer({
     if (d > 0 && Math.abs(d - durationRef.current) > 0.5) {
       durationRef.current = d;
       setDuration(d);
+      fetchSkipTimes(d);
     }
 
     // NOTE: resume is no longer a deferred seek here. Playback STARTS at the
@@ -362,6 +370,49 @@ export function AnimePlayer({
     if (stallTimerRef.current)         clearTimeout(stallTimerRef.current);
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
   }, []);
+
+  // ── ANISKIP ────────────────────────────────────────────────────────────────
+
+  const fetchSkipTimes = useCallback(async (durationSecs: number) => {
+    if (!malId || !episodeNum || durationSecs < 1) return;
+    const key = `${malId}-${episodeNum}`;
+    if (skipFetchedRef.current === key) return;
+    skipFetchedRef.current = key;
+    try {
+      const res = await fetch(
+        `https://api.aniskip.com/v2/skip-times/${malId}/${episodeNum}?types[]=op&types[]=ed&episodeLength=${durationSecs.toFixed(3)}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.found) return;
+      for (const result of data.results) {
+        if (result.skipType === "op" || result.skipType === "mixed-op") {
+          setSkipIntro({ startTime: result.interval.startTime, endTime: result.interval.endTime });
+        }
+        if (result.skipType === "ed" || result.skipType === "mixed-ed") {
+          setSkipOutro({ startTime: result.interval.startTime, endTime: result.interval.endTime });
+        }
+      }
+    } catch {
+      // AniSkip unavailable, skip silently
+    }
+  }, [malId, episodeNum]);
+
+  useEffect(() => {
+    setSkipIntro(null);
+    setSkipOutro(null);
+    skipFetchedRef.current = "";
+  }, [episodeNum]);
+
+  const activeSkip: { label: string; endTime: number } | null = (() => {
+    if (skipIntro && currentTime >= skipIntro.startTime && currentTime < skipIntro.endTime) {
+      return { label: "Skip Intro", endTime: skipIntro.endTime };
+    }
+    if (skipOutro && currentTime >= skipOutro.startTime && currentTime < skipOutro.endTime) {
+      return { label: "Skip Outro", endTime: skipOutro.endTime };
+    }
+    return null;
+  })();
 
   // ── EARLY RETURNS ──────────────────────────────────────────────────────────
 
@@ -426,6 +477,49 @@ export function AnimePlayer({
             <MediaProvider />
             <DefaultVideoLayout icons={defaultLayoutIcons} />
           </MediaPlayer>
+        )}
+
+        {/* ── SKIP INTRO / OUTRO BUTTON ── */}
+        {activeSkip && (
+          <div style={{
+            position: "absolute",
+            bottom: "80px",
+            right: "16px",
+            zIndex: 50,
+            opacity: controlsVisible ? 1 : 0,
+            transition: "opacity 0.2s ease-in-out",
+            pointerEvents: controlsVisible ? "auto" : "none",
+          }}>
+            <button
+              onClick={() => {
+                const player = playerRef.current;
+                if (player) player.currentTime = activeSkip.endTime;
+              }}
+              style={{
+                background: "rgba(0,0,0,0.75)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.35)",
+                borderRadius: "6px",
+                padding: "8px 18px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                backdropFilter: "blur(6px)",
+                fontFamily: "inherit",
+                transition: "background 150ms ease, border-color 150ms ease",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.6)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "rgba(0,0,0,0.75)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)";
+              }}
+            >
+              {activeSkip.label} →
+            </button>
+          </div>
         )}
 
         {/* ── SERVER TIMEOUT OVERLAY ── */}

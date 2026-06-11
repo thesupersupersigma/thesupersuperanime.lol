@@ -33,6 +33,7 @@ export interface AnilistStudioConnection {
 
 export interface AnilistMedia {
   id: number;
+  idMal: number | null;
   title: AnilistTitle;
   coverImage: AnilistCoverImage;
   bannerImage: string | null;
@@ -71,6 +72,7 @@ export interface AnilistSearchResult {
 const MEDIA_FRAGMENT = `
   fragment MediaFields on Media {
     id
+    idMal
     title {
       romaji
       english
