@@ -203,6 +203,7 @@ export default function WatchPage() {
                   : anime.episodes ?? undefined
               }
               nextAiringEpisode={anime.nextAiringEpisode ?? undefined}
+              malId={anime.idMal ?? undefined}
             />
           </div>
           
