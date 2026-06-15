@@ -8,10 +8,12 @@ const rateLimitMap = new Map<string, number>();
 export async function GET(req: NextRequest) {
     const animeId = req.nextUrl.searchParams.get("animeId");
     if (!animeId) return NextResponse.json({ error: "animeId required" }, { status: 400 });
+    const episodeId = req.nextUrl.searchParams.get("episodeId") ?? null;
 
     const comments = await db.comment.findMany({
         where: {
             animeId: Number(animeId),
+            episodeId: episodeId,
             parentId: null,       // top-level only
             deletedAt: null,
         },
@@ -66,20 +68,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Slow down — 1 comment per 30 seconds" }, { status: 429 });
   }
 
-  const { animeId, content, isSpoiler, parentId } = await req.json();
+  const { animeId, episodeId, content, isSpoiler, parentId } = await req.json();
 
   if (!animeId || !content?.trim()) {
     return NextResponse.json({ error: "animeId and content required" }, { status: 400 });
+  }
+
+  if (episodeId !== undefined && episodeId !== null && typeof episodeId !== "string") {
+    return NextResponse.json({ error: "episodeId must be a string or null" }, { status: 400 });
   }
 
   if (content.trim().length > 1000) {
     return NextResponse.json({ error: "Comment too long (max 1000 chars)" }, { status: 400 });
   }
 
-  // If replying, verify parent exists and belongs to same anime
+  // If replying, verify parent exists and belongs to same anime + episode
   if (parentId) {
     const parent = await db.comment.findUnique({ where: { id: parentId } });
-    if (!parent || parent.animeId !== Number(animeId) || parent.parentId !== null) {
+    if (!parent || parent.animeId !== Number(animeId) || parent.episodeId !== (episodeId ?? null) || parent.parentId !== null) {
       return NextResponse.json({ error: "Invalid parent comment" }, { status: 400 });
     }
   }
@@ -87,6 +93,7 @@ export async function POST(req: NextRequest) {
   const comment = await db.comment.create({
     data: {
       animeId: Number(animeId),
+      episodeId: episodeId ?? null,
       userId: user.id,
       content: content.trim(),
       isSpoiler: isSpoiler ?? false,

@@ -213,7 +213,7 @@ export default function WatchPage() {
 
           {/* Comments — desktop */}
           <div className="hidden md:block mt-6">
-            <Comments animeId={animeId} currentUserId={currentUserId} />
+            <Comments animeId={animeId} episodeId={`${animeId}-${episodeNum}`} currentUserId={currentUserId} />
           </div>
         </div>
 

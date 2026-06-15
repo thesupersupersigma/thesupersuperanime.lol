@@ -25,6 +25,7 @@ interface CommentData {
 
 interface Props {
   animeId: number;
+  episodeId?: string;
   currentUserId?: string;
 }
 
@@ -56,6 +57,7 @@ function CommentCard({
   comment,
   currentUserId,
   animeId,
+  episodeId,
   onReplyPosted,
   onDeleted,
   onLikeToggled,
@@ -64,6 +66,7 @@ function CommentCard({
   comment: CommentData;
   currentUserId?: string;
   animeId: number;
+  episodeId?: string;
   onReplyPosted: (parentId: string, reply: CommentData) => void;
   onDeleted: (commentId: string, parentId?: string) => void;
   onLikeToggled: (commentId: string, liked: boolean, parentId?: string) => void;
@@ -114,6 +117,7 @@ function CommentCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           animeId,
+          episodeId: episodeId ?? null,
           content: replyText.trim(),
           isSpoiler: false,
           parentId: comment.id,
@@ -268,6 +272,7 @@ function CommentCard({
                 comment={reply}
                 currentUserId={currentUserId}
                 animeId={animeId}
+                episodeId={episodeId}
                 onReplyPosted={onReplyPosted}
                 onDeleted={(id) => onDeleted(id, comment.id)}
                 onLikeToggled={(id, liked) => onLikeToggled(id, liked, comment.id)}
@@ -281,7 +286,7 @@ function CommentCard({
   );
 }
 
-export function Comments({ animeId, currentUserId }: Props) {
+export function Comments({ animeId, episodeId, currentUserId }: Props) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
@@ -291,13 +296,13 @@ export function Comments({ animeId, currentUserId }: Props) {
 
   const loadComments = useCallback(async () => {
     try {
-      const res = await fetch(`/api/comments?animeId=${animeId}`);
+      const res = await fetch(`/api/comments?animeId=${animeId}${episodeId ? `&episodeId=${episodeId}` : ""}`);
       const data = await res.json();
       setComments(data.comments ?? []);
     } finally {
       setLoading(false);
     }
-  }, [animeId]);
+  }, [animeId, episodeId]);
 
   useEffect(() => { loadComments(); }, [loadComments]);
 
@@ -309,7 +314,7 @@ export function Comments({ animeId, currentUserId }: Props) {
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ animeId, content: text.trim(), isSpoiler }),
+        body: JSON.stringify({ animeId, episodeId: episodeId ?? null, content: text.trim(), isSpoiler }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -365,7 +370,7 @@ export function Comments({ animeId, currentUserId }: Props) {
         fontFamily: "'Syne', sans-serif", fontSize: "16px",
         fontWeight: 600, color: "#e5e5e5", marginBottom: "20px",
       }}>
-        Comments {comments.length > 0 && (
+        {episodeId ? "Episode Comments" : "Comments"} {comments.length > 0 && (
           <span style={{ color: "#555", fontWeight: 400, fontSize: "14px" }}>
             ({comments.length})
           </span>
@@ -458,6 +463,7 @@ export function Comments({ animeId, currentUserId }: Props) {
               comment={comment}
               currentUserId={currentUserId}
               animeId={animeId}
+              episodeId={episodeId}
               onReplyPosted={handleReplyPosted}
               onDeleted={handleDeleted}
               onLikeToggled={handleLikeToggled}

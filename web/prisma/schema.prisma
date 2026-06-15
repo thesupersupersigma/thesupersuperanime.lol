@@ -113,6 +113,7 @@ model SourceToken {
 model Comment {
   id        String    @id @default(cuid())
   animeId   Int
+  episodeId String?   // null = anime-level comment, "animeId-episodeNum" = episode comment
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   String
@@ -124,7 +125,7 @@ model Comment {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 
-  @@index([animeId])
+  @@index([animeId, episodeId])
   @@index([userId])
 }
 
