@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { DiscordGateCheck } from "./discord-gate-check";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   // DISCORD_GATE=off disables the client-side gate check too (default: on)
@@ -26,6 +27,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
   return (
     <>
+      <AnnouncementBanner />
       <main
         className="site-main"
         style={{

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { providers } from "@/providers/index";
 import { DashboardClient } from "./components/dashboard-client";
 import { IssuesPanel } from "./components/issues-panel";
+import { AnnouncementPanel } from "./components/announcement-panel";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -82,6 +83,9 @@ export default async function AdminDashboard() {
       />
       <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
         <IssuesPanel initialIssues={initialIssues} />
+      </div>
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
+        <AnnouncementPanel />
       </div>
     </div>
   );

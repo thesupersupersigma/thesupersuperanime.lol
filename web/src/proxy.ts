@@ -25,7 +25,8 @@ export function proxy(req: NextRequest) {
     pathname.startsWith("/api/subtitle-proxy") ||
     pathname.startsWith("/api/auth/discord") ||
     pathname === "/api/auth/me" ||
-    pathname === "/login"
+    pathname === "/login" ||
+    pathname.startsWith("/api/announcement")
   ) {
     return NextResponse.next();
   }
@@ -40,11 +41,6 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Admin login page ────────────────────────────────────────────────────
-  if (pathname === "/admin/login") {
-    return NextResponse.next();
-  }
-
   // ── Site-wide password lock ─────────────────────────────────────────────
   // SITE_PASSWORD_GATE=off bypasses the check entirely (default: on)
   const sitePasswordGateEnabled = process.env.SITE_PASSWORD_GATE !== "off";
@@ -56,18 +52,6 @@ export function proxy(req: NextRequest) {
       }
       return NextResponse.redirect(new URL("/login", req.url));
     }
-  }
-
-  // ── Admin routes (after site auth passes) ──────────────────────────────
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    const adminAuth = req.cookies.get("admin-auth");
-    if (!adminAuth || adminAuth.value !== process.env.ADMIN_PASSWORD) {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-      return NextResponse.redirect(new URL("/admin/login", req.url));
-    }
-    return NextResponse.next();
   }
 
   // ── Discord link gate ───────────────────────────────────────────────────
