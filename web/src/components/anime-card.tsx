@@ -24,11 +24,23 @@ interface AnimeCardProps {
   showGenres?: boolean;
   /** Overlay a status badge on the cover image */
   watchlistStatus?: WatchlistStatus;
+  /** Show a small "Ep N in Xd Yh" countdown under the title using nextAiringEpisode */
+  showAiringCountdown?: boolean;
 }
 
-export function AnimeCard({ anime, showGenres = false, watchlistStatus }: AnimeCardProps) {
+/** Static "Ep N in Xd Yh" label computed at render time — no live ticking */
+function formatAiringCountdown(nextAiringEpisode: { episode: number; airingAt: number }): string {
+  const secondsUntil = Math.floor((nextAiringEpisode.airingAt * 1000 - Date.now()) / 1000);
+  if (secondsUntil <= 0) return `Ep ${nextAiringEpisode.episode} airing now`;
+  const days = Math.floor(secondsUntil / 86400);
+  const hours = Math.floor((secondsUntil % 86400) / 3600);
+  return `Ep ${nextAiringEpisode.episode} in ${days}d ${hours}h`;
+}
+
+export function AnimeCard({ anime, showGenres = false, watchlistStatus, showAiringCountdown }: AnimeCardProps) {
   const title = getDisplayTitle(anime.title);
   const score = anime.averageScore;
+  const nextAiringEpisode = "nextAiringEpisode" in anime ? anime.nextAiringEpisode : null;
 
   return (
     <Link
@@ -117,6 +129,19 @@ export function AnimeCard({ anime, showGenres = false, watchlistStatus }: AnimeC
       >
         {title}
       </p>
+
+      {showAiringCountdown && nextAiringEpisode && (
+        <p
+          style={{
+            marginTop: "2px",
+            fontSize: "11px",
+            color: "#555",
+            lineHeight: "1.3",
+          }}
+        >
+          {formatAiringCountdown(nextAiringEpisode)}
+        </p>
+      )}
 
       {showGenres && anime.genres.length > 0 && (
         <div

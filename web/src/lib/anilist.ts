@@ -370,3 +370,68 @@ export function getMainStudio(studios: AnilistStudioConnection): string | null {
   const main = studios.edges.find((e) => e.isMain);
   return main?.node.name ?? studios.edges[0]?.node.name ?? null;
 }
+
+/**
+ * Get currently airing anime with upcoming episodes, sorted by next air time ascending
+ */
+export async function getAiringSoon(
+  page = 1,
+  perPage = 20
+): Promise<AnilistMedia[]> {
+  const query = `
+    ${MEDIA_FRAGMENT}
+    query AiringSoon($page: Int, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        media(
+          status: RELEASING,
+          type: ANIME,
+          isAdult: false,
+          sort: POPULARITY_DESC
+        ) {
+          ...MediaFields
+        }
+      }
+    }
+  `;
+
+  const data = await anilistFetch<{
+    Page: { media: AnilistMedia[] };
+  }>(query, { page, perPage }, "force-cache", 1800);
+
+  // Sort by next airing time ascending so soonest episode is first
+  return data.Page.media.sort((a, b) => {
+    const aTime = a.nextAiringEpisode?.airingAt ?? Infinity;
+    const bTime = b.nextAiringEpisode?.airingAt ?? Infinity;
+    return aTime - bTime;
+  });
+}
+
+/**
+ * Get anime that haven't started airing yet, sorted by popularity
+ */
+export async function getUpcoming(
+  page = 1,
+  perPage = 20
+): Promise<AnilistMedia[]> {
+  const query = `
+    ${MEDIA_FRAGMENT}
+    query UpcomingAnime($page: Int, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        media(
+          status: NOT_YET_RELEASED,
+          type: ANIME,
+          isAdult: false,
+          sort: POPULARITY_DESC
+        ) {
+          ...MediaFields
+        }
+      }
+    }
+  `;
+
+  const data = await anilistFetch<{
+    Page: { media: AnilistMedia[] };
+  }>(query, { page, perPage }, "force-cache", 3600);
+
+  return data.Page.media;
+}

@@ -6,9 +6,11 @@ import type { AnilistMedia } from "@/lib/anilist";
 
 interface WatchlistAwareRowProps {
   anime: AnilistMedia[];
+  /** Show a small "Ep N in Xd Yh" countdown under the title using nextAiringEpisode */
+  showAiringCountdown?: boolean;
 }
 
-export function WatchlistAwareRow({ anime }: WatchlistAwareRowProps) {
+export function WatchlistAwareRow({ anime, showAiringCountdown }: WatchlistAwareRowProps) {
   const [statusMap, setStatusMap] = useState<Map<number, WatchlistStatus>>(new Map());
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export function WatchlistAwareRow({ anime }: WatchlistAwareRowProps) {
     <div className="scroll-row">
       {anime.map(a => (
         <div key={a.id} style={{ width: "160px", minWidth: "140px", flexShrink: 0 }}>
-          <AnimeCard anime={a} watchlistStatus={statusMap.get(a.id)} />
+          <AnimeCard anime={a} watchlistStatus={statusMap.get(a.id)} showAiringCountdown={showAiringCountdown} />
         </div>
       ))}
     </div>

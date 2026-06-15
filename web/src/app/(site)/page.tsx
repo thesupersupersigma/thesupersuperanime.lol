@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getTrending, getSeasonal } from "@/lib/anilist";
+import { getTrending, getSeasonal, getAiringSoon, getUpcoming } from "@/lib/anilist";
 import { AnimeRowSkeleton } from "@/components/anime-card";
 import { WatchlistAwareRow } from "@/components/watchlist-aware-row";
 import { ContinueWatching } from "@/components/continue-watching";
@@ -33,6 +33,18 @@ export default function HomePage() {
       <Section title="This Season">
         <Suspense fallback={<AnimeRowSkeleton count={10} />}>
           <SeasonalRow />
+        </Suspense>
+      </Section>
+
+      <Section title="Airing Soon">
+        <Suspense fallback={<AnimeRowSkeleton count={10} />}>
+          <AiringSoonRow />
+        </Suspense>
+      </Section>
+
+      <Section title="Upcoming">
+        <Suspense fallback={<AnimeRowSkeleton count={10} />}>
+          <UpcomingRow />
         </Suspense>
       </Section>
     </div>
@@ -77,4 +89,14 @@ async function TrendingRow() {
 async function SeasonalRow() {
   const seasonal = await getSeasonal(1, 20);
   return <WatchlistAwareRow anime={seasonal.slice(0, 10)} />;
+}
+
+async function AiringSoonRow() {
+  const airing = await getAiringSoon(1, 20);
+  return <WatchlistAwareRow anime={airing.slice(0, 10)} showAiringCountdown />;
+}
+
+async function UpcomingRow() {
+  const upcoming = await getUpcoming(1, 20);
+  return <WatchlistAwareRow anime={upcoming.slice(0, 10)} />;
 }
