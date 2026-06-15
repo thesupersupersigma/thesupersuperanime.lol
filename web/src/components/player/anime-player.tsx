@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MediaPlayer, MediaProvider, MediaPlayerInstance, useMediaState } from "@vidstack/react";
+import { MediaPlayer, MediaProvider, MediaPlayerInstance, useMediaState, Track } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
 import { isHLSProvider } from "vidstack";
 import "@vidstack/react/player/styles/default/theme.css";
@@ -12,6 +12,7 @@ export interface ServerData {
   name: string;
   type: "sub" | "dub";
   sources: { token: string; quality: string; isM3U8: boolean }[];
+  subtitles?: { url: string; language: string; label: string; default: boolean }[];
 }
 
 interface AnimePlayerProps {
@@ -475,6 +476,16 @@ export function AnimePlayer({
             playsInline
           >
             <MediaProvider />
+            {(activeServer?.subtitles ?? []).map((track, i) => (
+              <Track
+                key={i}
+                src={`/api/subtitle-proxy?url=${encodeURIComponent(track.url)}`}
+                kind="subtitles"
+                language={track.language}
+                label={track.label}
+                default={track.default}
+              />
+            ))}
             <DefaultVideoLayout icons={defaultLayoutIcons} />
           </MediaPlayer>
         )}

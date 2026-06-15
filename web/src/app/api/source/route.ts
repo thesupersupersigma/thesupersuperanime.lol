@@ -11,6 +11,7 @@ interface NormalizedStream {
   isM3U8: boolean;
   cookies: string;
   referer: string;
+  subtitles: { url: string; language: string; label: string; default: boolean }[];
 }
 
 const PROVIDER_PRIORITY: Record<string, number> = {
@@ -107,7 +108,18 @@ export async function POST(req: NextRequest) {
         })
       );
 
-      finalServers.push({ name: providerName, type: streamType as "sub" | "dub", sources: tokenizedSources });
+      const seen = new Set<string>();
+      const dedupedSubtitles = (streams[0].subtitles ?? []).filter(s => {
+        if (seen.has(s.language)) return false;
+        seen.add(s.language);
+        return true;
+      });
+      finalServers.push({
+        name: providerName,
+        type: streamType as "sub" | "dub",
+        sources: tokenizedSources,
+        subtitles: dedupedSubtitles,
+      });
     }
 
     console.log(`[/api/source] Compiled ${finalServers.length} servers for ${animeTitle} ep ${episodeNum}`);
@@ -177,6 +189,27 @@ async function fetchAnevixaFromUrl(
             (audioType === "sub" ? watchData.ssub?.streams : watchData.sdub?.streams) ??
             [];
 
+          const rawSubtitles: unknown[] =
+            watchData.subtitles ??
+            (audioType === "sub" ? watchData.ssub?.subtitles : watchData.sdub?.subtitles) ??
+            [];
+
+          const subtitles = (rawSubtitles as Array<{
+            file?: string;
+            url?: string;
+            label?: string;
+            language?: string;
+            kind?: string;
+            default?: boolean;
+          }>)
+            .filter(t => (t.file || t.url) && t.kind !== "thumbnails")
+            .map(t => ({
+              url: t.file ?? t.url ?? "",
+              language: t.language ?? "en",
+              label: t.label ?? "English",
+              default: t.default ?? false,
+            }));
+
           const hlsStreams = rawStreams.filter((s: unknown) => {
             const stream = s as { type?: string; url?: string };
             return stream.type === "hls";
@@ -193,6 +226,7 @@ async function fetchAnevixaFromUrl(
               isM3U8: true,
               cookies: "",
               referer: s.referer ?? "",
+              subtitles,
             });
           }
         } catch {

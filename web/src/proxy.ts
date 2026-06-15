@@ -22,6 +22,7 @@ export function proxy(req: NextRequest) {
   // ── Always public — no auth checks at all ──────────────────────────────
   if (
     pathname.startsWith("/api/proxy") ||
+    pathname.startsWith("/api/subtitle-proxy") ||
     pathname.startsWith("/api/auth/discord") ||
     pathname === "/api/auth/me" ||
     pathname === "/login"
