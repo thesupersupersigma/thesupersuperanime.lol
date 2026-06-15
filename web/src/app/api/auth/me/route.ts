@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
     userId: user.id,
     discordLinked: !!user.discordId,
     discordUsername: user.discordUsername ?? null,
+    anilistUsername: user.anilistUsername ?? null,
     emailVerified: user.emailVerified,
     // Expose gate status so client components (Nav, DiscordGateCheck) can
     // respect DISCORD_GATE=off without needing a NEXT_PUBLIC_ variable.

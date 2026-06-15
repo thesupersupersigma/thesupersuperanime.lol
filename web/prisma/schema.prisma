@@ -17,6 +17,9 @@ model User {
   username            String?              @unique
   displayName         String?
   avatarPreset        Int?
+  anilistId           Int?                 @unique
+  anilistUsername     String?
+  anilistToken        String?
   emailVerified       Boolean              @default(false)
   emailVerifyToken    String?              @unique
   emailVerifyExpires  DateTime?

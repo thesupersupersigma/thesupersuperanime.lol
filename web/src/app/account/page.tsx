@@ -94,6 +94,7 @@ export default async function AccountPage() {
           avatarPreset: user.avatarPreset ?? null,
           username: user.username ?? null,
           displayName: user.displayName ?? null,
+          anilistUsername: user.anilistUsername ?? null,
         }}
         history={history}
         watchlist={watchlist}

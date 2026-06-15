@@ -169,6 +169,9 @@ export async function getCurrentUser() {
       username: true,           // custom username for email-only users
       displayName: true,        // custom display name for email-only users
       avatarPreset: true,       // 1-14 preset avatar for email-only users
+      anilistId: true,
+      anilistUsername: true,
+      anilistToken: true,
     },
   });
 

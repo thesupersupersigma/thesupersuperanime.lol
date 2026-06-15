@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton } from "./account-buttons";
+import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton, AniListConnectButton } from "./account-buttons";
 import { unlinkDiscordAction, deleteAccountAction, updateProfileAction } from "./actions";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 
@@ -19,6 +19,7 @@ interface Props {
     avatarPreset?: number | null;
     username?: string | null;
     displayName?: string | null;
+    anilistUsername?: string | null;
   };
   history: HistoryEntry[];
   watchlist: WatchlistEntry[];
@@ -55,6 +56,7 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("history");
   const [discordUsername, setDiscordUsername] = useState<string | null | undefined>(user.discordUsername);
+  const [anilistUsername, setAnilistUsername] = useState<string | null | undefined>(user.anilistUsername);
 
   useEffect(() => {
     const tab = searchParams.get("tab") as Tab | null;
@@ -64,9 +66,14 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
   useEffect(() => {
     fetch("/api/auth/me")
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setDiscordUsername(data.discordUsername); })
+      .then(data => {
+        if (data) {
+          setDiscordUsername(data.discordUsername);
+          if ("anilistUsername" in data) setAnilistUsername(data.anilistUsername);
+        }
+      })
       .catch(() => {});
-  }, []); 
+  }, []);
 
   return ( 
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5", paddingTop: "80px", paddingBottom: "80px", paddingLeft: "24px", paddingRight: "24px", }}> 
@@ -267,7 +274,45 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
                     </div>
                   )}
                 </div>
-                
+
+                <div style={{ height: "1px", background: "#1a1a1a" }} />
+                <div>
+                  <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px" }}>
+                    AniList
+                  </h3>
+                  {anilistUsername ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+                      <p style={{ color: "#555", fontSize: "13px" }}>
+                        Linked as <span style={{ color: "#02a9ff", fontWeight: 600 }}>{anilistUsername}</span>
+                      </p>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Unlink your AniList account?")) return;
+                          await fetch("/api/auth/anilist/unlink", { method: "POST" });
+                          setAnilistUsername(null);
+                        }}
+                        style={{
+                          background: "rgba(2,169,255,0.08)", border: "1px solid rgba(2,169,255,0.2)",
+                          color: "#38bdf8", padding: "8px 16px", borderRadius: "8px",
+                          fontWeight: 600, fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap",
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(2,169,255,0.15)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "rgba(2,169,255,0.08)")}
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ color: "#555", fontSize: "13px", marginBottom: "12px" }}>No AniList account linked.</p>
+                      <AniListConnectButton userId={user.id} />
+                      <p style={{ color: "#444", fontSize: "12px", marginTop: "8px", lineHeight: "1.5" }}>
+                        Link your AniList account to sync your watch progress and import your list.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ height: "1px", background: "#1a1a1a" }} />
                 <div>
                   <h3 style={{

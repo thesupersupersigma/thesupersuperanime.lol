@@ -126,6 +126,36 @@ export function UnlinkDiscordButton({ action }: { action: () => Promise<{ error?
   );
 }
 
+export function AniListConnectButton({ userId }: { userId: string }) {
+  function handleClick() {
+    const state = btoa(JSON.stringify({ userId })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    const clientId = process.env.NEXT_PUBLIC_ANILIST_CLIENT_ID;
+    const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+    const redirectUri = encodeURIComponent(`${cleanBaseUrl}/api/auth/anilist/callback`);
+    window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${state}`;
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: "8px",
+        background: "#02a9ff", color: "#fff", border: "none",
+        borderRadius: "8px", padding: "9px 16px",
+        fontSize: "13px", fontWeight: 600, cursor: "pointer",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = "#0284c7")}
+      onMouseLeave={e => (e.currentTarget.style.background = "#02a9ff")}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6.361 2.943 0 21.056h4.942l1.077-3.133H12.6l1.077 3.133H18.6L12.239 2.943ZM7.326 14l2.302-6.697L11.93 14Z"/>
+        <path d="M18.714 2.943v18.113h4.942V2.943Z"/>
+      </svg>
+      Connect AniList
+    </button>
+  );
+}
+
 export function DeleteAccountButton({ action }: { action: () => Promise<{ error?: string; success?: boolean }> }) {
   const [loading, setLoading] = useState(false);
 
