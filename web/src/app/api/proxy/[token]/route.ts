@@ -10,6 +10,15 @@ interface TokenInsertData {
   token: string; url: string; sessionId: string; ip: string; quality: string; isM3U8: boolean; expiresAt: Date; used: boolean;
 }
 
+function getProxyBase(isPlaylist: boolean) {
+  // Playlists (.m3u8) stay on Vercel: they're tiny and must be re-fetched through
+  // this same handler so their segment URLs get rewritten too. Only heavy media
+  // segments (.ts/.key) are offloaded to the VM to save Vercel bandwidth.
+  if (isPlaylist) return "/api/proxy";
+  const vmUrl = process.env.PROXY_VM_URL;
+  return vmUrl ? vmUrl.replace(/\/$/, "") + "/proxy" : "/api/proxy";
+}
+
 export async function HEAD(req: NextRequest, { params }: Params) { return handleRequest(req, await params, true); }
 export async function GET(req: NextRequest, { params }: Params) { return handleRequest(req, await params, false); }
 
@@ -116,7 +125,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
             
             const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies, ".key");
             tokensToInsert.push(tData.dbData);
-            line = line.replace(`URI="${originalUri}"`, `URI="/api/proxy/${tData.serveToken}"`);
+            line = line.replace(`URI="${originalUri}"`, `URI="${tData.serveToken}"`);
           }
           rewrittenLines.push(line);
           continue;
@@ -129,7 +138,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         
         const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies, ".ts");
         tokensToInsert.push(tData.dbData);
-        rewrittenLines.push(`/api/proxy/${tData.serveToken}`);
+        rewrittenLines.push(tData.serveToken);
       }
 
       if (tokensToInsert.length > 0) await db.sourceToken.createMany({ data: tokensToInsert });
@@ -195,7 +204,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     if (err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))) {
       return new NextResponse(null, { status: 499 }); // 499 = Client Closed Request
     }
-    console.error("[/api/proxy] Error:", err instanceof Error ? err.message : "unknown");
+    console.error("[/api/proxy] Error:", err instanceof Error ? err.stack : String(err));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -217,11 +226,13 @@ function buildTokenData(
   const signature = createHmac("sha256", tokenSecret).update(tokenId + expiresAt.toISOString()).digest("hex");
   
   const baseToken = `${tokenId}.${signature}`;
+  const isPlaylist = url.includes(".m3u8");
   let ext = explicitExt || ".ts";
-  if (url.includes(".m3u8")) ext = ".m3u8";
+  if (isPlaylist) ext = ".m3u8";
 
-  return { 
-    serveToken: baseToken + ext,
+  const proxyBase = getProxyBase(isPlaylist);
+  return {
+    serveToken: `${proxyBase}/${baseToken}${ext}`,
     dbData: {
       token: baseToken, url: encryptedUrl, sessionId: record.sessionId, ip: record.ip, quality: "chunk", isM3U8: url.includes(".m3u8"), expiresAt, used: false 
     }
