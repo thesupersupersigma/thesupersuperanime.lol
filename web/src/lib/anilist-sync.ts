@@ -52,8 +52,11 @@ export async function syncToAniList(
       }),
     });
 
+    const responseText = await res.text();
+    console.log(`[AniList sync] status=${res.status} body=${responseText}`);
+
     if (!res.ok) {
-      console.error("[AniList sync] API error:", res.status, await res.text());
+      console.error("[AniList sync] API error:", res.status, responseText);
     }
   } catch (err) {
     console.error("[AniList sync] Error:", err);
