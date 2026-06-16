@@ -35,6 +35,8 @@ export async function syncToAniList(
     const anilistStatus = SITE_TO_ANILIST_STATUS[status];
     if (!anilistStatus) return;
 
+    console.log(`[AniList sync] firing — userId=${userId} mediaId=${anilistMediaId} status=${anilistStatus}`);
+
     const res = await fetch(ANILIST_URL, {
       method: "POST",
       headers: {
