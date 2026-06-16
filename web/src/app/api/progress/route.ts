@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionId, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/core";
+import { syncToAniList } from "@/lib/anilist-sync";
 
 export async function GET() {
   try {
@@ -133,6 +134,10 @@ export async function POST(req: NextRequest) {
             watchedSeconds: 0,
           },
         });
+
+    if (user && user.anilistToken && duration && duration > 0 && newProgress >= duration * 0.9) {
+      void syncToAniList(user.id, Number(animeId), "Completed");
+    }
 
     return NextResponse.json({ record });
   } catch (error) {

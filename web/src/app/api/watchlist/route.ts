@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionId, getCurrentUser, requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { syncToAniList } from "@/lib/anilist-sync";
 
 export async function GET() {
   try {
@@ -88,6 +89,10 @@ export async function PATCH(req: NextRequest) {
       where: { userId: user.id, animeId: Number(animeId) },
       data: { status },
     });
+
+    if (user.anilistToken) {
+      void syncToAniList(user.id, Number(animeId), status);
+    }
 
     return NextResponse.json({ success: true, entry });
   } catch (error) {

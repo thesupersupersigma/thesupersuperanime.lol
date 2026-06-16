@@ -209,13 +209,19 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
               </div> 
             )} 
 
-            {/* IMPORT TAB */} 
-            {activeTab === "import" && ( 
-              <div style={{ maxWidth: "480px" }}> 
-                <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px", }}> Import from another site </h3> 
-                <p style={{ color: "#555", fontSize: "13px", lineHeight: "1.6", marginBottom: "20px" }}> Upload an export file from AniKai or HiAnime to restore your watchlist and history. Supports .json, .txt, and .xml formats. </p> 
-                <ImportButton /> 
-              </div> 
+            {/* IMPORT TAB */}
+            {activeTab === "import" && (
+              <div style={{ maxWidth: "480px" }}>
+                <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px", }}> Import from another site </h3>
+                <p style={{ color: "#555", fontSize: "13px", lineHeight: "1.6", marginBottom: "20px" }}> Upload an export file from AniKai or HiAnime to restore your watchlist and history. Supports .json, .txt, and .xml formats. </p>
+                <ImportButton />
+                {anilistUsername && (
+                  <>
+                    <div style={{ height: "1px", background: "#1a1a1a", margin: "24px 0" }} />
+                    <AniListImportSection />
+                  </>
+                )}
+              </div>
             )} 
 
             {/* SETTINGS TAB */}
@@ -334,6 +340,69 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
     </div> 
   ); 
 } 
+
+function AniListImportSection() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleImport() {
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/anilist/sync/import", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Import failed");
+      } else {
+        setResult(data);
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px" }}>
+        Import from AniList
+      </h3>
+      <p style={{ color: "#555", fontSize: "13px", lineHeight: "1.6", marginBottom: "16px" }}>
+        Sync your AniList anime list to your watchlist here.
+      </p>
+      <button
+        onClick={handleImport}
+        disabled={loading}
+        style={{
+          background: loading ? "#082f49" : "#0369a1",
+          color: "#e0f2fe",
+          border: "none",
+          borderRadius: "8px",
+          padding: "9px 18px",
+          fontSize: "13px",
+          fontWeight: 600,
+          cursor: loading ? "not-allowed" : "pointer",
+          opacity: loading ? 0.7 : 1,
+        }}
+        onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#0284c7"; }}
+        onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#0369a1"; }}
+      >
+        {loading ? "Importing…" : "Import from AniList"}
+      </button>
+      {result && (
+        <p style={{ color: "#22c55e", fontSize: "13px", marginTop: "10px" }}>
+          {result.imported} imported, {result.skipped} skipped.
+        </p>
+      )}
+      {error && (
+        <p style={{ color: "#f87171", fontSize: "13px", marginTop: "10px" }}>{error}</p>
+      )}
+    </div>
+  );
+}
 
 function EmptyState({ message }: { message: string }) {
   return (
