@@ -1,0 +1,17 @@
+name: AniList Sync
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: [self-hosted, thesupersuperanime-anilist-cronjob]
+    steps:
+      - name: Trigger AniList sync
+        run: |
+          curl -X POST https://www.thesupersuperanime.lol/api/anilist/sync/auto \
+            -H "x-cron-secret: ${{ secrets.ANILIST_SYNC_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail
