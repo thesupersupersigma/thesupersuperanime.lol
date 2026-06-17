@@ -1,25 +1,43 @@
 # thesupersuperanime.lol
 
-> A personal anime streaming site with a full episode library, community features, and a leaderboard.
+> A personal anime streaming site with a full episode library, community features, AniList sync, and a global leaderboard.
 
 ## What this site does
-- Stream anime episodes with sub and dub support
-- Track watch history and progress across episodes
-- Community comments on episodes
-- Watchlist management
-- Genre browsing and community genre voting
+- Stream anime episodes with sub and dub support via HLS
+- Track watch history and per-episode progress
+- Episode-level comments and community discussion
+- Watchlist management with AniList OAuth sync (import/export)
+- Genre browsing with community voting on genre accuracy
 - Global leaderboard ranked by minutes watched
-- User profiles
+- Public user profiles
+- Issues and suggestions board
+- Admin announcement system (site-wide banners)
+- Skip intro/outro support (powered by AniSkip)
+
+## Authentication
+- Discord OAuth or email verification
+- Anonymous browsing supported when site is in open mode
+- Authentication required for comments, watchlist, leaderboard, and voting
 
 ## Key pages
-- / — Home feed with trending and seasonal anime
-- /search — Search and filter anime by genre, format, status, season, year
-- /anime/[id] — Anime detail page with episode list
-- /watch/[animeId]/[episodeNum] — Episode watch page
-- /leaderboard — Global watch time leaderboard
-- /genres — Browse anime by genre
+- / — Home feed with trending, seasonal, airing, and upcoming anime
+- /search — Search and filter by title, genre, format, status, season, year
+- /anime/[id] — Anime detail page with paginated episode grid
+- /watch/[animeId]/[episodeNum] — Episode watch page with comments
+- /leaderboard — Global watch time leaderboard with podium
+- /genres — Browse anime by genre with community voting
+- /genres/[genre] — Anime filtered by specific genre
 - /user/[username] — Public user profiles
+- /issues — Community issues and suggestions board
+- /account — Account settings, AniList connection, watchlist
 
-## Notes
-- Authentication is required to post comments, manage watchlists, and appear on the leaderboard
-- Anonymous browsing is supported when the site is in open mode
+## Technical
+- Metadata sourced from AniList GraphQL API
+- Streams sourced from Anivexa API (anikoto, anineko providers)
+- Sub and dub audio types with automatic deduplication
+- HLS adaptive bitrate streaming
+- Subtitles via VTT tracks when available
+
+## Legal
+- /privacy — Privacy policy
+- /terms — Terms of service

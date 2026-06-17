@@ -18,10 +18,43 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!anime) return { title: "Not Found" };
 
   const title = getDisplayTitle(anime.title);
+
+  const rawDescription = anime.description?.replace(/<[^>]*>/g, "");
+  const metaParts = [
+    anime.format ? formatLabel(anime.format) : null,
+    anime.episodes ? `${anime.episodes} eps` : null,
+    anime.season && anime.seasonYear
+      ? `${anime.season.charAt(0)}${anime.season.slice(1).toLowerCase()} ${anime.seasonYear}`
+      : null,
+    anime.averageScore ? `${(anime.averageScore / 10).toFixed(1)}/10` : null,
+  ].filter(Boolean);
+
+  const metaPrefix = metaParts.join(" · ");
+  const description =
+    [metaPrefix, rawDescription].filter(Boolean).join(" — ").slice(0, 200) ||
+    undefined;
+
+  const imageUrl =
+    anime.bannerImage || anime.coverImage.extraLarge || anime.coverImage.large;
+  const url = `https://www.thesupersuperanime.lol/anime/${id}`;
+
   return {
     title: `${title} — thesupersuperanime`,
-    description:
-      anime.description?.replace(/<[^>]*>/g, "").slice(0, 160) || undefined,
+    description,
+    openGraph: {
+      title: `${title} — thesupersuperanime`,
+      description,
+      url,
+      siteName: "thesupersuperanime",
+      type: "video.other",
+      images: [{ url: imageUrl }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} — thesupersuperanime`,
+      description,
+      images: [imageUrl],
+    },
   };
 }
 
