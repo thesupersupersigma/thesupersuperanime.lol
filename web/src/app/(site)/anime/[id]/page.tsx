@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { getAnimeById, getDisplayTitle, getMainStudio } from "@/lib/anilist";
 import { EpisodeList } from "@/components/episode-list";
 import { WatchlistButton } from "./watchlist-button";
@@ -80,8 +81,45 @@ export default async function AnimeDetailPage({ params }: PageProps) {
   // Clean description — remove HTML tags from AniList
   const description = anime.description?.replace(/<[^>]*>/g, "") || null;
 
+  const jsonLdType = anime.format === "MOVIE" ? "Movie" : "TVSeries";
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": jsonLdType,
+    name: title,
+    description,
+    image: anime.coverImage.extraLarge || anime.coverImage.large,
+    genre: anime.genres,
+    url: `https://www.thesupersuperanime.lol/anime/${anime.id}`,
+  };
+
+  if (anime.title.romaji && anime.title.romaji !== title) {
+    jsonLd.alternateName = anime.title.romaji;
+  }
+
+  if (anime.episodes != null) {
+    jsonLd.numberOfEpisodes = anime.episodes;
+  }
+
+  if (anime.startDate?.year != null && anime.startDate?.month != null && anime.startDate?.day != null) {
+    const { year, month, day } = anime.startDate;
+    jsonLd.startDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  if (anime.averageScore != null) {
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: (anime.averageScore / 10).toFixed(1),
+      bestRating: "10",
+      worstRating: "0",
+    };
+  }
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Top section — cover + metadata */}
       <div
         className="anime-detail-top"
@@ -199,18 +237,20 @@ export default async function AnimeDetailPage({ params }: PageProps) {
             }}
           >
             {anime.genres.map((genre) => (
-              <span
+              <Link
                 key={genre}
+                href={`/genres/${encodeURIComponent(genre.toLowerCase())}`}
                 style={{
                   background: "#2a2a2a",
                   color: "#888",
                   fontSize: "11px",
                   padding: "2px 8px",
                   borderRadius: "4px",
+                  textDecoration: "none",
                 }}
               >
                 {genre}
-              </span>
+              </Link>
             ))}
           </div>
 

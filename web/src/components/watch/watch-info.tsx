@@ -15,12 +15,14 @@ export function WatchInfo({ anime, episodeNum }: { anime: AnilistMedia; episodeN
 
   return (
     <div style={{ marginTop: "24px", padding: "0 16px" }}>
-      <h1 style={{
-        fontFamily: "'Syne', sans-serif", fontSize: "24px",
-        fontWeight: 700, color: "#e5e5e5", marginBottom: "8px",
-      }}>
-        {title}
-      </h1>
+      <Link href={`/anime/${anime.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+        <h1 style={{
+          fontFamily: "'Syne', sans-serif", fontSize: "24px",
+          fontWeight: 700, color: "#e5e5e5", marginBottom: "8px",
+        }}>
+          {title}
+        </h1>
+      </Link>
 
       {/* Episode + score + genres */}
       <div style={{
