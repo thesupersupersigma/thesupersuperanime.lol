@@ -8,11 +8,32 @@ interface EpisodeSidebarProps {
   nextAiringEpisode?: number | null;
   currentEpisode: number;
   animeId: number;
+  coverImage: string;
+}
+
+interface StreamingEpisode {
+  title: string;
+  thumbnail: string;
+}
+
+interface EpisodeScheduleData {
+  schedule: Record<number, number>;
+  streamingEpisodes: StreamingEpisode[];
 }
 
 const PAGE_SIZE = 50;
 
-export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisode, animeId }: EpisodeSidebarProps) {
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function formatAirDate(unixSeconds: number): string {
+  const date = new Date(unixSeconds * 1000);
+  return `${MONTH_NAMES[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisode, animeId, coverImage }: EpisodeSidebarProps) {
   const episodeCount = nextAiringEpisode ? nextAiringEpisode - 1 : (totalEpisodes || 0);
   const totalPages = Math.ceil(episodeCount / PAGE_SIZE);
 
@@ -20,10 +41,27 @@ export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisod
   const currentPage = Math.ceil(currentEpisode / PAGE_SIZE);
   const [page, setPage] = useState(currentPage);
 
+  const [scheduleData, setScheduleData] = useState<EpisodeScheduleData | null>(null);
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
+
   // If episode changes (e.g. auto-advance), jump to its page
   useEffect(() => {
     setPage(Math.ceil(currentEpisode / PAGE_SIZE));
   }, [currentEpisode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/episodes/${animeId}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!cancelled && d) setScheduleData(d);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingSchedule(false);
+      });
+    return () => { cancelled = true; };
+  }, [animeId]);
 
   const startEp = (page - 1) * PAGE_SIZE + 1;
   const endEp = Math.min(page * PAGE_SIZE, episodeCount);
@@ -33,6 +71,9 @@ export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisod
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <style>{`
+        @keyframes episodeRowPulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+      `}</style>
 
       {/* Page range selector — only shown when there's more than one page */}
       {totalPages > 1 && (
@@ -76,56 +117,106 @@ export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisod
         </div>
       )}
 
-      {/* Episode grid */}
+      {/* Episode list */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: "6px",
-        padding: "12px",
+        display: "flex",
+        flexDirection: "column",
+        padding: "8px",
         overflowY: "auto",
         flex: 1,
         scrollbarWidth: "thin",
-        alignContent: "start",
       }}>
-        {episodes.map((ep) => {
-          const isCurrent = ep === currentEpisode;
-          return (
-            <Link
-              key={ep}
-              href={`/watch/${animeId}/${ep}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "10px 4px",
-                background: isCurrent ? "#1e3a5f" : "#1a1a1a",
-                border: `1px solid ${isCurrent ? "#3b82f6" : "#2a2a2a"}`,
-                borderRadius: "6px",
-                textDecoration: "none",
-                fontSize: "13px",
-                fontWeight: isCurrent ? 700 : 500,
-                color: isCurrent ? "#60a5fa" : "#a3a3a3",
-                transition: "all 150ms ease",
-                textAlign: "center",
-                lineHeight: 1,
-              }}
-              onMouseEnter={e => {
-                if (!isCurrent) {
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "#3b82f6";
-                  (e.currentTarget as HTMLAnchorElement).style.color = "#e5e5e5";
-                }
-              }}
-              onMouseLeave={e => {
-                if (!isCurrent) {
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "#2a2a2a";
-                  (e.currentTarget as HTMLAnchorElement).style.color = "#a3a3a3";
-                }
-              }}
-            >
-              {ep}
-            </Link>
-          );
-        })}
+        {loadingSchedule
+          ? episodes.map(ep => (
+              <div
+                key={ep}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  height: "72px",
+                  padding: "8px 12px",
+                  background: "#1a1a1a",
+                  borderRadius: "4px",
+                  animation: "episodeRowPulse 2s ease-in-out infinite",
+                }}
+              >
+                <div style={{ width: "112px", height: "63px", flexShrink: 0, background: "#262626", borderRadius: "4px" }} />
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ width: "40%", height: "10px", background: "#262626", borderRadius: "3px" }} />
+                  <div style={{ width: "70%", height: "10px", background: "#262626", borderRadius: "3px" }} />
+                </div>
+              </div>
+            ))
+          : episodes.map(ep => {
+              const isCurrent = ep === currentEpisode;
+              const streamingEp = scheduleData?.streamingEpisodes?.[ep - 1];
+              const thumbnail = streamingEp?.thumbnail || coverImage;
+              const airingAt = scheduleData?.schedule?.[ep];
+
+              return (
+                <Link
+                  key={ep}
+                  href={`/watch/${animeId}/${ep}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    height: "88px",
+                    padding: "8px 12px",
+                    background: isCurrent ? "#1e3a5f" : "transparent",
+                    borderLeft: isCurrent ? "3px solid #3b82f6" : "3px solid transparent",
+                    textDecoration: "none",
+                    transition: "background 150ms ease",
+                  }}
+                  onMouseEnter={e => {
+                    if (!isCurrent) {
+                      (e.currentTarget as HTMLAnchorElement).style.background = "#1a1a1a";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isCurrent) {
+                      (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+                    }
+                  }}
+                >
+                  <img
+                    src={thumbnail}
+                    alt={`Episode ${ep}`}
+                    style={{
+                      width: "112px",
+                      height: "63px",
+                      objectFit: "cover",
+                      borderRadius: "4px",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: "2px", height: "100%" }}>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#888" }}>
+                        Episode {ep}
+                      </div>
+                      {streamingEp?.title && (
+                        <div style={{
+                          fontSize: "13px",
+                          fontWeight: 500,
+                          color: "#e5e5e5",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}>
+                          {streamingEp.title}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#666", marginTop: "4px" }}>
+                      {airingAt ? formatAirDate(airingAt) : ""}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
       </div>
     </div>
   );

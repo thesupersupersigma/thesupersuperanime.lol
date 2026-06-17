@@ -406,6 +406,50 @@ export async function getAiringSoon(
   });
 }
 
+export interface EpisodeSchedule {
+  schedule: Record<number, number>;
+  streamingEpisodes: { title: string; thumbnail: string }[];
+}
+
+/**
+ * Get per-episode air dates and streaming episode thumbnails for an anime
+ */
+export async function getEpisodeSchedule(id: number): Promise<EpisodeSchedule> {
+  const query = `
+    query EpisodeSchedule($id: Int) {
+      Media(id: $id, type: ANIME) {
+        airingSchedule(notYetAired: false) {
+          nodes {
+            episode
+            airingAt
+          }
+        }
+        streamingEpisodes {
+          title
+          thumbnail
+        }
+      }
+    }
+  `;
+
+  const data = await anilistFetch<{
+    Media: {
+      airingSchedule: { nodes: { episode: number; airingAt: number }[] };
+      streamingEpisodes: { title: string; thumbnail: string }[];
+    };
+  }>(query, { id }, "force-cache", 3600);
+
+  const schedule: Record<number, number> = {};
+  for (const node of data.Media.airingSchedule.nodes) {
+    schedule[node.episode] = node.airingAt;
+  }
+
+  return {
+    schedule,
+    streamingEpisodes: data.Media.streamingEpisodes,
+  };
+}
+
 /**
  * Get anime that haven't started airing yet, sorted by popularity
  */
