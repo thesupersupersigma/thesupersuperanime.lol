@@ -15,8 +15,8 @@ interface NormalizedStream {
 }
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  anikoto: 0,
-  anineko: 1,
+  anineko: 0,
+  anikoto: 1,
 }
 
 export async function POST(req: NextRequest) {
