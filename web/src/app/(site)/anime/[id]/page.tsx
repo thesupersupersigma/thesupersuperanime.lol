@@ -34,8 +34,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     [metaPrefix, rawDescription].filter(Boolean).join(" — ").slice(0, 200) ||
     undefined;
 
-  const imageUrl =
-    anime.bannerImage || anime.coverImage.extraLarge || anime.coverImage.large;
   const url = `https://www.thesupersuperanime.lol/anime/${id}`;
 
   return {
@@ -47,13 +45,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url,
       siteName: "thesupersuperanime",
       type: "video.other",
-      images: [{ url: imageUrl }],
+      images: [
+        {
+          url: `https://www.thesupersuperanime.lol/api/og?animeId=${id}`,
+          width: 1200,
+          height: 630,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} — thesupersuperanime`,
       description,
-      images: [imageUrl],
+      images: [`https://www.thesupersuperanime.lol/api/og?animeId=${id}`],
     },
   };
 }
