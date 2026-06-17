@@ -264,9 +264,9 @@ function CommentCard({
         )}
 
         {/* Replies */}
-        {comment.replies.length > 0 && (
+        {(comment.replies ?? []).length > 0 && (
           <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
-            {comment.replies.map(reply => (
+            {(comment.replies ?? []).map(reply => (
               <CommentCard
                 key={reply.id}
                 comment={reply}
@@ -360,7 +360,7 @@ export function Comments({ animeId, episodeId, currentUserId }: Props) {
 
     setComments(prev => prev.map(c => ({
       ...updateLikes(c),
-      replies: c.replies.map(updateLikes),
+      replies: (c.replies ?? []).map(updateLikes),
     })));
   }
 
