@@ -53,6 +53,7 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   def("episodes-100", "Century Club", "Watched 100 episodes", "💯"),
   def("episodes-500", "Dedicated", "Watched 500 episodes", "⚡"),
   def("episodes-1000", "Legendary Viewer", "Watched 1000 episodes", "👑", "legendary"),
+  def("watchtime-1h", "1 Hour Club", "Watched 1 hour of anime", "⏱️"),
   def("watchtime-10h", "10 Hour Club", "Watched 10 hours of anime", "⏱️"),
   def("watchtime-50h", "50 Hour Club", "Watched 50 hours of anime", "⌛", "rare"),
   def("watchtime-100h", "100 Hour Club", "Watched 100 hours of anime", "🏆", "epic"),

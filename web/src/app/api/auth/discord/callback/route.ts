@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { grantBadge } from "@/lib/badge-engine";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -86,6 +87,10 @@ export async function GET(req: NextRequest) {
         discordAvatar: avatarUrl,
       },
     });
+
+    // Grant the "verified" badge immediately on link (fire-and-forget) rather
+    // than waiting for the next watch-progress badge sweep.
+    void grantBadge(userId, "verified").catch(console.error);
 
     // 4. Auto-join user to Discord server
     try {

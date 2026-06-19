@@ -225,6 +225,32 @@ model UserBadge {
   @@index([badgeSlug])
 }
 
+// Cached AniList genres per anime, populated when a user completes an anime.
+// Used by the genre auto-badge logic to avoid hitting AniList synchronously.
+model GenreCache {
+  animeId   Int      @id
+  genres    String[]
+  updatedAt DateTime @updatedAt
+}
+
+// Records that a user watched a given anime while it was still airing
+// (AniList status RELEASING). Drives the "airing watcher" badges.
+model AiringWatch {
+  id      String @id @default(cuid())
+  userId  String
+  animeId Int
+
+  @@unique([userId, animeId])
+}
+
+// Per-user daily watch streak tracking. Drives the streak badges.
+model WatchStreak {
+  userId        String    @id
+  currentStreak Int       @default(0)
+  longestStreak Int       @default(0)
+  lastWatchDate DateTime?
+}
+
 // ─── Season System ───────────────────────────────────────────────────────────
 
 model Season {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionId, getCurrentUser, requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncToAniList } from "@/lib/anilist-sync";
+import { cacheGenresForAnime } from "@/lib/badge-engine";
 
 export async function GET() {
   try {
@@ -92,6 +93,12 @@ export async function PATCH(req: NextRequest) {
 
     if (user.anilistToken) {
       void syncToAniList(user.id, Number(animeId), status);
+    }
+
+    // Fire-and-forget: cache this anime's genres on completion so the genre
+    // badge tally can run without hitting AniList synchronously.
+    if (status === "Completed") {
+      void cacheGenresForAnime(Number(animeId));
     }
 
     return NextResponse.json({ success: true, entry });

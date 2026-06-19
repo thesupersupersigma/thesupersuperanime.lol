@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { getAnimeById } from "@/lib/anilist";
 
 /**
  * Badge auto-grant engine.
@@ -106,40 +107,57 @@ export async function grantBadge(userId: string, slug: string, context?: string)
 /**
  * Recompute a user's stats and grant every auto badge they now qualify for.
  *
- * Only covers badges derivable from aggregate stats (watch milestones, watch
- * time, completions, community activity, all-time leaderboard placement).
- * Airing/streak/referral/og badges are granted by their own dedicated flows.
+ * Covers badges derivable from stored stats: watch milestones, watch time,
+ * completions, community activity, all-time leaderboard placement, OG status,
+ * airing-watcher counts (from AiringWatch), streaks (from WatchStreak), and
+ * genre completion (from GenreCache). The AiringWatch/WatchStreak/GenreCache
+ * rows themselves are populated by their own write paths (progress/watchlist
+ * routes); referral badges are granted by their own dedicated flow.
  *
  * @returns the slugs of badges that were newly granted by this call.
  */
 export async function checkAndGrantBadges(userId: string): Promise<string[]> {
-  const [watchAgg, completedCount, commentCount, likeCount, genreVoteCount, user, ranking] =
-    await Promise.all([
-      db.watchHistory.aggregate({
-        where: { userId },
-        _count: { episodeId: true },
-        _sum: { watchedSeconds: true },
-      }),
-      db.watchlist.count({ where: { userId, status: "Completed" } }),
-      db.comment.count({ where: { userId } }),
-      db.commentLike.count({ where: { comment: { userId } } }),
-      db.genreVote.count({ where: { userId } }),
-      db.user.findUnique({ where: { id: userId }, select: { discordId: true, createdAt: true } }),
-      // Same aggregation the /api/leaderboard all-time tab uses, without the
-      // top-50 cap, so we can locate this user's rank in the full ordering.
-      db.watchHistory.groupBy({
-        by: ["userId"],
-        where: { userId: { not: null } },
-        _count: { episodeId: true },
-        orderBy: { _count: { episodeId: "desc" } },
-      }),
-    ]);
+  const [
+    watchAgg,
+    completedCount,
+    commentCount,
+    likeCount,
+    genreVoteCount,
+    user,
+    ranking,
+    airingWatchCount,
+    streak,
+    completedAnime,
+  ] = await Promise.all([
+    db.watchHistory.aggregate({
+      where: { userId },
+      _count: { episodeId: true },
+      _sum: { watchedSeconds: true },
+    }),
+    db.watchlist.count({ where: { userId, status: "Completed" } }),
+    db.comment.count({ where: { userId } }),
+    db.commentLike.count({ where: { comment: { userId } } }),
+    db.genreVote.count({ where: { userId } }),
+    db.user.findUnique({ where: { id: userId }, select: { discordId: true, createdAt: true } }),
+    // Same aggregation the /api/leaderboard all-time tab uses, without the
+    // top-50 cap, so we can locate this user's rank in the full ordering.
+    db.watchHistory.groupBy({
+      by: ["userId"],
+      where: { userId: { not: null } },
+      _count: { episodeId: true },
+      orderBy: { _count: { episodeId: "desc" } },
+    }),
+    db.airingWatch.count({ where: { userId } }),
+    db.watchStreak.findUnique({ where: { userId } }),
+    db.watchlist.findMany({ where: { userId, status: "Completed" }, select: { animeId: true } }),
+  ]);
 
   const episodes = watchAgg._count.episodeId;
   const minutes = Math.floor((watchAgg._sum.watchedSeconds ?? 0) / 60);
   const hasDiscord = !!user?.discordId;
   const rankIndex = ranking.findIndex(r => r.userId === userId);
   const rank = rankIndex === -1 ? 0 : rankIndex + 1; // 0 = unranked
+  const longestStreak = streak?.longestStreak ?? 0;
 
   const toGrant: string[] = [];
 
@@ -152,6 +170,7 @@ export async function checkAndGrantBadges(userId: string): Promise<string[]> {
   if (episodes >= 1000) toGrant.push("episodes-1000");
 
   // Watch time (stored in minutes; thresholds are in hours)
+  if (minutes >= 1 * 60) toGrant.push("watchtime-1h");
   if (minutes >= 10 * 60) toGrant.push("watchtime-10h");
   if (minutes >= 50 * 60) toGrant.push("watchtime-50h");
   if (minutes >= 100 * 60) toGrant.push("watchtime-100h");
@@ -184,10 +203,150 @@ export async function checkAndGrantBadges(userId: string): Promise<string[]> {
   if (rank >= 1 && rank <= 3) toGrant.push("leaderboard-top3");
   if (rank === 1) toGrant.push("leaderboard-number1");
 
+  // Airing watcher — watched anime while they were still releasing
+  if (airingWatchCount >= 1) toGrant.push("airing-1");
+  if (airingWatchCount >= 5) toGrant.push("airing-5");
+  if (airingWatchCount >= 10) toGrant.push("airing-10");
+  if (airingWatchCount >= 25) toGrant.push("airing-25");
+
+  // Daily watch streaks (longest ever reached)
+  if (longestStreak >= 7) toGrant.push("streak-7");
+  if (longestStreak >= 30) toGrant.push("streak-30");
+  if (longestStreak >= 100) toGrant.push("streak-100");
+
   const results = await Promise.all(
     toGrant.map(async slug => ({ slug, granted: await grantBadge(userId, slug) })),
   );
-  return results.filter(r => r.granted).map(r => r.slug);
+
+  // Genre badges — completing 10+ anime of a genre. These aren't pre-seeded
+  // (too many possible genres), so the Badge row is upserted on the fly before
+  // granting.
+  const genreGranted = await grantGenreBadges(userId, completedAnime.map(c => c.animeId));
+
+  return [...results.filter(r => r.granted).map(r => r.slug), ...genreGranted];
+}
+
+/**
+ * Tally completed-anime genres from the GenreCache and grant a `genre-{slug}`
+ * badge for every genre the user has completed 10 or more of. The Badge row is
+ * created on demand since the genre set is open-ended.
+ *
+ * @returns the genre badge slugs newly granted by this call.
+ */
+async function grantGenreBadges(userId: string, completedAnimeIds: number[]): Promise<string[]> {
+  if (completedAnimeIds.length === 0) return [];
+
+  const caches = await db.genreCache.findMany({
+    where: { animeId: { in: completedAnimeIds } },
+    select: { genres: true },
+  });
+
+  const counts = new Map<string, number>();
+  for (const cache of caches) {
+    for (const genre of cache.genres) {
+      counts.set(genre, (counts.get(genre) ?? 0) + 1);
+    }
+  }
+
+  const granted: string[] = [];
+  for (const [genre, count] of counts) {
+    if (count < 10) continue;
+    const genreSlug = `genre-${genre.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+    await db.badge.upsert({
+      where: { slug: genreSlug },
+      create: {
+        slug: genreSlug,
+        name: `${genre} Fan`,
+        description: `Completed 10+ ${genre} anime`,
+        icon: "🎭",
+        rarity: "rare",
+        rarityOrder: 1,
+        grantedBy: "auto",
+        stackable: false,
+      },
+      update: {},
+    });
+    if (await grantBadge(userId, genreSlug)) granted.push(genreSlug);
+  }
+
+  return granted;
+}
+
+/**
+ * Record that a user watched an anime while it was still airing, feeding the
+ * airing-watcher badges. No-ops unless AniList reports the anime as RELEASING.
+ * Best-effort — never throws.
+ */
+export async function recordAiringWatch(userId: string, animeId: number): Promise<void> {
+  try {
+    const anime = await getAnimeById(animeId);
+    if (anime?.status !== "RELEASING") return;
+    await db.airingWatch.upsert({
+      where: { userId_animeId: { userId, animeId } },
+      create: { userId, animeId },
+      update: {},
+    });
+  } catch (error) {
+    console.error("recordAiringWatch failed:", error);
+  }
+}
+
+/**
+ * Roll the user's daily watch streak forward for "today" (UTC). Idempotent
+ * within a calendar day. Consecutive days increment the streak; a gap resets it
+ * to 1. `longestStreak` only ever grows. Best-effort — never throws.
+ */
+export async function updateWatchStreak(userId: string): Promise<void> {
+  try {
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    const existing = await db.watchStreak.findUnique({ where: { userId } });
+    const lastDate = existing?.lastWatchDate
+      ? existing.lastWatchDate.toISOString().split("T")[0]
+      : null;
+
+    // Already counted a watch today — nothing to do.
+    if (lastDate === today) return;
+
+    const currentStreak = lastDate === yesterday ? (existing?.currentStreak ?? 0) + 1 : 1;
+    const longestStreak = Math.max(existing?.longestStreak ?? 0, currentStreak);
+
+    await db.watchStreak.upsert({
+      where: { userId },
+      create: { userId, currentStreak, longestStreak, lastWatchDate: now },
+      update: { currentStreak, longestStreak, lastWatchDate: now },
+    });
+  } catch (error) {
+    console.error("updateWatchStreak failed:", error);
+  }
+}
+
+/**
+ * Cache an anime's AniList genres once a user completes it, so genre badge
+ * tallies don't have to hit AniList synchronously. No-ops if already cached.
+ * Best-effort — never throws.
+ */
+export async function cacheGenresForAnime(animeId: number): Promise<void> {
+  try {
+    const existing = await db.genreCache.findUnique({
+      where: { animeId },
+      select: { animeId: true },
+    });
+    if (existing) return;
+
+    const anime = await getAnimeById(animeId);
+    if (!anime?.genres?.length) return;
+
+    await db.genreCache.upsert({
+      where: { animeId },
+      create: { animeId, genres: anime.genres },
+      update: { genres: anime.genres },
+    });
+  } catch (error) {
+    console.error("cacheGenresForAnime failed:", error);
+  }
 }
 
 /** True if the user's Discord ID matches `OWNER_DISCORD_ID`. */

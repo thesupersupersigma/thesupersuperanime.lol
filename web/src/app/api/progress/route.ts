@@ -3,7 +3,7 @@ import { getSessionId, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/core";
 import { syncToAniList } from "@/lib/anilist-sync";
-import { checkAndGrantBadges } from "@/lib/badge-engine";
+import { checkAndGrantBadges, recordAiringWatch, updateWatchStreak } from "@/lib/badge-engine";
 
 export async function GET() {
   try {
@@ -138,6 +138,14 @@ export async function POST(req: NextRequest) {
 
     if (user && user.anilistToken && duration && duration > 0 && newProgress >= duration * 0.9) {
       void syncToAniList(user.id, Number(animeId), "Completed");
+    }
+
+    // Fire-and-forget: record airing-watch + roll the daily streak before
+    // re-evaluating badges. These write the AiringWatch/WatchStreak rows that
+    // checkAndGrantBadges reads, and must never block or fail the save.
+    if (user) {
+      void recordAiringWatch(user.id, Number(animeId));
+      void updateWatchStreak(user.id);
     }
 
     // Re-evaluate milestone badges off the back of this save and surface any
