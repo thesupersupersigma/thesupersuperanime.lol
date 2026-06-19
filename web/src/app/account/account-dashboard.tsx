@@ -11,6 +11,12 @@ import { BadgeCard } from "@/components/badges/BadgeCard";
 interface HistoryEntry { episodeId: string; animeId: number; progress: number; duration: number; updatedAt: string; title: string; cover: string; }
 interface WatchlistEntry { animeId: number; status: string; addedAt: string; title: string; cover: string; }
 interface BadgeEntry { slug: string; name: string; description: string; icon: string; rarity: string; rarityOrder: number; grantedAt: string; context?: string | null; }
+interface NotifPrefs {
+  emailNotifStreak: boolean;
+  emailNotifRanked: boolean;
+  emailNotifNewEpisode: boolean;
+  emailNotifCompletion: boolean;
+}
 interface Props {
   user: {
     id: string;
@@ -23,6 +29,7 @@ interface Props {
     displayName?: string | null;
     anilistUsername?: string | null;
   };
+  notifPrefs: NotifPrefs;
   history: HistoryEntry[];
   watchlist: WatchlistEntry[];
   badges: BadgeEntry[];
@@ -56,7 +63,7 @@ function timeAgo(isoString: string): string {
   return `${days}d ago`; 
 } 
 
-export function AccountDashboard({ user, history, watchlist, badges, logOutAction }: Props) {
+export function AccountDashboard({ user, notifPrefs, history, watchlist, badges, logOutAction }: Props) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("history");
   const [discordUsername, setDiscordUsername] = useState<string | null | undefined>(user.discordUsername);
@@ -362,6 +369,9 @@ export function AccountDashboard({ user, history, watchlist, badges, logOutActio
                 </div>
 
                 <div style={{ height: "1px", background: "#1a1a1a" }} />
+                <NotificationSettings notifPrefs={notifPrefs} />
+
+                <div style={{ height: "1px", background: "#1a1a1a" }} />
                 <div>
                   <h3 style={{
                     fontFamily: "'Syne', sans-serif", fontSize: "15px",
@@ -442,6 +452,76 @@ function AniListImportSection() {
       {error && (
         <p style={{ color: "#f87171", fontSize: "13px", marginTop: "10px" }}>{error}</p>
       )}
+    </div>
+  );
+}
+
+// ── Email notification toggles ────────────────────────────────────────────
+
+const NOTIF_TOGGLES: { field: keyof NotifPrefs; label: string }[] = [
+  { field: "emailNotifStreak", label: "Streak at risk" },
+  { field: "emailNotifRanked", label: "Leaderboard rank change" },
+  { field: "emailNotifNewEpisode", label: "New episode available" },
+  { field: "emailNotifCompletion", label: "Completion milestone" },
+];
+
+function NotificationSettings({ notifPrefs }: { notifPrefs: NotifPrefs }) {
+  const [prefs, setPrefs] = useState(notifPrefs);
+
+  async function handleToggle(field: keyof NotifPrefs) {
+    const value = !prefs[field];
+    setPrefs(p => ({ ...p, [field]: value }));
+    try {
+      const res = await fetch("/api/account/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, value }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Revert on failure
+      setPrefs(p => ({ ...p, [field]: !value }));
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "12px" }}>
+        Email Notifications
+      </h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        {NOTIF_TOGGLES.map(({ field, label }) => (
+          <div key={field} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+            <span style={{ color: "#a3a3a3", fontSize: "13px" }}>{label}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={prefs[field]}
+              onClick={() => handleToggle(field)}
+              style={{
+                width: "40px",
+                height: "22px",
+                borderRadius: "11px",
+                border: "none",
+                padding: "2px",
+                background: prefs[field] ? "#2563eb" : "#2a2a2a",
+                cursor: "pointer",
+                flexShrink: 0,
+                transition: "background 0.15s",
+                display: "flex",
+                justifyContent: prefs[field] ? "flex-end" : "flex-start",
+              }}
+            >
+              <div style={{
+                width: "18px",
+                height: "18px",
+                borderRadius: "50%",
+                background: "#fff",
+              }} />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

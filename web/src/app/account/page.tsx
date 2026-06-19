@@ -112,6 +112,12 @@ export default async function AccountPage() {
           displayName: user.displayName ?? null,
           anilistUsername: user.anilistUsername ?? null,
         }}
+        notifPrefs={{
+          emailNotifStreak: user.emailNotifStreak,
+          emailNotifRanked: user.emailNotifRanked,
+          emailNotifNewEpisode: user.emailNotifNewEpisode,
+          emailNotifCompletion: user.emailNotifCompletion,
+        }}
         history={history}
         watchlist={watchlist}
         badges={badgeList}

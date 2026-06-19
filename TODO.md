@@ -13,67 +13,67 @@
 - [x] **Discord bot leaderboard posts** — already posts all-time every 12h; add separate weekly/daily posts to Discord
 
 ### Badge System (Core)
-- [ ] **Badge model in DB** — `Badge` table with `id`, `slug`, `name`, `description`, `icon`, `rarity` (common/rare/epic/legendary), `grantedBy` (auto/admin/owner)
-- [ ] **UserBadge join table** — `userId`, `badgeSlug`, `grantedAt`, `grantedBy`
-- [ ] **Badge display on profiles** — shelf on `/user/[username]` showing earned badges, most prestigious first
-- [ ] **In-site toast notification** when a badge is earned
-- [ ] **Optional Discord DM** via bot when a badge is earned
+- [x] **Badge model in DB** — `Badge` table with `id`, `slug`, `name`, `description`, `icon`, `rarity` (common/rare/epic/legendary), `grantedBy` (auto/admin/owner)
+- [x] **UserBadge join table** — `userId`, `badgeSlug`, `grantedAt`, `grantedBy`
+- [x] **Badge display on profiles** — shelf on `/user/[username]` showing earned badges, most prestigious first
+- [x] **In-site toast notification** when a badge is earned
+- [x] **Optional Discord DM** via bot when a badge is earned
 
 ### Badge Definitions — Watch Milestones (auto-granted)
-- [ ] First episode watched — "First Step"
-- [ ] 10 episodes — "Getting Started"
-- [ ] 50 episodes — "Committed"
-- [ ] 100 episodes — "Century Club"
-- [ ] 500 episodes — "Dedicated"
-- [ ] 1000 episodes — "Legendary Viewer"
-- [ ] 1h watch time
-- [ ] 10h watch time
-- [ ] 50h watch time
-- [ ] 100h watch time — "100 Hour Club"
-- [ ] 500h watch time
-- [ ] Completed 1 anime — "Finisher"
-- [ ] Completed 10 anime
-- [ ] Completed 50 anime — "Completionist"
+- [x] First episode watched — "First Step"
+- [x] 10 episodes — "Getting Started"
+- [x] 50 episodes — "Committed"
+- [x] 100 episodes — "Century Club"
+- [x] 500 episodes — "Dedicated"
+- [x] 1000 episodes — "Legendary Viewer"
+- [x] 1h watch time
+- [x] 10h watch time
+- [x] 50h watch time
+- [x] 100h watch time — "100 Hour Club"
+- [x] 500h watch time
+- [x] Completed 1 anime — "Finisher"
+- [x] Completed 10 anime
+- [x] Completed 50 anime — "Completionist"
 
 ### Badge Definitions — Airing Watcher (auto-granted, stackable tiers)
-- [ ] Watched 1 anime while it was airing — "OG Viewer"
-- [ ] Watched 5 anime while airing — "Seasonal Watcher"
-- [ ] Watched 10 anime while airing — "Airing Addict"
-- [ ] Watched 25 anime while airing — "Simulcast Legend"
+- [x] Watched 1 anime while it was airing — "OG Viewer"
+- [x] Watched 5 anime while airing — "Seasonal Watcher"
+- [x] Watched 10 anime while airing — "Airing Addict"
+- [x] Watched 25 anime while airing — "Simulcast Legend"
 
 ### Badge Definitions — Leaderboard (auto-granted, stackable except #1 all-time)
-- [ ] Reached top 10 all-time — stackable
-- [ ] Reached top 3 all-time — stackable
-- [ ] Reached #1 all-time — NOT stackable, only ever granted once
-- [ ] Weekly champion (held #1 for a full week) — stackable, one per season won
-- [ ] Season champion — one per season won
+- [x] Reached top 10 all-time — stackable
+- [x] Reached top 3 all-time — stackable
+- [x] Reached #1 all-time — NOT stackable, only ever granted once
+- [x] Weekly champion (held #1 for a full week) — stackable, one per season won
+- [x] Season champion — one per season won
 
 ### Badge Definitions — Community (auto-granted)
-- [ ] First comment posted
-- [ ] 10 comments posted
-- [ ] 50 comments posted
-- [ ] Received 10 likes on comments
-- [ ] Voted on 10+ genres — "Critic"
-- [ ] Linked Discord account — "Verified" (auto-granted on Discord OAuth link)
-- [ ] Account created before site launch date (OG member) — "OG" / "Beta Tester"
-- [ ] Referred a user who signed up — "Recruiter"
+- [x] First comment posted
+- [x] 10 comments posted
+- [x] 50 comments posted
+- [x] Received 10 likes on comments
+- [x] Voted on 10+ genres — "Critic"
+- [x] Linked Discord account — "Verified" (auto-granted on Discord OAuth link)
+- [x] Account created before site launch date (OG member) — "OG" / "Beta Tester"
+- [x] Referred a user who signed up — "Recruiter"
 
 ### Badge Definitions — Genre (auto-granted)
-- [ ] Watched 10+ completed anime in the same genre → e.g. "Romance Enjoyer", "Shonen Addict", "Isekai Survivor" etc. (one badge per genre)
+- [x] Watched 10+ completed anime in the same genre → e.g. "Romance Enjoyer", "Shonen Addict", "Isekai Survivor" etc. (one badge per genre)
 
 ### Badge Definitions — Streak (auto-granted)
-- [ ] 7-day watch streak — "Week Warrior"
-- [ ] 30-day watch streak — "Monthly Regular"
-- [ ] 100-day watch streak — "Unstoppable"
+- [x] 7-day watch streak — "Week Warrior"
+- [x] 30-day watch streak — "Monthly Regular"
+- [x] 100-day watch streak — "Unstoppable"
 
 ### Badge Definitions — Admin/Special (manually grantable)
-- [ ] 👑 **Owner** — tied to `ADMIN_USERS` env var; only the owner account; not grantable by anyone
-- [ ] 🛡️ **Admin** — tied to `ADMIN_USERS` env var; all admins automatically receive it
-- [ ] 🎖️ **Contributor** — grantable by admin (for people who helped the site)
-- [ ] 🐛 **Bug Hunter** — grantable by admin (reported a bug that got fixed)
-- [ ] 🎨 **Artist** — grantable by admin (community artists)
-- [ ] 💎 **Supporter** — grantable by admin (future donor/premium tier)
-- [ ] **Admin badge management panel** — UI for admins to search a user and grant/revoke any manually-grantable badge; owner can grant all badge types including admin-only ones
+- [x] 👑 **Owner** — tied to `ADMIN_USERS` env var; only the owner account; not grantable by anyone
+- [x] 🛡️ **Admin** — tied to `ADMIN_USERS` env var; all admins automatically receive it
+- [x] 🎖️ **Contributor** — grantable by admin (for people who helped the site)
+- [x] 🐛 **Bug Hunter** — grantable by admin (reported a bug that got fixed)
+- [x] 🎨 **Artist** — grantable by admin (community artists)
+- [x] 💎 **Supporter** — grantable by admin (future donor/premium tier)
+- [x] **Admin badge management panel** — UI for admins to search a user and grant/revoke any manually-grantable badge; owner can grant all badge types including admin-only ones
 
 ### Streak Emails (Duolingo-style nudges via Resend)
 - [ ] "Your streak is at risk 🔥" — if user hasn't watched today and had a streak yesterday

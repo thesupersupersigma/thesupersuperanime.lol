@@ -1,0 +1,16 @@
+name: Streak & Nudge Emails
+
+on:
+  schedule:
+    - cron: '0 18 * * *'  # 18:00 UTC = ~1PM ET, good time for streak-at-risk nudges
+  workflow_dispatch:
+
+jobs:
+  send-emails:
+    runs-on: self-hosted
+    steps:
+      - name: Trigger streak email cron
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.thesupersuperanime.lol/api/cron/streak-emails

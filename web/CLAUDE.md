@@ -38,7 +38,7 @@ Checks run in this order:
 
 1. **Static/internal passthrough** — `/_next`, `/favicon`, `/.well-known`, `robots.txt`, `sitemap.xml`, `llms.txt`, image extensions skip all checks.
 2. **Always public, no auth at all** — `/api/proxy/*`, `/api/subtitle-proxy/*`, `/api/auth/discord/*`, `/api/auth/me`, `/login`, `/api/announcement*` (includes `/api/announcement/stream`).
-3. **Cron routes** (`/api/cron/*`) — require `Authorization: Bearer <CRON_SECRET>`.
+3. **Cron routes** (`/api/cron/*`) — require `Authorization: Bearer <CRON_SECRET>`. `/api/cron/streak-emails` additionally re-checks the same header in-route against `CRON_SECRET` (see Nudge Emails below) — redundant with the gate above but harmless.
 4. **Site password gate** — `site-auth` cookie vs `SITE_PASSWORD`. Disable with `SITE_PASSWORD_GATE=off`. API routes get a 401 JSON response; pages redirect to `/login`.
 5. **Discord/email verification gate** — gates most remaining routes, **including `/admin/*` and `/api/admin/*`** (they are not in the exempt list). Disable entirely with `DISCORD_GATE=off`. `MASTER_GATE=off` lets anonymous (no `user-session` cookie) users browse without a session, but logged-in users still need `discord-linked=1` or `email-verified=1` cookies (mirrored from the DB into cookies since the proxy runs on the Edge and can't query Postgres). Exempt paths: `/account*`, `/api/auth/*`, `/api/import/*`, `/api/watchlist/*`, `/api/progress/*`, `/leaderboard`, `/user/*`.
 
@@ -81,6 +81,17 @@ This is a Vidstack (`@vidstack/react`) player wrapping hls.js. Several non-obvio
 
 `GET /api/subtitle-proxy?url=...` (`src/app/api/subtitle-proxy/route.ts`) — public (exempted in `src/proxy.ts`), fetches `.vtt` subtitle files from an **allowlist of hosts** (`mewstream.buzz`, `megaplay.buzz`, `vidwish.live`, `anineko.to`, `anikototv.to`, `cdn.mewstream.buzz`, `s.megaplay.buzz`, `lostproject.club`, `watching.onl`, plus subdomains) with a spoofed `User-Agent`/`Referer`/`Origin` (`megaplay.buzz`). Returns `text/vtt` with CORS allowing `NEXT_PUBLIC_SITE_URL`. The player references subtitle tracks via this proxy (`<Track src="/api/subtitle-proxy?url=...">`), not the raw provider URL — adding a new subtitle CDN requires adding its host here. This feature is still actively being worked on.
 
+## Nudge Emails
+
+`GET /api/cron/streak-emails` (`src/app/api/cron/streak-emails/route.ts`) runs four independent nudge passes in one request, each gated per-user by a `User.emailNotif*` boolean (`emailNotifStreak`, `emailNotifRanked`, `emailNotifNewEpisode`, `emailNotifCompletion`, all default `true`, toggled via `PATCH /api/account/notifications`):
+
+- **Streak at risk** — `WatchStreak.currentStreak >= 2` and `lastWatchDate` is yesterday (UTC date match) → `sendStreakAtRiskEmail`.
+- **Leaderboard rank change** — recomputes the all-time leaderboard ranking (no date filter, no `take`), compares each user's new rank to `User.lastKnownLeaderboardRank`; a rank that got worse (`newRank > oldRank`) triggers `sendLeaderboardPassedEmail` naming whoever now occupies the user's old rank position. `lastKnownLeaderboardRank` is then updated for every ranked user regardless of whether an email fired.
+- **New episode dropped** — for each `Watchlist` row with `status: "Watching"`, fetches `getAnimeById` (cached per anime within the request) and compares `nextAiringEpisode.episode - 1` against `Watchlist.lastNotifiedEpisode` → `sendNewEpisodeEmail`, then advances `lastNotifiedEpisode`.
+- **Completion nudge** — for each `(user, animeId)` with `Watchlist.status: "Watching"` and `completionNudgeSent: false`, if `anime.episodes - episodesWatched` is between 1 and 3 → `sendCompletionNudgeEmail` and sets `completionNudgeSent: true` (one-time per anime per user, never re-sent).
+
+All four email sends are fire-and-forget (`void ... .catch(...)`) so one Resend failure can't abort the rest of the batch. Auth: `CRON_SECRET`, same as every other `/api/cron/*` route.
+
 ## Key Directories
 
 | Path | Purpose |
@@ -92,7 +103,7 @@ This is a Vidstack (`@vidstack/react`) player wrapping hls.js. Several non-obvio
 | `src/components/` | Shared React components (player, nav, comments, episode list/sidebar, cards, announcement banner) |
 | `src/providers/` | Thin adapter wrapping `core-dist`'s legacy providers for the admin health-check dashboard only |
 | `src/lib/core-dist/` | Pre-built `@tsss/core` — rate limiting + legacy provider health checks. Do not edit directly |
-| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement) |
+| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak) |
 
 ## Data Fetching Patterns
 
@@ -115,8 +126,9 @@ This is a Vidstack (`@vidstack/react`) player wrapping hls.js. Several non-obvio
 - `DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_ALERT_USER_ID` — admin login / security alerts (Discord callback route)
 - `TOKEN_SECRET` / `ENCRYPTION_SECRET` — video source token signing (HMAC-SHA256) & URL encryption (AES-256-CBC)
 - `ANIVEXA_API_URL` — base URL for the Anivexa video source API (see Video Source Pipeline)
-- `CRON_SECRET` — Bearer token for `/api/cron/*` (cleanup, health-check)
-- `RESEND_API_KEY` — transactional email (verification, password reset)
+- `CRON_SECRET` — Bearer token for `/api/cron/*` (cleanup, health-check, streak-emails)
+- `ANILIST_SYNC_SECRET` — `x-cron-secret` token for `/api/anilist/sync/auto` only
+- `RESEND_API_KEY` — transactional email (verification, password reset, streak/leaderboard/episode/completion nudges — see Nudge Emails)
 - `GITHUB_PAT` / `GITHUB_ISSUES_REPO` — syncs the `Issue` table with a GitHub repo's issues (`/api/admin/issues/sync`)
 - `SCRAPER_SERVICE_URL` / `SERVICE_SECRET`, `MIRURO_API_URL*` / `MIRURO_API_KEY`, `BETTERSCRAPER_URL` / `BETTERSCRAPER_API_KEY` — consumed by the legacy providers bundled in `core-dist`, only relevant to the admin provider-health dashboard, not the live video pipeline
 

@@ -147,3 +147,176 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
 
   return true
 }
+
+export async function sendStreakAtRiskEmail(email: string, streakDays: number) {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY) {
+    console.warn("[resend] RESEND_API_KEY not set — skipping streak at risk email");
+    return;
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thesupersuperanime.lol";
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "thesupersuperanime <noreply@thesupersuperanime.lol>",
+      to: email,
+      subject: `Your ${streakDays}-day streak is at risk 🔥`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a0a; color: #e5e5e5; padding: 40px; border-radius: 12px; border: 1px solid #2a2a2a;">
+          <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 16px; color: #e5e5e5;">
+            Your ${streakDays}-day streak is at risk 🔥
+          </h1>
+          <p style="color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 32px;">
+            You haven't watched anything today yet. Watch an episode today to keep your ${streakDays}-day streak alive — let it slip and it resets to zero.
+          </p>
+          <a href="${siteUrl}/" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none;">
+            Keep the streak alive!
+          </a>
+        </div>
+      `,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Resend error: ${JSON.stringify(err)}`);
+  }
+
+  return true;
+}
+
+export async function sendLeaderboardPassedEmail(email: string, passerName: string, newRank: number) {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY) {
+    console.warn("[resend] RESEND_API_KEY not set — skipping leaderboard passed email");
+    return;
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thesupersuperanime.lol";
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "thesupersuperanime <noreply@thesupersuperanime.lol>",
+      to: email,
+      subject: "You've been passed on the leaderboard 📉",
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a0a; color: #e5e5e5; padding: 40px; border-radius: 12px; border: 1px solid #2a2a2a;">
+          <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 16px; color: #e5e5e5;">
+            You've been passed on the leaderboard 📉
+          </h1>
+          <p style="color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 32px;">
+            <strong style="color: #e5e5e5;">${passerName}</strong> just passed you on the leaderboard. You're now rank #${newRank}.
+          </p>
+          <a href="${siteUrl}/leaderboard" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none;">
+            View Leaderboard
+          </a>
+        </div>
+      `,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Resend error: ${JSON.stringify(err)}`);
+  }
+
+  return true;
+}
+
+export async function sendNewEpisodeEmail(email: string, animeTitle: string, episodeNum: number, animeId: number) {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY) {
+    console.warn("[resend] RESEND_API_KEY not set — skipping new episode email");
+    return;
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thesupersuperanime.lol";
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "thesupersuperanime <noreply@thesupersuperanime.lol>",
+      to: email,
+      subject: `New episode of ${animeTitle} just dropped 🎬`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a0a; color: #e5e5e5; padding: 40px; border-radius: 12px; border: 1px solid #2a2a2a;">
+          <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 16px; color: #e5e5e5;">
+            New episode just dropped 🎬
+          </h1>
+          <p style="color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 32px;">
+            Episode ${episodeNum} of <strong style="color: #e5e5e5;">${animeTitle}</strong> is now available to watch.
+          </p>
+          <a href="${siteUrl}/watch/${animeId}/${episodeNum}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none;">
+            Watch Now
+          </a>
+        </div>
+      `,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Resend error: ${JSON.stringify(err)}`);
+  }
+
+  return true;
+}
+
+export async function sendCompletionNudgeEmail(email: string, animeTitle: string, episodesLeft: number, animeId: number) {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_API_KEY) {
+    console.warn("[resend] RESEND_API_KEY not set — skipping completion nudge email");
+    return;
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thesupersuperanime.lol";
+  const episodeWord = episodesLeft === 1 ? "episode" : "episodes";
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "thesupersuperanime <noreply@thesupersuperanime.lol>",
+      to: email,
+      subject: `You're almost done with ${animeTitle}!`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a0a; color: #e5e5e5; padding: 40px; border-radius: 12px; border: 1px solid #2a2a2a;">
+          <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 16px; color: #e5e5e5;">
+            You're almost done! 🏁
+          </h1>
+          <p style="color: #888; font-size: 14px; line-height: 1.6; margin-bottom: 32px;">
+            You're only ${episodesLeft} ${episodeWord} away from finishing <strong style="color: #e5e5e5;">${animeTitle}</strong>. Why stop now?
+          </p>
+          <a href="${siteUrl}/anime/${animeId}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none;">
+            Finish Watching
+          </a>
+        </div>
+      `,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Resend error: ${JSON.stringify(err)}`);
+  }
+
+  return true;
+}

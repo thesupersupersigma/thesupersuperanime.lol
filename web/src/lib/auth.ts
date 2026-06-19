@@ -172,6 +172,10 @@ export async function getCurrentUser() {
       anilistId: true,
       anilistUsername: true,
       anilistToken: true,
+      emailNotifStreak: true,
+      emailNotifRanked: true,
+      emailNotifNewEpisode: true,
+      emailNotifCompletion: true,
     },
   });
 

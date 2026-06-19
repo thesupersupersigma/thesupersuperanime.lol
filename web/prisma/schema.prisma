@@ -23,6 +23,11 @@ model User {
   emailVerified       Boolean              @default(false)
   emailVerifyToken    String?              @unique
   emailVerifyExpires  DateTime?
+  lastKnownLeaderboardRank Int?            // updated by cron; used to detect rank changes
+  emailNotifStreak    Boolean              @default(true)
+  emailNotifRanked    Boolean              @default(true)
+  emailNotifNewEpisode Boolean             @default(true)
+  emailNotifCompletion Boolean             @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   watchHistory        WatchHistory[]
@@ -72,6 +77,8 @@ model Watchlist {
   animeId   Int
   status    String   @default("Planning")
   addedAt   DateTime @default(now())
+  lastNotifiedEpisode Int?     // highest episode number we've already sent a "new ep" email for
+  completionNudgeSent Boolean  @default(false)
 
   @@unique([userId, animeId])
   @@unique([sessionId, animeId])
