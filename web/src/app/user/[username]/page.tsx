@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { getAnimeById, getDisplayTitle } from "@/lib/anilist";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
+import { BadgeCard } from "@/components/badges/BadgeCard";
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -47,7 +48,7 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   if (!user) notFound();
 
-  const [historyAgg, watchlistRaw, recentHistoryRaw] = await Promise.all([
+  const [historyAgg, watchlistRaw, recentHistoryRaw, badges] = await Promise.all([
     db.watchHistory.aggregate({
       where: { userId: user.id },
       _count: { episodeId: true },
@@ -61,6 +62,11 @@ export default async function UserProfilePage({ params }: PageProps) {
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
       take: 10,
+    }),
+    db.userBadge.findMany({
+      where: { userId: user.id },
+      include: { badge: true },
+      orderBy: [{ badge: { rarityOrder: "desc" } }, { grantedAt: "asc" }],
     }),
   ]);
 
@@ -152,6 +158,32 @@ export default async function UserProfilePage({ params }: PageProps) {
             <p style={{ color: "#555", fontSize: "12px" }}>Public profile</p>
           </div>
         </div>
+
+        {/* Badges */}
+        {badges.length > 0 && (
+          <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "16px", overflow: "hidden" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #1a1a1a" }}>
+              <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5" }}>
+                Badges
+              </h2>
+            </div>
+            <div style={{ padding: "16px 24px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              {badges.map(userBadge => (
+                <BadgeCard
+                  key={userBadge.id}
+                  slug={userBadge.badge.slug}
+                  name={userBadge.badge.name}
+                  description={userBadge.badge.description}
+                  icon={userBadge.badge.icon}
+                  rarity={userBadge.badge.rarity}
+                  rarityOrder={userBadge.badge.rarityOrder}
+                  grantedAt={userBadge.grantedAt.toISOString()}
+                  context={userBadge.context}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>

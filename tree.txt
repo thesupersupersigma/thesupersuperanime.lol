@@ -1,255 +1,353 @@
 .
-├── CLAUDE.md
-├── eslint.config.mjs
-├── next-env.d.ts
-├── next.config.ts
-├── package-lock.json
-├── package.json
-├── postcss.config.mjs
-├── prisma
-│   └── schema.prisma
-├── public
-│   ├── apple-touch-icon.png
-│   ├── avatars
-│   │   ├── PP_1.png
-│   │   ├── PP_10.png
-│   │   ├── PP_11.png
-│   │   ├── PP_12.png
-│   │   ├── PP_13.png
-│   │   ├── PP_14.png
-│   │   ├── PP_2.png
-│   │   ├── PP_3.png
-│   │   ├── PP_4.png
-│   │   ├── PP_5.png
-│   │   ├── PP_6.png
-│   │   ├── PP_7.png
-│   │   ├── PP_8.png
-│   │   └── PP_9.png
-│   ├── favicon-96x96.png
-│   ├── favicon.ico
-│   ├── favicon.svg
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── next.svg
-│   ├── site.webmanifest
-│   ├── vercel.svg
-│   ├── web-app-manifest-192x192.png
-│   ├── web-app-manifest-512x512.png
-│   └── window.svg
+├── LICENSE
+├── main.md
+├── Please audit the Phase 3 implementation .md
 ├── README.md
-├── src
-│   ├── app
-│   │   ├── (auth)
-│   │   │   └── login
-│   │   │       ├── actions.ts
-│   │   │       └── page.tsx
-│   │   ├── (site)
-│   │   │   ├── anime
-│   │   │   │   └── [id]
-│   │   │   │       ├── page.tsx
-│   │   │   │       └── watchlist-button.tsx
-│   │   │   ├── discord-gate-check.tsx
-│   │   │   ├── genres
-│   │   │   │   ├── [genre]
-│   │   │   │   │   ├── genre-vote-list.tsx
-│   │   │   │   │   └── page.tsx
-│   │   │   │   ├── genre-grid.tsx
-│   │   │   │   └── page.tsx
-│   │   │   ├── issues
-│   │   │   │   └── page.tsx
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── search
-│   │   │   │   └── page.tsx
-│   │   │   └── watch
-│   │   │       └── [animeId]
-│   │   │           └── [episodeNum]
-│   │   │               └── page.tsx
-│   │   ├── account
-│   │   │   ├── account-buttons.tsx
-│   │   │   ├── account-dashboard.tsx
-│   │   │   ├── actions.ts
-│   │   │   ├── link-discord
-│   │   │   │   └── page.tsx
-│   │   │   ├── login-form.tsx
-│   │   │   ├── page.bak
-│   │   │   ├── page.tsx
-│   │   │   ├── reset-password
-│   │   │   │   └── page.tsx
-│   │   │   ├── setup-profile
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── setup-profile-form.tsx
-│   │   │   ├── verify-email
-│   │   │   │   └── page.tsx
-│   │   │   ├── verify-email-error
-│   │   │   │   └── page.tsx
-│   │   │   └── verify-email-pending
-│   │   │       ├── client.tsx
-│   │   │       └── page.tsx
-│   │   ├── admin
-│   │   │   ├── components
-│   │   │   │   ├── dashboard-client.tsx
-│   │   │   │   ├── issues-panel.tsx
-│   │   │   │   ├── log-feed.tsx
-│   │   │   │   └── status-card.tsx
-│   │   │   └── page.tsx
-│   │   ├── api
-│   │   │   ├── admin
-│   │   │   │   ├── check
-│   │   │   │   │   ├── [providerId]
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── issues
-│   │   │   │   │   ├── [id]
-│   │   │   │   │   │   └── route.ts
-│   │   │   │   │   ├── route.ts
-│   │   │   │   │   └── sync
-│   │   │   │   │       └── route.ts
-│   │   │   │   ├── logs
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── status
-│   │   │   │       └── route.ts
-│   │   │   ├── anilist
-│   │   │   │   ├── [id]
-│   │   │   │   │   └── route.ts
-│   │   │   │   ├── search
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── trending
-│   │   │   │       └── route.ts
-│   │   │   ├── auth
-│   │   │   │   ├── discord
-│   │   │   │   │   └── callback
-│   │   │   │   │       └── route.ts
-│   │   │   │   ├── me
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── verify-email
-│   │   │   │       └── route.ts
-│   │   │   ├── comments
-│   │   │   │   ├── like
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── route.ts
-│   │   │   ├── cron
-│   │   │   │   ├── cleanup
-│   │   │   │   │   └── route.ts
-│   │   │   │   └── health-check
-│   │   │   │       └── route.ts
-│   │   │   ├── genre-votes
-│   │   │   │   └── route.ts
-│   │   │   ├── import
-│   │   │   │   └── route.ts
-│   │   │   ├── issues
-│   │   │   │   └── route.ts
-│   │   │   ├── progress
-│   │   │   │   └── route.ts
-│   │   │   ├── proxy
-│   │   │   │   └── [token]
-│   │   │   │       └── route.ts
-│   │   │   ├── source
-│   │   │   │   └── route.ts
-│   │   │   └── watchlist
-│   │   │       └── route.ts
-│   │   ├── favicon.ico
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   ├── leaderboard
-│   │   │   ├── leaderboard-row.tsx
-│   │   │   └── page.tsx
-│   │   ├── privacy
-│   │   │   └── page.tsx
-│   │   ├── terms
-│   │   │   └── page.tsx
-│   │   └── user
-│   │       └── [username]
-│   │           └── page.tsx
-│   ├── components
-│   │   ├── anime-card.tsx
-│   │   ├── comments.tsx
-│   │   ├── continue-watching.tsx
-│   │   ├── episode-list.tsx
-│   │   ├── hero-carousel.tsx
-│   │   ├── nav.tsx
-│   │   ├── next-episode-countdown.tsx
-│   │   ├── player
-│   │   │   ├── anime-player.tsx
-│   │   │   ├── quality-menu.tsx
-│   │   │   └── source-loader.tsx
-│   │   ├── search-bar.tsx
-│   │   ├── watch
-│   │   │   ├── episode-sidebar.tsx
-│   │   │   └── watch-info.tsx
-│   │   └── watchlist-aware-row.tsx
-│   ├── lib
-│   │   ├── anilist.ts
-│   │   ├── auth.ts
-│   │   ├── core-dist
-│   │   │   ├── index.d.ts
-│   │   │   ├── index.d.ts.map
-│   │   │   ├── index.js
-│   │   │   ├── index.js.map
-│   │   │   ├── lib
-│   │   │   │   ├── extractors
-│   │   │   │   │   ├── base.d.ts
-│   │   │   │   │   ├── base.d.ts.map
-│   │   │   │   │   ├── base.js
-│   │   │   │   │   ├── base.js.map
-│   │   │   │   │   ├── index.d.ts
-│   │   │   │   │   ├── index.d.ts.map
-│   │   │   │   │   ├── index.js
-│   │   │   │   │   ├── index.js.map
-│   │   │   │   │   ├── s3taku.d.ts
-│   │   │   │   │   ├── s3taku.d.ts.map
-│   │   │   │   │   ├── s3taku.js
-│   │   │   │   │   ├── s3taku.js.map
-│   │   │   │   │   ├── streamtape.d.ts
-│   │   │   │   │   ├── streamtape.d.ts.map
-│   │   │   │   │   ├── streamtape.js
-│   │   │   │   │   ├── streamtape.js.map
-│   │   │   │   │   ├── vibeplayer.d.ts
-│   │   │   │   │   ├── vibeplayer.d.ts.map
-│   │   │   │   │   ├── vibeplayer.js
-│   │   │   │   │   └── vibeplayer.js.map
-│   │   │   │   ├── fetch.d.ts
-│   │   │   │   ├── fetch.d.ts.map
-│   │   │   │   ├── fetch.js
-│   │   │   │   ├── fetch.js.map
-│   │   │   │   ├── rate-limit.d.ts
-│   │   │   │   ├── rate-limit.d.ts.map
-│   │   │   │   ├── rate-limit.js
-│   │   │   │   └── rate-limit.js.map
-│   │   │   └── providers
-│   │   │       ├── aniwave.d.ts
-│   │   │       ├── aniwave.d.ts.map
-│   │   │       ├── aniwave.js
-│   │   │       ├── aniwave.js.map
-│   │   │       ├── base.d.ts
-│   │   │       ├── base.d.ts.map
-│   │   │       ├── base.js
-│   │   │       ├── base.js.map
-│   │   │       ├── gogoanime.d.ts
-│   │   │       ├── gogoanime.d.ts.map
-│   │   │       ├── gogoanime.js
-│   │   │       ├── gogoanime.js.map
-│   │   │       ├── index.d.ts
-│   │   │       ├── index.d.ts.map
-│   │   │       ├── index.js
-│   │   │       └── index.js.map
-│   │   ├── core.ts
-│   │   ├── db.ts
-│   │   ├── discord.ts
-│   │   ├── genres.ts
-│   │   ├── health-check.ts
-│   │   ├── importers
-│   │   │   ├── anikai.ts
-│   │   │   └── route.ts
-│   │   ├── resend.ts
-│   │   └── user-utils.ts
-│   ├── providers
-│   │   ├── base.ts
-│   │   └── index.ts
-│   └── proxy.ts
+├── ROADMAP.md
+├── TODO.md
 ├── tree.txt
-├── tsconfig.json
-└── tsconfig.tsbuildinfo
+└── web
+    ├── CLAUDE.md
+    ├── eslint.config.mjs
+    ├── next-env.d.ts
+    ├── next.config.ts
+    ├── package-lock.json
+    ├── package.json
+    ├── postcss.config.mjs
+    ├── prisma
+    │   └── schema.prisma
+    ├── public
+    │   ├── apple-touch-icon.png
+    │   ├── avatars
+    │   │   ├── PP_1.png
+    │   │   ├── PP_10.png
+    │   │   ├── PP_11.png
+    │   │   ├── PP_12.png
+    │   │   ├── PP_13.png
+    │   │   ├── PP_14.png
+    │   │   ├── PP_2.png
+    │   │   ├── PP_3.png
+    │   │   ├── PP_4.png
+    │   │   ├── PP_5.png
+    │   │   ├── PP_6.png
+    │   │   ├── PP_7.png
+    │   │   ├── PP_8.png
+    │   │   └── PP_9.png
+    │   ├── banner.png
+    │   ├── favicon-96x96.png
+    │   ├── favicon.ico
+    │   ├── favicon.svg
+    │   ├── file.svg
+    │   ├── globe.svg
+    │   ├── llms.txt
+    │   ├── next.svg
+    │   ├── site.webmanifest
+    │   ├── vercel.svg
+    │   ├── web-app-manifest-192x192.png
+    │   ├── web-app-manifest-512x512.png
+    │   └── window.svg
+    ├── README.md
+    ├── src
+    │   ├── app
+    │   │   ├── (auth)
+    │   │   │   └── login
+    │   │   │       ├── actions.ts
+    │   │   │       └── page.tsx
+    │   │   ├── (site)
+    │   │   │   ├── anime
+    │   │   │   │   └── [id]
+    │   │   │   │       ├── page.tsx
+    │   │   │   │       └── watchlist-button.tsx
+    │   │   │   ├── discord-gate-check.tsx
+    │   │   │   ├── genres
+    │   │   │   │   ├── [genre]
+    │   │   │   │   │   ├── genre-vote-list.tsx
+    │   │   │   │   │   └── page.tsx
+    │   │   │   │   ├── genre-grid.tsx
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── issues
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── layout.tsx
+    │   │   │   ├── page.tsx
+    │   │   │   ├── search
+    │   │   │   │   └── page.tsx
+    │   │   │   └── watch
+    │   │   │       └── [animeId]
+    │   │   │           └── [episodeNum]
+    │   │   │               ├── page.tsx
+    │   │   │               └── watch-client.tsx
+    │   │   ├── account
+    │   │   │   ├── account-buttons.tsx
+    │   │   │   ├── account-dashboard.tsx
+    │   │   │   ├── actions.ts
+    │   │   │   ├── link-discord
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── login-form.tsx
+    │   │   │   ├── page.tsx
+    │   │   │   ├── reset-password
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── setup-profile
+    │   │   │   │   ├── page.tsx
+    │   │   │   │   └── setup-profile-form.tsx
+    │   │   │   ├── verify-email
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── verify-email-error
+    │   │   │   │   └── page.tsx
+    │   │   │   └── verify-email-pending
+    │   │   │       ├── client.tsx
+    │   │   │       └── page.tsx
+    │   │   ├── admin
+    │   │   │   ├── components
+    │   │   │   │   ├── announcement-panel.tsx
+    │   │   │   │   ├── dashboard-client.tsx
+    │   │   │   │   ├── issues-panel.tsx
+    │   │   │   │   ├── log-feed.tsx
+    │   │   │   │   └── status-card.tsx
+    │   │   │   └── page.tsx
+    │   │   ├── api
+    │   │   │   ├── admin
+    │   │   │   │   ├── announcement
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── check
+    │   │   │   │   │   ├── [providerId]
+    │   │   │   │   │   │   └── route.ts
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── issues
+    │   │   │   │   │   ├── [id]
+    │   │   │   │   │   │   └── route.ts
+    │   │   │   │   │   ├── route.ts
+    │   │   │   │   │   └── sync
+    │   │   │   │   │       └── route.ts
+    │   │   │   │   ├── logs
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── status
+    │   │   │   │       └── route.ts
+    │   │   │   ├── anilist
+    │   │   │   │   ├── [id]
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── search
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   ├── sync
+    │   │   │   │   │   ├── auto
+    │   │   │   │   │   │   └── route.ts
+    │   │   │   │   │   └── import
+    │   │   │   │   │       └── route.ts
+    │   │   │   │   └── trending
+    │   │   │   │       └── route.ts
+    │   │   │   ├── announcement
+    │   │   │   │   ├── route.ts
+    │   │   │   │   └── stream
+    │   │   │   │       └── route.ts
+    │   │   │   ├── auth
+    │   │   │   │   ├── anilist
+    │   │   │   │   │   ├── callback
+    │   │   │   │   │   │   └── route.ts
+    │   │   │   │   │   └── unlink
+    │   │   │   │   │       └── route.ts
+    │   │   │   │   ├── discord
+    │   │   │   │   │   └── callback
+    │   │   │   │   │       └── route.ts
+    │   │   │   │   ├── me
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── verify-email
+    │   │   │   │       └── route.ts
+    │   │   │   ├── badges
+    │   │   │   │   ├── grant
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── route.ts
+    │   │   │   ├── comments
+    │   │   │   │   ├── like
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── route.ts
+    │   │   │   ├── cron
+    │   │   │   │   ├── cleanup
+    │   │   │   │   │   └── route.ts
+    │   │   │   │   └── health-check
+    │   │   │   │       └── route.ts
+    │   │   │   ├── episodes
+    │   │   │   │   └── [animeId]
+    │   │   │   │       └── route.ts
+    │   │   │   ├── genre-votes
+    │   │   │   │   └── route.ts
+    │   │   │   ├── import
+    │   │   │   │   └── route.ts
+    │   │   │   ├── issues
+    │   │   │   │   └── route.ts
+    │   │   │   ├── leaderboard
+    │   │   │   │   └── route.ts
+    │   │   │   ├── og
+    │   │   │   │   └── route.tsx
+    │   │   │   ├── progress
+    │   │   │   │   └── route.ts
+    │   │   │   ├── proxy
+    │   │   │   │   └── [token]
+    │   │   │   │       └── route.ts
+    │   │   │   ├── source
+    │   │   │   │   └── route.ts
+    │   │   │   ├── subtitle-proxy
+    │   │   │   │   └── route.ts
+    │   │   │   └── watchlist
+    │   │   │       └── route.ts
+    │   │   ├── favicon.ico
+    │   │   ├── globals.css
+    │   │   ├── layout.tsx
+    │   │   ├── leaderboard
+    │   │   │   ├── layout.tsx
+    │   │   │   ├── leaderboard-row.tsx
+    │   │   │   └── page.tsx
+    │   │   ├── privacy
+    │   │   │   └── page.tsx
+    │   │   ├── robots.ts
+    │   │   ├── sitemap.ts
+    │   │   ├── terms
+    │   │   │   └── page.tsx
+    │   │   └── user
+    │   │       └── [username]
+    │   │           └── page.tsx
+    │   ├── components
+    │   │   ├── anime-card.tsx
+    │   │   ├── announcement-banner.tsx
+    │   │   ├── comments.tsx
+    │   │   ├── continue-watching.tsx
+    │   │   ├── episode-list.tsx
+    │   │   ├── hero-carousel.tsx
+    │   │   ├── nav.tsx
+    │   │   ├── next-episode-countdown.tsx
+    │   │   ├── player
+    │   │   │   ├── anime-player.tsx
+    │   │   │   └── source-loader.tsx
+    │   │   ├── search-bar.tsx
+    │   │   ├── watch
+    │   │   │   ├── episode-sidebar.tsx
+    │   │   │   └── watch-info.tsx
+    │   │   └── watchlist-aware-row.tsx
+    │   ├── lib
+    │   │   ├── anilist-sync.ts
+    │   │   ├── anilist.ts
+    │   │   ├── auth.ts
+    │   │   ├── badge-engine.ts
+    │   │   ├── badges.ts
+    │   │   ├── core-dist
+    │   │   │   ├── dist
+    │   │   │   │   ├── index.d.ts
+    │   │   │   │   ├── index.d.ts.map
+    │   │   │   │   ├── index.js
+    │   │   │   │   ├── index.js.map
+    │   │   │   │   ├── lib
+    │   │   │   │   │   ├── extractors
+    │   │   │   │   │   │   ├── base.d.ts
+    │   │   │   │   │   │   ├── base.d.ts.map
+    │   │   │   │   │   │   ├── base.js
+    │   │   │   │   │   │   ├── base.js.map
+    │   │   │   │   │   │   ├── index.d.ts
+    │   │   │   │   │   │   ├── index.d.ts.map
+    │   │   │   │   │   │   ├── index.js
+    │   │   │   │   │   │   ├── index.js.map
+    │   │   │   │   │   │   ├── s3taku.d.ts
+    │   │   │   │   │   │   ├── s3taku.d.ts.map
+    │   │   │   │   │   │   ├── s3taku.js
+    │   │   │   │   │   │   ├── s3taku.js.map
+    │   │   │   │   │   │   ├── streamtape.d.ts
+    │   │   │   │   │   │   ├── streamtape.d.ts.map
+    │   │   │   │   │   │   ├── streamtape.js
+    │   │   │   │   │   │   ├── streamtape.js.map
+    │   │   │   │   │   │   ├── vibeplayer.d.ts
+    │   │   │   │   │   │   ├── vibeplayer.d.ts.map
+    │   │   │   │   │   │   ├── vibeplayer.js
+    │   │   │   │   │   │   └── vibeplayer.js.map
+    │   │   │   │   │   ├── fetch.d.ts
+    │   │   │   │   │   ├── fetch.d.ts.map
+    │   │   │   │   │   ├── fetch.js
+    │   │   │   │   │   ├── fetch.js.map
+    │   │   │   │   │   ├── rate-limit.d.ts
+    │   │   │   │   │   ├── rate-limit.d.ts.map
+    │   │   │   │   │   ├── rate-limit.js
+    │   │   │   │   │   └── rate-limit.js.map
+    │   │   │   │   └── providers
+    │   │   │   │       ├── aniwave.d.ts
+    │   │   │   │       ├── aniwave.d.ts.map
+    │   │   │   │       ├── aniwave.js
+    │   │   │   │       ├── aniwave.js.map
+    │   │   │   │       ├── base.d.ts
+    │   │   │   │       ├── base.d.ts.map
+    │   │   │   │       ├── base.js
+    │   │   │   │       ├── base.js.map
+    │   │   │   │       ├── gogoanime.d.ts
+    │   │   │   │       ├── gogoanime.d.ts.map
+    │   │   │   │       ├── gogoanime.js
+    │   │   │   │       ├── gogoanime.js.map
+    │   │   │   │       ├── index.d.ts
+    │   │   │   │       ├── index.d.ts.map
+    │   │   │   │       ├── index.js
+    │   │   │   │       └── index.js.map
+    │   │   │   ├── index.d.ts
+    │   │   │   ├── index.d.ts.map
+    │   │   │   ├── index.js
+    │   │   │   ├── index.js.map
+    │   │   │   ├── lib
+    │   │   │   │   ├── extractors
+    │   │   │   │   │   ├── base.d.ts
+    │   │   │   │   │   ├── base.d.ts.map
+    │   │   │   │   │   ├── base.js
+    │   │   │   │   │   ├── base.js.map
+    │   │   │   │   │   ├── index.d.ts
+    │   │   │   │   │   ├── index.d.ts.map
+    │   │   │   │   │   ├── index.js
+    │   │   │   │   │   ├── index.js.map
+    │   │   │   │   │   ├── s3taku.d.ts
+    │   │   │   │   │   ├── s3taku.d.ts.map
+    │   │   │   │   │   ├── s3taku.js
+    │   │   │   │   │   ├── s3taku.js.map
+    │   │   │   │   │   ├── streamtape.d.ts
+    │   │   │   │   │   ├── streamtape.d.ts.map
+    │   │   │   │   │   ├── streamtape.js
+    │   │   │   │   │   ├── streamtape.js.map
+    │   │   │   │   │   ├── vibeplayer.d.ts
+    │   │   │   │   │   ├── vibeplayer.d.ts.map
+    │   │   │   │   │   ├── vibeplayer.js
+    │   │   │   │   │   └── vibeplayer.js.map
+    │   │   │   │   ├── fetch.d.ts
+    │   │   │   │   ├── fetch.d.ts.map
+    │   │   │   │   ├── fetch.js
+    │   │   │   │   ├── fetch.js.map
+    │   │   │   │   ├── rate-limit.d.ts
+    │   │   │   │   ├── rate-limit.d.ts.map
+    │   │   │   │   ├── rate-limit.js
+    │   │   │   │   └── rate-limit.js.map
+    │   │   │   └── providers
+    │   │   │       ├── aniwave.d.ts
+    │   │   │       ├── aniwave.d.ts.map
+    │   │   │       ├── aniwave.js
+    │   │   │       ├── aniwave.js.map
+    │   │   │       ├── base.d.ts
+    │   │   │       ├── base.d.ts.map
+    │   │   │       ├── base.js
+    │   │   │       ├── base.js.map
+    │   │   │       ├── gogoanime.d.ts
+    │   │   │       ├── gogoanime.d.ts.map
+    │   │   │       ├── gogoanime.js
+    │   │   │       ├── gogoanime.js.map
+    │   │   │       ├── index.d.ts
+    │   │   │       ├── index.d.ts.map
+    │   │   │       ├── index.js
+    │   │   │       └── index.js.map
+    │   │   ├── core.ts
+    │   │   ├── db.ts
+    │   │   ├── discord.ts
+    │   │   ├── genres.ts
+    │   │   ├── health-check.ts
+    │   │   ├── importers
+    │   │   │   ├── anikai.ts
+    │   │   │   └── route.ts
+    │   │   ├── resend.ts
+    │   │   └── user-utils.ts
+    │   ├── providers
+    │   │   ├── base.ts
+    │   │   └── index.ts
+    │   └── proxy.ts
+    ├── tree.md
+    ├── tsconfig.json
+    ├── tsconfig.tsbuildinfo
+    └── tscout.txt
 
-73 directories, 179 files
-tree -I 'node_modules|.git|dist|build|graphify-out' > tree.txt
+94 directories, 257 files

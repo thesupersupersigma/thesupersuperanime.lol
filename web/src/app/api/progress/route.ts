@@ -3,6 +3,7 @@ import { getSessionId, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/core";
 import { syncToAniList } from "@/lib/anilist-sync";
+import { checkAndGrantBadges } from "@/lib/badge-engine";
 
 export async function GET() {
   try {
@@ -137,6 +138,12 @@ export async function POST(req: NextRequest) {
 
     if (user && user.anilistToken && duration && duration > 0 && newProgress >= duration * 0.9) {
       void syncToAniList(user.id, Number(animeId), "Completed");
+    }
+
+    // Fire-and-forget: re-evaluate milestone badges off the back of this save.
+    // Never block or fail the response on badge errors.
+    if (user) {
+      void checkAndGrantBadges(user.id).catch(console.error);
     }
 
     return NextResponse.json({ record });

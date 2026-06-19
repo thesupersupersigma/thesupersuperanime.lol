@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword, getCurrentUser } from "@/lib/auth";
 import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "@/lib/resend";
 import { sendNewSignupAlert } from "@/lib/discord";
+import { grantAdminBadges } from "@/lib/badge-engine";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
@@ -35,6 +36,7 @@ export async function signUpAction(formData: FormData) {
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 30,
     });
+    grantAdminBadges(user.id).catch(console.error);
     // Fire-and-forget — don't block signup on email/discord
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
     const verifyUrl = `${siteUrl}/account/verify-email?token=${verifyToken}`;
@@ -130,6 +132,7 @@ export async function signInAction(formData: FormData) {
       sameSite: "lax", 
       maxAge: 60 * 60 * 24 * 30, 
     }); 
+    grantAdminBadges(user.id).catch(console.error);
     if (user.discordId) {
       cookieStore.set("discord-linked", "1", {
         httpOnly: true,

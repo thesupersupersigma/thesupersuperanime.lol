@@ -7,10 +7,10 @@
 ## 🔴 High Priority (Do Next)
 
 ### Leaderboard Expansion
-- [ ] **Multiple timeframes** — Daily / Weekly / Monthly / All-time tabs on the leaderboard page
-- [ ] **Weekly leaderboard reset** — resets every Monday 00:00 UTC, stored separately in DB
-- [ ] **Season system** — monthly or quarterly seasons with a season number; past seasons archived on a `/leaderboard/seasons` page
-- [ ] **Discord bot leaderboard posts** — already posts all-time every 12h; add separate weekly/daily posts to Discord
+- [x] **Multiple timeframes** — Daily / Weekly / Monthly / All-time tabs on the leaderboard page
+- [x] **Weekly leaderboard reset** — resets every Monday 00:00 UTC, stored separately in DB
+- [x] **Season system** — monthly or quarterly seasons with a season number; past seasons archived on a `/leaderboard/seasons` page
+- [x] **Discord bot leaderboard posts** — already posts all-time every 12h; add separate weekly/daily posts to Discord
 
 ### Badge System (Core)
 - [ ] **Badge model in DB** — `Badge` table with `id`, `slug`, `name`, `description`, `icon`, `rarity` (common/rare/epic/legendary), `grantedBy` (auto/admin/owner)

@@ -6,9 +6,11 @@ import Image from "next/image";
 import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton, AniListConnectButton } from "./account-buttons";
 import { unlinkDiscordAction, deleteAccountAction, updateProfileAction } from "./actions";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
+import { BadgeCard } from "@/components/badges/BadgeCard";
 
 interface HistoryEntry { episodeId: string; animeId: number; progress: number; duration: number; updatedAt: string; title: string; cover: string; }
 interface WatchlistEntry { animeId: number; status: string; addedAt: string; title: string; cover: string; }
+interface BadgeEntry { slug: string; name: string; description: string; icon: string; rarity: string; rarityOrder: number; grantedAt: string; context?: string | null; }
 interface Props {
   user: {
     id: string;
@@ -23,16 +25,18 @@ interface Props {
   };
   history: HistoryEntry[];
   watchlist: WatchlistEntry[];
+  badges: BadgeEntry[];
   logOutAction: () => Promise<void>;
-} 
-type Tab = "history" | "watchlist" | "import" | "settings"; 
+}
+type Tab = "history" | "watchlist" | "badges" | "import" | "settings";
 
-const TABS: { id: Tab; label: string }[] = [ 
-  { id: "history", label: "History" }, 
-  { id: "watchlist", label: "Watchlist" }, 
-  { id: "import", label: "Import" }, 
-  { id: "settings", label: "Settings" }, 
-]; 
+const TABS: { id: Tab; label: string }[] = [
+  { id: "history", label: "History" },
+  { id: "watchlist", label: "Watchlist" },
+  { id: "badges", label: "Badges" },
+  { id: "import", label: "Import" },
+  { id: "settings", label: "Settings" },
+];
 
 const STATUS_COLORS: Record<string, string> = { Watching: "#3b82f6", Completed: "#22c55e", Planning: "#a855f7", Dropped: "#ef4444", Paused: "#f59e0b", }; 
 
@@ -52,7 +56,7 @@ function timeAgo(isoString: string): string {
   return `${days}d ago`; 
 } 
 
-export function AccountDashboard({ user, history, watchlist, logOutAction }: Props) {
+export function AccountDashboard({ user, history, watchlist, badges, logOutAction }: Props) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("history");
   const [discordUsername, setDiscordUsername] = useState<string | null | undefined>(user.discordUsername);
@@ -208,6 +212,44 @@ export function AccountDashboard({ user, history, watchlist, logOutAction }: Pro
                 )} 
               </div> 
             )} 
+
+            {/* BADGES TAB */}
+            {activeTab === "badges" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {(user.username || user.discordUsername) && (
+                  <Link
+                    href={`/user/${user.username ?? user.discordUsername}`}
+                    style={{
+                      alignSelf: "flex-end",
+                      color: "#3b82f6",
+                      fontSize: "13px",
+                      textDecoration: "none",
+                    }}
+                  >
+                    View public profile →
+                  </Link>
+                )}
+                {badges.length === 0 ? (
+                  <EmptyState message="No badges yet. Keep watching to earn some!" />
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {badges.map(badge => (
+                      <BadgeCard
+                        key={badge.slug + (badge.context ?? "")}
+                        slug={badge.slug}
+                        name={badge.name}
+                        description={badge.description}
+                        icon={badge.icon}
+                        rarity={badge.rarity}
+                        rarityOrder={badge.rarityOrder}
+                        grantedAt={badge.grantedAt}
+                        context={badge.context}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* IMPORT TAB */}
             {activeTab === "import" && (

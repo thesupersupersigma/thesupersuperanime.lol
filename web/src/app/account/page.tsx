@@ -25,8 +25,8 @@ export default async function AccountPage() {
     );
   }
 
-  // Fetch history and watchlist in parallel
-  const [historyRaw, watchlistRaw] = await Promise.all([
+  // Fetch history, watchlist, and badges in parallel
+  const [historyRaw, watchlistRaw, badges] = await Promise.all([
     db.watchHistory.findMany({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
@@ -36,7 +36,23 @@ export default async function AccountPage() {
       where: { userId: user.id },
       orderBy: { addedAt: "desc" },
     }),
+    db.userBadge.findMany({
+      where: { userId: user.id },
+      include: { badge: true },
+      orderBy: [{ badge: { rarityOrder: "desc" } }, { grantedAt: "asc" }],
+    }),
   ]);
+
+  const badgeList = badges.map(ub => ({
+    slug: ub.badge.slug,
+    name: ub.badge.name,
+    description: ub.badge.description,
+    icon: ub.badge.icon,
+    rarity: ub.badge.rarity,
+    rarityOrder: ub.badge.rarityOrder,
+    grantedAt: ub.grantedAt.toISOString(),
+    context: ub.context,
+  }));
 
   // Get unique anime IDs across both lists
   const allAnimeIds = [...new Set([
@@ -98,6 +114,7 @@ export default async function AccountPage() {
         }}
         history={history}
         watchlist={watchlist}
+        badges={badgeList}
         logOutAction={logOutAction}
       />
     </Suspense>

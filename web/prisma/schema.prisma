@@ -32,6 +32,8 @@ model User {
   commentLikes        CommentLike[]
   issues              Issue[]
   genreVotes          GenreVote[]
+  userBadges          UserBadge[]
+  seasonResults       SeasonResult[]
 }
 
 model PasswordResetToken {
@@ -114,19 +116,19 @@ model SourceToken {
 }
 
 model Comment {
-  id        String    @id @default(cuid())
+  id        String        @id @default(cuid())
   animeId   Int
-  episodeId String?   // null = anime-level comment, "animeId-episodeNum" = episode comment
+  episodeId String?       // null = anime-level comment, "animeId-episodeNum" = episode comment
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   String
-  isSpoiler Boolean   @default(false)
+  isSpoiler Boolean       @default(false)
   parentId  String?
-  parent    Comment?  @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies   Comment[] @relation("Replies")
+  parent    Comment?      @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Comment[]     @relation("Replies")
   likes     CommentLike[]
   deletedAt DateTime?
-  createdAt DateTime  @default(now())
+  createdAt DateTime      @default(now())
 
   @@index([animeId, episodeId])
   @@index([userId])
@@ -181,4 +183,73 @@ model Announcement {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── Badge System ────────────────────────────────────────────────────────────
+
+model Badge {
+  id          String      @id @default(cuid())
+  slug        String      @unique  // e.g. "first-episode", "top-10", "admin"
+  name        String               // e.g. "First Step"
+  description String               // e.g. "Watched your first episode"
+  icon        String               // emoji or image URL
+  // Rarity controls display order on profiles — rarer shows first
+  // Values: "common" | "rare" | "epic" | "legendary"
+  rarity      String      @default("common")
+  rarityOrder Int         @default(0) // 0=common, 1=rare, 2=epic, 3=legendary — for sorting
+  // Who can grant this badge
+  // Values: "auto" | "admin" | "owner"
+  grantedBy   String      @default("auto")
+  // Stackable badges can be granted multiple times (e.g. weekly champion)
+  stackable   Boolean     @default(false)
+  // Hidden badges don't show in the badge list until earned
+  hidden      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeSlug   String
+  badge       Badge    @relation(fields: [badgeSlug], references: [slug], onDelete: Cascade)
+  grantedAt   DateTime @default(now())
+  // "auto" for system-granted, or userId of the admin/owner who granted it manually
+  grantedBy   String   @default("auto")
+  // For stackable badges, stores context e.g. "Season 1", "Week of 2026-06-17"
+  context     String?
+
+  @@unique([userId, badgeSlug, context]) // enforced for non-stackable; stackable badges bypass this in app logic
+  @@index([userId])
+  @@index([badgeSlug])
+}
+
+// ─── Season System ───────────────────────────────────────────────────────────
+
+model Season {
+  id          String         @id @default(cuid())
+  number      Int            @unique  // Season 1, Season 2, etc.
+  name        String?                 // Optional custom name e.g. "Summer 2026"
+  startedAt   DateTime
+  endedAt     DateTime?               // null = currently active season
+  createdAt   DateTime       @default(now())
+  results     SeasonResult[]
+}
+
+model SeasonResult {
+  id             String   @id @default(cuid())
+  seasonId       String
+  season         Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rank           Int      // Final rank at end of season
+  minutesWatched Int      // Total minutes watched during the season
+  episodesWatched Int     // Total episodes watched during the season
+  createdAt      DateTime @default(now())
+
+  @@unique([seasonId, userId])
+  @@unique([seasonId, rank])
+  @@index([seasonId])
+  @@index([userId])
 }
