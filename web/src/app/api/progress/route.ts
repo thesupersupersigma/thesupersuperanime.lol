@@ -140,13 +140,18 @@ export async function POST(req: NextRequest) {
       void syncToAniList(user.id, Number(animeId), "Completed");
     }
 
-    // Fire-and-forget: re-evaluate milestone badges off the back of this save.
-    // Never block or fail the response on badge errors.
+    // Re-evaluate milestone badges off the back of this save and surface any
+    // newly earned ones so the client can toast them. Badge errors must never
+    // fail the progress save, so swallow them to an empty list.
+    let newBadges: string[] = [];
     if (user) {
-      void checkAndGrantBadges(user.id).catch(console.error);
+      newBadges = await checkAndGrantBadges(user.id).catch((err) => {
+        console.error(err);
+        return [];
+      });
     }
 
-    return NextResponse.json({ record });
+    return NextResponse.json({ record, newBadges });
   } catch (error) {
     console.error("Failed to save progress:", error);
     return NextResponse.json({ error: "Failed to save progress" }, { status: 500 });

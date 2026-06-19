@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import { BadgeToastProvider } from "@/components/badges/BadgeToastProvider";
 import Script from "next/script";
 
 const dmSans = DM_Sans({
@@ -67,7 +68,7 @@ export default function RootLayout({
     <html lang="en" className={`${dmSans.variable} ${syne.variable}`}>
       <body>
         <Nav />
-        {children}
+        <BadgeToastProvider>{children}</BadgeToastProvider>
         {process.env.NEXT_PUBLIC_ADS_ENABLED === "true" && (
           <>
             <Script id="hta-inpage" strategy="afterInteractive">{`(function(egki){

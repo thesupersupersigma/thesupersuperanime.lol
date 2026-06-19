@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { providers } from "@/providers/index";
 import { DashboardClient } from "./components/dashboard-client";
@@ -81,6 +82,26 @@ export default async function AdminDashboard() {
         initialProviders={initialProviders}
         initialLastChecked={mostRecentCheck}
       />
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 24px" }}>
+        <Link
+          href="/admin/badges"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            background: "#1a1a1a",
+            border: "1px solid #2a2a2a",
+            borderRadius: "10px",
+            padding: "12px 18px",
+            color: "#e5e5e5",
+            fontSize: "14px",
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          🏅 Badge Management →
+        </Link>
+      </div>
       <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
         <IssuesPanel initialIssues={initialIssues} />
       </div>

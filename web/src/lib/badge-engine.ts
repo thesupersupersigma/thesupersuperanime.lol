@@ -11,8 +11,58 @@ import { isAdmin } from "@/lib/auth";
  * env-driven admin/owner badges and is meant to be called on login.
  */
 
+/**
+ * Anyone whose account was created before this date qualifies for the "og-member"
+ * badge — the early-adopter window.
+ */
+const OG_CUTOFF_DATE = new Date("2026-07-01T00:00:00Z");
+
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+/**
+ * Best-effort Discord DM when a user earns a badge. Never throws and never
+ * blocks the grant — fire-and-forget. No-ops unless `DISCORD_BOT_TOKEN` is set
+ * and the user has a linked Discord account.
+ */
+async function sendBadgeDM(
+  userId: string,
+  badge: { name: string; description: string; icon: string },
+): Promise<void> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return;
+
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { discordId: true, username: true, discordUsername: true },
+    });
+    if (!user?.discordId) return;
+
+    // Open (or reuse) a DM channel with the recipient.
+    const dmRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient_id: user.discordId }),
+    });
+    if (!dmRes.ok) return;
+
+    const channel = await dmRes.json();
+    const channelId = channel?.id;
+    if (!channelId) return;
+
+    const profileName = user.username ?? user.discordUsername;
+    await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `🏅 You earned a new badge on thesupersuperanime.lol!\n\n**${badge.icon} ${badge.name}**\n${badge.description}\n\nhttps://www.thesupersuperanime.lol/user/${profileName}`,
+      }),
+    });
+  } catch {
+    // Swallow everything — a DM failure must never affect the grant.
+  }
 }
 
 /**
@@ -28,7 +78,7 @@ function isUniqueViolation(error: unknown): boolean {
 export async function grantBadge(userId: string, slug: string, context?: string): Promise<boolean> {
   const badge = await db.badge.findUnique({
     where: { slug },
-    select: { slug: true, stackable: true },
+    select: { slug: true, stackable: true, name: true, description: true, icon: true },
   });
   if (!badge) return false;
 
@@ -44,6 +94,8 @@ export async function grantBadge(userId: string, slug: string, context?: string)
     await db.userBadge.create({
       data: { userId, badgeSlug: slug, context: context ?? null },
     });
+    // Fire-and-forget Discord DM — never blocks or fails the grant.
+    void sendBadgeDM(userId, badge).catch(() => {});
     return true;
   } catch (error) {
     if (isUniqueViolation(error)) return false;
@@ -72,7 +124,7 @@ export async function checkAndGrantBadges(userId: string): Promise<string[]> {
       db.comment.count({ where: { userId } }),
       db.commentLike.count({ where: { comment: { userId } } }),
       db.genreVote.count({ where: { userId } }),
-      db.user.findUnique({ where: { id: userId }, select: { discordId: true } }),
+      db.user.findUnique({ where: { id: userId }, select: { discordId: true, createdAt: true } }),
       // Same aggregation the /api/leaderboard all-time tab uses, without the
       // top-50 cap, so we can locate this user's rank in the full ordering.
       db.watchHistory.groupBy({
@@ -123,6 +175,9 @@ export async function checkAndGrantBadges(userId: string): Promise<string[]> {
 
   // Discord linked
   if (hasDiscord) toGrant.push("verified");
+
+  // OG member — account created before the early-adopter cutoff
+  if (user?.createdAt && user.createdAt < OG_CUTOFF_DATE) toGrant.push("og-member");
 
   // All-time leaderboard placement
   if (rank >= 1 && rank <= 10) toGrant.push("leaderboard-top10");
