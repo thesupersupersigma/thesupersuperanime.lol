@@ -1,1 +1,0 @@
-{"version":3,"file":"vibeplayer.d.ts","sourceRoot":"","sources":["../../../src/lib/extractors/vibeplayer.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAE,eAAe,EAAE,MAAM,QAAQ,CAAC;AAG7D,qBAAa,mBAAoB,YAAW,aAAa;IACvD,OAAO,WAAuB;IAE9B,SAAS,CAAC,GAAG,EAAE,MAAM,GAAG,OAAO;IAIzB,OAAO,CAAC,QAAQ,EAAE,MAAM,GAAG,OAAO,CAAC,eAAe,CAAC;CAkF1D"}
