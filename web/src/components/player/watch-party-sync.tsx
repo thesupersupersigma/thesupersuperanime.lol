@@ -9,6 +9,9 @@ interface WatchPartySyncProps {
   playerRef: React.RefObject<MediaPlayerInstance | null>;
   animeId: number;
   episodeNum: number;
+  // Current sub/dub selection (managed in anime-player). The host pushes it to
+  // the room; guests dispatch a `watch-party-audio-sync` event to switch.
+  audioType?: string;
 }
 
 // Drift correction: hard-seek the guest only when it has drifted more than 1s
@@ -16,11 +19,20 @@ interface WatchPartySyncProps {
 // momentarily report a wild currentTime — don't yank the user across the video).
 const DRIFT_MIN = 1;
 const DRIFT_MAX = 60;
+// Minimum gap between two seek corrections. Without this, a guest seeking
+// rapidly fires a correction per SSE message before the previous seek settles,
+// so corrections stack and the guest overshoots the host.
+const CORRECTION_COOLDOWN_MS = 1000;
 
-export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNum }: WatchPartySyncProps) {
+export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNum, audioType }: WatchPartySyncProps) {
   const [copied, setCopied] = useState(false);
   const [hostLeft, setHostLeft] = useState(false);
   const [hostAction, setHostAction] = useState<string | null>(null);
+
+  // Latest audio type, read by both the host push and the guest comparison
+  // without restarting their effects.
+  const audioTypeRef = useRef(audioType);
+  useEffect(() => { audioTypeRef.current = audioType; }, [audioType]);
 
   // ── HOST: push position every 500ms (+ immediate push on play/pause) ───────
   const wasPlayingRef = useRef(false);
@@ -38,7 +50,7 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
         fetch(`/api/watch-party/${roomCode}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ timestamp: player.currentTime || 0, isPlaying }),
+          body: JSON.stringify({ timestamp: player.currentTime || 0, isPlaying, audioType: audioTypeRef.current }),
         }).catch(() => {});
       }
 
@@ -47,7 +59,7 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
       fetch(`/api/watch-party/${roomCode}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timestamp, isPlaying }),
+        body: JSON.stringify({ timestamp, isPlaying, audioType: audioTypeRef.current }),
       }).catch(() => {});
     }, 500);
     return () => clearInterval(interval);
@@ -56,6 +68,8 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
   // ── GUEST: subscribe to host state via SSE ────────────────────────────────
   const connectedRef = useRef(false);
   const hostLeftRef = useRef(false);
+  // Timestamp of the last seek correction we applied, to throttle corrections.
+  const lastCorrectionRef = useRef(0);
   useEffect(() => {
     if (isHost) return;
     const es = new EventSource(`/api/watch-party/${roomCode}/stream`);
@@ -68,26 +82,38 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
     };
 
     es.onmessage = (e) => {
-      let data: { hostTimestamp?: number; isPlaying?: boolean; error?: string };
+      // Once the host is gone, stop applying any further updates.
+      if (hostLeftRef.current) return;
+
+      let data: { hostTimestamp?: number; isPlaying?: boolean; audioType?: string; error?: string };
       try {
         data = JSON.parse(e.data);
       } catch {
         return;
       }
+
+      // First successful message means the stream is established — any later
+      // onerror is then treated as "host left" rather than a connect failure.
       connectedRef.current = true;
+
       if (data.error) {
         console.log(`[watch-party] room ${roomCode} ${data.error}`);
         markHostLeft();
         return;
       }
-      if (hostLeftRef.current) return; // stop applying updates once the host is gone
       const player = playerRef.current;
       if (!player) return;
 
       if (typeof data.hostTimestamp === "number") {
         const drift = Math.abs(player.currentTime - data.hostTimestamp);
         if (drift > DRIFT_MIN && drift < DRIFT_MAX) {
-          player.currentTime = data.hostTimestamp;
+          // Throttle: skip if we corrected very recently so a rapid run of
+          // messages can't stack seeks and push the guest past the host.
+          const now = Date.now();
+          if (now - lastCorrectionRef.current > CORRECTION_COOLDOWN_MS) {
+            lastCorrectionRef.current = now;
+            player.currentTime = data.hostTimestamp;
+          }
         }
       }
       if (typeof data.isPlaying === "boolean") {
@@ -103,6 +129,13 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
             setTimeout(() => setHostAction(null), 2000);
           }
         }
+      }
+      // Audio type (sub/dub) is owned by anime-player — ask it to switch via a
+      // DOM event when the host's selection differs from ours.
+      if (typeof data.audioType === "string" && data.audioType !== audioTypeRef.current) {
+        window.dispatchEvent(
+          new CustomEvent("watch-party-audio-sync", { detail: { audioType: data.audioType } }),
+        );
       }
     };
 

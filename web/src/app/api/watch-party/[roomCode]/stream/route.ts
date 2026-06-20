@@ -27,6 +27,7 @@ export async function GET(
         episodeNum: party.episodeNum,
         hostTimestamp: party.hostTimestamp,
         isPlaying: party.isPlaying,
+        audioType: party.audioType,
         hostId: party.hostId,
       });
 

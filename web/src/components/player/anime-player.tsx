@@ -163,6 +163,24 @@ export function AnimePlayer({
     }
   };
 
+  // ── WATCH PARTY AUDIO SYNC ──────────────────────────────────────────────────
+  // WatchPartySync (a child) can't switch audio directly — audio type lives
+  // here. It dispatches a `watch-party-audio-sync` event when the host's sub/dub
+  // selection differs; we mirror it via handleAudioTypeChange (a no-op if same).
+  // Routed through a ref so the listener always sees the latest handler.
+  const handleAudioTypeChangeRef = useRef(handleAudioTypeChange);
+  useEffect(() => { handleAudioTypeChangeRef.current = handleAudioTypeChange; });
+  useEffect(() => {
+    const onAudioSync = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.audioType === "sub" || detail?.audioType === "dub") {
+        handleAudioTypeChangeRef.current(detail.audioType);
+      }
+    };
+    window.addEventListener("watch-party-audio-sync", onAudioSync);
+    return () => window.removeEventListener("watch-party-audio-sync", onAudioSync);
+  }, []);
+
   // ── RESUME-ON-SWITCH (persistent hls.js instance) ──────────────────────────
   // A server/audio/quality change swaps the source on the SAME hls.js instance:
   // Vidstack only fires onProviderChange on a provider *type* change, not a
@@ -462,6 +480,7 @@ export function AnimePlayer({
             playerRef={playerRef}
             animeId={animeId}
             episodeNum={episodeNum}
+            audioType={audioType}
           />
         )}
         {playerError ? (

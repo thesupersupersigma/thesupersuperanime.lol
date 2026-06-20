@@ -11,8 +11,24 @@ const commands = [
     name: "watchparty",
     description: "Create a watch party room for an anime episode",
     options: [
-      { name: "anime_id", description: "AniList anime ID", type: 4, required: true },
-      { name: "episode", description: "Episode number", type: 4, required: true },
+      {
+        name: "anime",
+        description: "Anime name to search for",
+        type: 3, // STRING
+        required: true,
+      },
+    ],
+  },
+  {
+    name: "watchparty-join",
+    description: "Join a watch party by room code or link",
+    options: [
+      {
+        name: "code",
+        description: "Room code (e.g. AB12CD) or full watch party link",
+        type: 3, // STRING
+        required: true,
+      },
     ],
   },
 ];

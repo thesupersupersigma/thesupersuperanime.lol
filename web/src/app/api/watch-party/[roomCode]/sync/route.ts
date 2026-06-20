@@ -24,7 +24,7 @@ export async function POST(
     return NextResponse.json({ error: "Only the host can sync" }, { status: 403 });
   }
 
-  let body: { timestamp?: unknown; isPlaying?: unknown };
+  let body: { timestamp?: unknown; isPlaying?: unknown; audioType?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -37,9 +37,17 @@ export async function POST(
     return NextResponse.json({ error: "timestamp is required" }, { status: 400 });
   }
 
+  const data: { hostTimestamp: number; isPlaying: boolean; audioType?: string } = {
+    hostTimestamp: timestamp,
+    isPlaying,
+  };
+  if (typeof body.audioType === "string") {
+    data.audioType = body.audioType;
+  }
+
   await db.watchParty.update({
     where: { id: party.id },
-    data: { hostTimestamp: timestamp, isPlaying },
+    data,
   });
 
   return NextResponse.json({ ok: true });

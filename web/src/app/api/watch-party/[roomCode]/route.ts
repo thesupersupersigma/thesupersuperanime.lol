@@ -20,5 +20,6 @@ export async function GET(
     hostId: party.hostId,
     hostTimestamp: party.hostTimestamp,
     isPlaying: party.isPlaying,
+    audioType: party.audioType,
   });
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { providers } from "@/providers/index";
 import { DashboardClient } from "./components/dashboard-client";
 import { IssuesPanel } from "./components/issues-panel";
+import { WatchPartiesPanel } from "./components/watch-parties-panel";
 import { AnnouncementPanel } from "./components/announcement-panel";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -55,7 +56,7 @@ export default async function AdminDashboard() {
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
-      user: { select: { discordUsername: true, email: true } },
+      user: { select: { id: true, discordUsername: true, username: true, email: true } },
     },
   });
 
@@ -66,7 +67,32 @@ export default async function AdminDashboard() {
     animeInfo: i.animeInfo,
     status: i.status,
     createdAt: i.createdAt.toISOString(),
-    user: i.user ? { discordUsername: i.user.discordUsername, email: i.user.email } : null,
+    user: i.user
+      ? { id: i.user.id, discordUsername: i.user.discordUsername, username: i.user.username, email: i.user.email }
+      : null,
+  }));
+
+  // Fetch active (non-expired) watch parties for the admin panel
+  const rawParties = await db.watchParty.findMany({
+    where: { expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      host: { select: { id: true, discordUsername: true, username: true, email: true } },
+    },
+  });
+
+  const initialParties = rawParties.map((p) => ({
+    id: p.id,
+    roomCode: p.roomCode,
+    animeId: p.animeId,
+    episodeNum: p.episodeNum,
+    audioType: p.audioType,
+    createdAt: p.createdAt.toISOString(),
+    expiresAt: p.expiresAt.toISOString(),
+    host: p.host
+      ? { discordUsername: p.host.discordUsername, username: p.host.username, email: p.host.email }
+      : null,
   }));
 
   return (
@@ -101,6 +127,9 @@ export default async function AdminDashboard() {
         >
           🏅 Badge Management →
         </Link>
+      </div>
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
+        <WatchPartiesPanel initialParties={initialParties} />
       </div>
       <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
         <IssuesPanel initialIssues={initialIssues} />

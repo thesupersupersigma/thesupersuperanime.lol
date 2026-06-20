@@ -53,6 +53,7 @@ model WatchParty {
   episodeNum     Int
   hostTimestamp  Float    @default(0)   // host's currentTime in seconds
   isPlaying      Boolean  @default(false)
+  audioType      String   @default("sub")  // host's sub/dub selection, synced to guests
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   expiresAt      DateTime             // auto-expire rooms after 6 hours

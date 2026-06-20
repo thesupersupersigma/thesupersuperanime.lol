@@ -110,9 +110,9 @@
 - [x] **Watch party coordination** via bot commands
 
 ### Watch Parties
-- [ ] Synchronized watching — users in a "room" see the same timestamp
-- [ ] Room created from the watch page, shareable link
-- [ ] Discord bot integration — create a watch party from Discord, get a join link
+- [x] Synchronized watching — users in a "room" see the same timestamp
+- [x] Room created from the watch page, shareable link
+- [x] Discord bot integration — create a watch party from Discord, get a join link
 
 ### Animations & Polish
 - [ ] Page transition animations (fade/slide between routes)
