@@ -146,6 +146,8 @@ Backed by the `Changelog` model (`version`, `title`, `body`, `major` boolean, `p
 
 Admin management: `ChangelogPanel` (`src/app/admin/components/changelog-panel.tsx`, between Badge Management and `WatchPartiesPanel` on `/admin`) — create form (version/title/body/major checkbox) + entry list with delete.
 
+`POST /api/webhooks/github` (`src/app/api/webhooks/github/route.ts`, exempted in `src/proxy.ts` — GitHub posts with no cookies) auto-creates a `Changelog` entry (always `major: false`) per commit pushed to `refs/heads/master`. Verifies `X-Hub-Signature-256` (HMAC-SHA256 over the raw body, `GITHUB_WEBHOOK_SECRET`, `timingSafeEqual`) before parsing the body — returns 401 on mismatch/missing secret, length-checks both buffers before the timing-safe compare since `timingSafeEqual` throws on mismatched lengths. `ping` events short-circuit 200 OK; non-`push` events and non-master pushes are skipped (200, not an error). `version` is the 7-char short SHA, `title` the commit message's first line, `body` is `Committed by {author}\n\n{commit url}`, `publishedAt` is the commit's own timestamp (not `now()`) — so a batch push can land several backdated entries at once.
+
 ## Key Directories
 
 | Path | Purpose |
@@ -180,6 +182,7 @@ Admin management: `ChangelogPanel` (`src/app/admin/components/changelog-panel.ts
 - `DISCORD_WEBHOOK_URL` — provider health failure/recovery alerts
 - `DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_ALERT_USER_ID` — admin login / security alerts (Discord callback route)
 - `DISCORD_UPDATES_WEBHOOK_URL` — changelog/updates channel posts (`sendChangelogPost`, see Changelog / Updates)
+- `GITHUB_WEBHOOK_SECRET` — verifies `X-Hub-Signature-256` on `POST /api/webhooks/github` (see Changelog / Updates)
 - `TOKEN_SECRET` / `ENCRYPTION_SECRET` — video source token signing (HMAC-SHA256) & URL encryption (AES-256-CBC)
 - `ANIVEXA_API_URL` — base URL for the Anivexa video source API (see Video Source Pipeline)
 - `CRON_SECRET` — Bearer token for `/api/cron/*` (cleanup, health-check, streak-emails)
