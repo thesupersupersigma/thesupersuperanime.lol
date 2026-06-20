@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ userId: null }, { status: 401 });
   return NextResponse.json({
     userId: user.id,
+    isAdmin: isAdmin(user.discordId),
     discordLinked: !!user.discordId,
     discordUsername: user.discordUsername ?? null,
     anilistUsername: user.anilistUsername ?? null,

@@ -42,6 +42,28 @@ model User {
   following           Follow[]             @relation("Following")
   followers           Follow[]             @relation("Followers")
   watchParties        WatchParty[]
+  chatMessages        ChatMessage[]
+  chatTimeout         ChatTimeout?
+}
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  roomId    String    // "global" | "anime-{animeId}"
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime? // soft delete — null = visible, non-null = deleted
+
+  @@index([roomId, createdAt])
+  @@index([userId])
+}
+
+model ChatTimeout {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  reason    String?
 }
 
 model WatchParty {

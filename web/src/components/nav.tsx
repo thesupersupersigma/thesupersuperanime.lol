@@ -184,6 +184,24 @@ export function Nav() {
               </Link>
             )}
 
+            {/* Global Chat (logged-in only) */}
+            {isLoggedIn && (
+              <Link href="/chat" style={{
+                display: "flex", alignItems: "center",
+                color: pathname === "/chat" ? "#e5e5e5" : "#888",
+                textDecoration: "none", transition: "color 150ms ease, transform 150ms ease",
+                transform: pathname === "/chat" ? "scale(1.1)" : "scale(1)",
+              }}
+                title="Global Chat"
+                onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
+                onMouseLeave={e => (e.currentTarget.style.color = pathname === "/chat" ? "#e5e5e5" : "#888")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </Link>
+            )}
+
             {/* Watchlist/search bookmark */}
             <Link href="/account?tab=watchlist" style={{
               display: "flex",
@@ -292,6 +310,13 @@ export function Nav() {
             <circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none"/>
           </svg>
         } />
+        {isLoggedIn && (
+          <MobileTab href="/chat" label="Chat" active={pathname === "/chat"} icon={
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          } />
+        )}
         <MobileTab href="/leaderboard" label="Ranks" active={pathname === "/leaderboard"} icon={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />

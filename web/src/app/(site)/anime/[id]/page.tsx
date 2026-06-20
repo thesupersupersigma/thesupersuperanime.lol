@@ -7,6 +7,7 @@ import { WatchlistButton } from "./watchlist-button";
 import type { Metadata } from "next";
 import { NextEpisodeCountdown } from "@/components/next-episode-countdown";
 import { Comments } from "@/components/comments";
+import { AnimeChat } from "@/components/chat/AnimeChat";
 import { getCurrentUser } from "@/lib/auth";
 
 interface PageProps {
@@ -308,6 +309,24 @@ export default async function AnimeDetailPage({ params }: PageProps) {
           Comments
         </h2>
         <Comments animeId={anime.id} currentUserId={user?.id} />
+      </section>
+
+      {/* Chat Section */}
+      <section style={{ marginTop: "40px" }}>
+        <h2
+          style={{
+            fontFamily: "'Syne', sans-serif",
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#e5e5e5",
+            marginBottom: "12px",
+          }}
+        >
+          Chat
+        </h2>
+        <div style={{ border: "1px solid #2a2a2a", borderRadius: "12px", overflow: "hidden" }}>
+          <AnimeChat animeId={anime.id} currentUserId={user?.id} />
+        </div>
       </section>
     </div>
   );

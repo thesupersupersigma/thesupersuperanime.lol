@@ -122,8 +122,8 @@
 - [x] Smooth scroll behavior sitewide
 
 ### Random Anime
-- [ ] `/random` route — redirects to a random anime from AniList filtered by user's genre preferences if logged in, otherwise truly random
-- [ ] "Random" button in nav or on homepage
+- [x] `/random` route — redirects to a random anime from AniList filtered by user's genre preferences if logged in, otherwise truly random
+- [x] "Random" button in nav or on homepage
 
 ### Sitewide Chat
 - [ ] Global chat accessible from a floating button or dedicated `/chat` page

@@ -37,7 +37,7 @@ All authentication is enforced in **`src/proxy.ts`** before any route handler ru
 Checks run in this order:
 
 1. **Static/internal passthrough** — `/_next`, `/favicon`, `/.well-known`, `robots.txt`, `sitemap.xml`, `llms.txt`, image extensions skip all checks.
-2. **Always public, no auth at all** — `/api/proxy/*`, `/api/subtitle-proxy/*`, `/api/auth/discord/*`, `/api/auth/me`, `/login`, `/api/announcement*` (includes `/api/announcement/stream`), `/api/watch-party/*` (shareable rooms; the create/sync handlers still enforce auth in-route), `/api/discord/interactions` (Discord posts here with its own Ed25519 signature, verified in-route).
+2. **Always public, no auth at all** — `/api/proxy/*`, `/api/subtitle-proxy/*`, `/api/auth/discord/*`, `/api/auth/me`, `/login`, `/api/announcement*` (includes `/api/announcement/stream`), `/api/watch-party/*` (shareable rooms; the create/sync handlers still enforce auth in-route), `/api/chat/*` (sitewide chat — reads are public, the POST/delete/timeout handlers enforce auth/admin in-route), `/api/discord/interactions` (Discord posts here with its own Ed25519 signature, verified in-route).
 3. **Cron routes** (`/api/cron/*`) — require `Authorization: Bearer <CRON_SECRET>`. `/api/cron/streak-emails` additionally re-checks the same header in-route against `CRON_SECRET` (see Nudge Emails below) — redundant with the gate above but harmless.
 4. **Site password gate** — `site-auth` cookie vs `SITE_PASSWORD`. Disable with `SITE_PASSWORD_GATE=off`. API routes get a 401 JSON response; pages redirect to `/login`.
 5. **Discord/email verification gate** — gates most remaining routes, **including `/admin/*` and `/api/admin/*`** (they are not in the exempt list). Disable entirely with `DISCORD_GATE=off`. `MASTER_GATE=off` lets anonymous (no `user-session` cookie) users browse without a session, but logged-in users still need `discord-linked=1` or `email-verified=1` cookies (mirrored from the DB into cookies since the proxy runs on the Edge and can't query Postgres). Exempt paths: `/account*`, `/api/auth/*`, `/api/import/*`, `/api/watchlist/*`, `/api/progress/*`, `/leaderboard`, `/user/*`.
@@ -110,6 +110,24 @@ Discord slash commands: `POST /api/discord/interactions` verifies the Ed25519 si
 
 Register/update both commands via `node scripts/register-discord-commands.mjs` (needs `DISCORD_BOT_TOKEN` + `DISCORD_APP_ID` in `.env.local`).
 
+## Sitewide Chat
+
+Real-time chat rooms backed by the `ChatMessage` (`roomId`, `userId`, `content`, `createdAt`, soft-delete `deletedAt`) and `ChatTimeout` (`userId` PK, `expiresAt`, `reason`) models. Rooms are either the single `"global"` room or per-anime `"anime-{animeId}"` rooms — `isValidRoomId()` in `src/lib/chat.ts` (which also exports `CHAT_USER_SELECT`, the shared user-field select) rejects anything else so callers can't spray arbitrary room ids.
+
+Routes (all `force-dynamic`, all under the always-public proxy exempt list; auth/admin enforced **in-route**):
+- `GET /api/chat/[roomId]` — public. Returns the newest 50 non-deleted messages in chronological order (`orderBy desc, take 50, .reverse()`).
+- `POST /api/chat/[roomId]` — requires `getCurrentUser()` (401 if not). Enforces `ChatTimeout` server-side (403 `{ error, expiresAt }` if active). Validates non-empty, ≤500 chars, trimmed. Returns `{ message }` with user included.
+- `GET /api/chat/[roomId]/stream` — public SSE (modeled on `/api/announcement/stream`). Sends `{ type: "messages", messages: [...] }` with the last 50 on connect, then polls every **1.5s** for `createdAt > lastSeenAt` and pushes **only the delta** (not the full list), keepalive `{ type: "ping" }` every 25s.
+- `POST /api/chat/[roomId]/delete` — `isAdmin`-gated. Soft-deletes (`deletedAt = now`) by `{ messageId }` so ids stay stable. **Note: this is a POST, not a DELETE verb.**
+- `POST /api/chat/timeout` — `isAdmin`-gated. Upserts a `ChatTimeout` for `{ userId, durationMinutes, reason? }`, capped at 10080 min (7 days). `DELETE /api/chat/timeout` — `isAdmin`-gated, clears a user's timeout via `deleteMany`.
+
+`/api/auth/me` exposes `isAdmin: isAdmin(user.discordId)` so chat components get admin status in the same request they use for `userId`.
+
+Client (`src/components/chat/`):
+- **`ChatPanel.tsx`** — the reusable core UI (props `roomId`, `currentUserId?`, `isAdmin?`, `height?`, `placeholder?`), styled to match the comment section (32px avatars, plain rows on `#0a0a0a` — no chat bubbles, Discord badge, comment-style input). On mount it GETs the backlog **and** opens the SSE stream; both deliver the backlog so `mergeMessages()` dedupes by id. Sends POST optimistically (dedupe covers the SSE echo); a 403 sets `timedOut` and disables the input. Auto-scrolls its own container (`scrollTo`, not `scrollIntoView`, to avoid page jump). Admin-only inline hover controls in the message header: **Delete** (text button, POST `/delete`, removes locally) and **Timeout** (text button, `prompt()` for minutes → POST `/timeout`). Guests see messages but get a "Sign in to chat" input.
+- **Global chat lives at `/chat`** (`src/app/(site)/chat/page.tsx`) — a server component that `redirect("/account")`s guests, computes `isAdmin(user.discordId)` server-side, and renders `<ChatPanel roomId="global" height={600} />` in a centered card. Entry point is a **nav icon → `/chat`** (`src/components/nav.tsx`): desktop icon between Feed and Watchlist + a mobile tab before Ranks, **both logged-in only**. There is no floating button (the old `GlobalChatButton.tsx` was removed) and no separate unread counter.
+- **`AnimeChat.tsx`** — thin wrapper rendered in a "Chat" section at the bottom of the anime detail page (`src/app/(site)/anime/[id]/page.tsx`, after Comments). Takes `currentUserId` from the server component, resolves `isAdmin` client-side via `/api/auth/me`, renders `<ChatPanel roomId={`anime-${animeId}`} height={320} />`.
+
 Admin management: the admin dashboard (`src/app/admin/page.tsx`) renders a `WatchPartiesPanel` (between the Badge Management link and `IssuesPanel`) listing active (non-expired) rooms — server-fetched on load, with client-side search by room code/host and per-row delete. Backed by `GET`/`DELETE /api/admin/watch-parties` (both `isAdmin`-gated): GET returns up to 50 non-expired rooms with the host (`discordUsername`/`username`/`email`, or null for Discord-anonymous rooms), DELETE removes a room by `{ id }`.
 
 ## Key Directories
@@ -123,7 +141,7 @@ Admin management: the admin dashboard (`src/app/admin/page.tsx`) renders a `Watc
 | `src/components/` | Shared React components (player, nav, comments, episode list/sidebar, cards, announcement banner) |
 | `src/providers/` | Thin adapter wrapping `core-dist`'s legacy providers for the admin health-check dashboard only |
 | `src/lib/core-dist/` | Pre-built `@tsss/core` — rate limiting + legacy provider health checks. Do not edit directly |
-| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak, Follow, WatchParty, Badge/UserBadge/GenreCache/AiringWatch, Season/SeasonResult) |
+| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak, Follow, WatchParty, Badge/UserBadge/GenreCache/AiringWatch, Season/SeasonResult, ChatMessage/ChatTimeout) |
 
 ## Data Fetching Patterns
 
