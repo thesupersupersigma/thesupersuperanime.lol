@@ -20,29 +20,29 @@ export default function HomePage() {
       </Suspense>
 
       {/* Continue Watching — client component, fetches per-user data */}
-      <Section title="Continue Watching">
+      <Section title="Continue Watching" className="animate-slide-up">
         <ContinueWatching />
       </Section>
 
-      <Section title="Trending Now">
+      <Section title="Trending Now" className="animate-slide-up stagger-2">
         <Suspense fallback={<AnimeRowSkeleton count={10} />}>
           <TrendingRow />
         </Suspense>
       </Section>
 
-      <Section title="This Season">
+      <Section title="This Season" className="animate-slide-up stagger-3">
         <Suspense fallback={<AnimeRowSkeleton count={10} />}>
           <SeasonalRow />
         </Suspense>
       </Section>
 
-      <Section title="Airing Soon">
+      <Section title="Airing Soon" className="animate-slide-up stagger-4">
         <Suspense fallback={<AnimeRowSkeleton count={10} />}>
           <AiringSoonRow />
         </Suspense>
       </Section>
 
-      <Section title="Upcoming">
+      <Section title="Upcoming" className="animate-slide-up stagger-5">
         <Suspense fallback={<AnimeRowSkeleton count={10} />}>
           <UpcomingRow />
         </Suspense>
@@ -51,9 +51,9 @@ export default function HomePage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <section>
+    <section className={className}>
       <h2 style={{
         fontFamily: "'Syne', sans-serif",
         fontSize: "16px",

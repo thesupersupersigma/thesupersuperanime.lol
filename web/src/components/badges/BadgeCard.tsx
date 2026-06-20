@@ -12,6 +12,8 @@ interface BadgeCardProps {
   rarityOrder: number;
   grantedAt: string; // ISO date string
   context?: string | null;
+  /** Position in the grid — drives the staggered pop-in entrance delay */
+  index?: number;
 }
 
 type Phase = "idle" | "flying-out" | "open" | "flying-back";
@@ -33,7 +35,7 @@ function formatDate(iso: string): string {
 
 const BACK_SIZE = 200; // px
 
-export function BadgeCard({ slug, name, description, icon, rarity, grantedAt, context }: BadgeCardProps) {
+export function BadgeCard({ slug, name, description, icon, rarity, grantedAt, context, index }: BadgeCardProps) {
   const rarityStyle = RARITY_STYLES[rarity] ?? RARITY_STYLES.common;
   const rarityLabel = (rarity ?? "common").toUpperCase();
 
@@ -234,6 +236,7 @@ export function BadgeCard({ slug, name, description, icon, rarity, grantedAt, co
         onClick={openCard}
         title={description}
         data-badge-slug={slug}
+        className="animate-pop-in"
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -247,6 +250,7 @@ export function BadgeCard({ slug, name, description, icon, rarity, grantedAt, co
           background: rarityStyle.background,
           border: rarityStyle.border,
           color: rarityStyle.color,
+          animationDelay: `${(index ?? 0) * 40}ms`,
           // Keep the layout slot while the badge is flying so nothing shifts.
           visibility: animating ? "hidden" : "visible",
         }}

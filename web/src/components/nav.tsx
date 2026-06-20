@@ -66,7 +66,11 @@ export function Nav() {
             textDecoration: "none",
             whiteSpace: "nowrap",
             letterSpacing: "-0.02em",
-          }}>
+            transition: "color 150ms ease",
+          }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#3b82f6")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#e5e5e5")}
+          >
             thesupersuperanime
           </Link>
 
@@ -84,7 +88,8 @@ export function Nav() {
             <Link href="/genres" style={{
               display: "flex", alignItems: "center",
               color: pathname.startsWith("/genres") ? "#e5e5e5" : "#888",
-              textDecoration: "none", transition: "color 150ms ease",
+              textDecoration: "none", transition: "color 150ms ease, transform 150ms ease",
+              transform: pathname.startsWith("/genres") ? "scale(1.1)" : "scale(1)",
             }}
               title="Browse by Genre"
               onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
@@ -104,7 +109,8 @@ export function Nav() {
             <Link href="/leaderboard" style={{
               display: "flex", alignItems: "center",
               color: pathname === "/leaderboard" ? "#e5e5e5" : "#888",
-              textDecoration: "none", transition: "color 150ms ease",
+              textDecoration: "none", transition: "color 150ms ease, transform 150ms ease",
+              transform: pathname === "/leaderboard" ? "scale(1.1)" : "scale(1)",
             }}
               onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
               onMouseLeave={e => (e.currentTarget.style.color = pathname === "/leaderboard" ? "#e5e5e5" : "#888")}
@@ -123,7 +129,8 @@ export function Nav() {
             <Link href="/issues" style={{
               display: "flex", alignItems: "center",
               color: pathname === "/issues" ? "#e5e5e5" : "#888",
-              textDecoration: "none", transition: "color 150ms ease",
+              textDecoration: "none", transition: "color 150ms ease, transform 150ms ease",
+              transform: pathname === "/issues" ? "scale(1.1)" : "scale(1)",
             }}
               title="Issues &amp; Suggestions"
               onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
@@ -141,7 +148,8 @@ export function Nav() {
               <Link href="/feed" style={{
                 display: "flex", alignItems: "center",
                 color: pathname === "/feed" ? "#e5e5e5" : "#888",
-                textDecoration: "none", transition: "color 150ms ease",
+                textDecoration: "none", transition: "color 150ms ease, transform 150ms ease",
+                transform: pathname === "/feed" ? "scale(1.1)" : "scale(1)",
               }}
                 title="Friends' Activity"
                 onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
@@ -179,7 +187,8 @@ export function Nav() {
                 alignItems: "center",
                 color: pathname === "/account" ? "#e5e5e5" : "#888",
                 textDecoration: "none",
-                transition: "color 150ms ease",
+                transition: "color 150ms ease, transform 150ms ease",
+                transform: pathname === "/account" ? "scale(1.1)" : "scale(1)",
               }}
                 onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
                 onMouseLeave={e => (e.currentTarget.style.color = pathname === "/account" ? "#e5e5e5" : "#888")}
@@ -289,6 +298,7 @@ function MobileTab({ href, label, active, icon }: {
 }) {
   return (
     <Link href={href} style={{
+      position: "relative",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -300,6 +310,17 @@ function MobileTab({ href, label, active, icon }: {
       fontWeight: 500,
       transition: "color 150ms ease",
     }}>
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: active ? "20px" : "0px",
+        height: "2px",
+        background: "#3b82f6",
+        borderRadius: "0 0 2px 2px",
+        transition: "width 200ms ease",
+      }} />
       {icon}
       <span>{label}</span>
     </Link>

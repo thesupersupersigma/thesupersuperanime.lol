@@ -23,18 +23,38 @@ const RARITY_COLOR: Record<string, string> = {
  * provider can drop it from the stack.
  */
 export function BadgeToast({ badge, onDone }: { badge: ToastBadge; onDone: () => void }) {
-  const [shown, setShown] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    // Slide in on the next frame so the initial off-screen transform paints first.
-    const raf = requestAnimationFrame(() => setShown(true));
+    // Fire a confetti burst for rare+ badges, dynamically importing the lib so it
+    // never lands in the initial bundle. Origin is near the bottom-right toast.
+    if (badge.rarity === "legendary" || badge.rarity === "epic" || badge.rarity === "rare") {
+      import("canvas-confetti")
+        .then(({ default: confetti }) => {
+          const colors =
+            badge.rarity === "legendary"
+              ? ["#facc15", "#fbbf24", "#f59e0b", "#fff"]
+              : badge.rarity === "epic"
+              ? ["#a855f7", "#9333ea", "#c084fc", "#fff"]
+              : ["#3b82f6", "#2563eb", "#60a5fa", "#fff"];
+
+          confetti({
+            particleCount: badge.rarity === "legendary" ? 120 : badge.rarity === "epic" ? 80 : 50,
+            spread: 70,
+            origin: { x: 0.85, y: 0.85 },
+            colors,
+            scalar: 0.9,
+            gravity: 1.2,
+          });
+        })
+        .catch(() => {});
+    }
+
     const dismiss = window.setTimeout(() => setLeaving(true), 4000);
     return () => {
-      cancelAnimationFrame(raf);
       clearTimeout(dismiss);
     };
-  }, []);
+  }, [badge.rarity]);
 
   useEffect(() => {
     if (!leaving) return;
@@ -46,6 +66,7 @@ export function BadgeToast({ badge, onDone }: { badge: ToastBadge; onDone: () =>
 
   return (
     <div
+      className="animate-pop-in"
       style={{
         display: "flex",
         alignItems: "center",
@@ -54,12 +75,12 @@ export function BadgeToast({ badge, onDone }: { badge: ToastBadge; onDone: () =>
         borderRadius: "12px",
         background: "#111",
         border: "1px solid #2a2a2a",
+        borderLeft: `3px solid ${color}`,
         minWidth: "260px",
         maxWidth: "320px",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-        transform: shown && !leaving ? "translateX(0)" : "translateX(120%)",
+        boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${color}22`,
         opacity: leaving ? 0 : 1,
-        transition: "transform 0.3s ease, opacity 0.3s ease",
+        transition: "opacity 0.3s ease",
       }}
     >
       <div style={{ fontSize: "28px", lineHeight: 1, flexShrink: 0 }}>{badge.icon}</div>

@@ -29,7 +29,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <>
       <AnnouncementBanner />
       <main
-        className="site-main"
+        className="site-main animate-page"
         style={{
           maxWidth: "1280px",
           margin: "0 auto",

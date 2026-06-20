@@ -95,6 +95,7 @@ export function BadgeToastProvider({ children }: { children: React.ReactNode }) 
               zIndex: 9999,
               display: "flex",
               flexDirection: "column",
+              alignItems: "flex-end",
               gap: "8px",
             }}
           >

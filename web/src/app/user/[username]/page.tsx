@@ -422,7 +422,7 @@ export default async function UserProfilePage({ params }: PageProps) {
               </h2>
             </div>
             <div style={{ padding: "16px 24px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              {badges.map(userBadge => (
+              {badges.map((userBadge, i) => (
                 <BadgeCard
                   key={userBadge.id}
                   slug={userBadge.badge.slug}
@@ -433,6 +433,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                   rarityOrder={userBadge.badge.rarityOrder}
                   grantedAt={userBadge.grantedAt.toISOString()}
                   context={userBadge.context}
+                  index={i}
                 />
               ))}
             </div>

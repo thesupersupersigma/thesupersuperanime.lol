@@ -45,6 +45,7 @@ export function AnimeCard({ anime, showGenres = false, watchlistStatus, showAiri
   return (
     <Link
       href={`/anime/${anime.id}`}
+      className="anime-card-link"
       style={{
         display: "block",
         textDecoration: "none",
@@ -115,6 +116,7 @@ export function AnimeCard({ anime, showGenres = false, watchlistStatus, showAiri
       </div>
 
       <p
+        className="anime-card-title"
         style={{
           marginTop: "6px",
           fontSize: "13px",

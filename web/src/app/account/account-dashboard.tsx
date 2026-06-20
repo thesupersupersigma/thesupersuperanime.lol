@@ -243,7 +243,7 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
                   <EmptyState message="No badges yet. Keep watching to earn some!" />
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {badges.map(badge => (
+                    {badges.map((badge, i) => (
                       <BadgeCard
                         key={badge.slug + (badge.context ?? "")}
                         slug={badge.slug}
@@ -254,6 +254,7 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
                         rarityOrder={badge.rarityOrder}
                         grantedAt={badge.grantedAt}
                         context={badge.context}
+                        index={i}
                       />
                     ))}
                   </div>
