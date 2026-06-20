@@ -8,7 +8,12 @@ export async function GET(req: NextRequest) {
     userId: user.id,
     isAdmin: isAdmin(user.discordId),
     discordLinked: !!user.discordId,
+    discordId: user.discordId ?? null,
     discordUsername: user.discordUsername ?? null,
+    discordAvatar: user.discordAvatar ?? null,
+    username: user.username ?? null,
+    displayName: user.displayName ?? null,
+    avatarPreset: user.avatarPreset ?? null,
     anilistUsername: user.anilistUsername ?? null,
     emailVerified: user.emailVerified,
     // Expose gate status so client components (Nav, DiscordGateCheck) can
