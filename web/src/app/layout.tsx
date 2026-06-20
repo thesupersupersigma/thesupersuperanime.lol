@@ -4,6 +4,7 @@ import "./globals.css";
 import { Nav } from "@/components/nav";
 import { BadgeToastProvider } from "@/components/badges/BadgeToastProvider";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
+import { EasterEggs } from "@/components/EasterEggs";
 import Script from "next/script";
 
 const dmSans = DM_Sans({
@@ -145,6 +146,7 @@ l.parentNode.insertBefore(s, l);
   }
 `}</Script>
         <WhatsNewModal />
+        <EasterEggs />
       </body>
     </html>
   );

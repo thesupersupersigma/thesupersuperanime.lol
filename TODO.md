@@ -136,9 +136,9 @@
 - [x] Tracks dismissal in localStorage so it doesn't reappear immediately
 
 ### Changelog / Updates Page
-- [ ] `/updates` page showing recent site changes (manually maintained markdown or DB-driven)
-- [ ] Optional "what's new" modal on first visit after a major update (dismissible, stored in localStorage)
-- [ ] Discord bot posts changelog entries to `#updates` channel automatically
+- [x] `/updates` page showing recent site changes (manually maintained markdown or DB-driven)
+- [x] Optional "what's new" modal on first visit after a major update (dismissible, stored in localStorage)
+- [x] Discord bot posts changelog entries to `#updates` channel automatically
 
 ### AI Assistant
 - [ ] Self-hosted Ollama on Oracle VM with a small model (Mistral 7B or Llama 3.2 3B)
@@ -211,10 +211,10 @@
 ## 🔧 Infrastructure / Technical Debt
 
 - [ ] **Fix Anivexa periodic crashes** — pahe/animegg/anidbapp providers throwing unhandled errors and crashing the process; wrap provider calls in try/catch per-provider so one bad provider can't kill the whole process
-- [ ] **Re-enable HilltopAds + AdSense** behind `NEXT_PUBLIC_ADS_ENABLED=true` when ready (AdSense needs 10-day wait)
-- [ ] **Fix `llms.txt`** — verify it's accurate after all recent changes
+- [x] **Re-enable HilltopAds + AdSense** behind `NEXT_PUBLIC_ADS_ENABLED=true` when ready (AdSense needs 10-day wait)
+- [x] **Fix `llms.txt`** — verify it's accurate after all recent changes
 - [ ] **Anivexa public API** — cluster mode + rate limiting for when it's ready to go public
-- [ ] **Push to GitHub every session** ← recurring reminder
+- [x] **Push to GitHub every session** ← recurring reminder
 
 ---
 
