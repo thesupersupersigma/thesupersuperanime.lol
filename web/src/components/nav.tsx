@@ -66,11 +66,7 @@ export function Nav() {
             textDecoration: "none",
             whiteSpace: "nowrap",
             letterSpacing: "-0.02em",
-            transition: "color 150ms ease",
-          }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#3b82f6")}
-            onMouseLeave={e => (e.currentTarget.style.color = "#e5e5e5")}
-          >
+          }}>
             thesupersuperanime
           </Link>
 
