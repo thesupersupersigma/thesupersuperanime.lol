@@ -159,6 +159,39 @@ export async function sendNewSignupAlert(email: string): Promise<void> {
 }
 
 /**
+ * Fires when an admin publishes a new changelog entry. Posts to the #updates
+ * channel.
+ */
+export async function sendChangelogPost(
+  version: string,
+  title: string,
+  body: string,
+  major: boolean,
+  url: string
+): Promise<void> {
+  const webhookUrl = process.env.DISCORD_UPDATES_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.warn("[discord] DISCORD_UPDATES_WEBHOOK_URL not set — skipping changelog post");
+    return;
+  }
+
+  const description = body.length > 300 ? `${body.slice(0, 300)}…` : body;
+
+  await postToChannel(webhookUrl, {
+    embeds: [
+      {
+        color: major ? 0x22c55e : 0x3b82f6, // green for major, blue for minor
+        title: `🆕 ${version} — ${title}`,
+        description,
+        url,
+        footer: { text: "thesupersuperanime.lol" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
+/**
  * Fires when a provider hits 3+ consecutive failures.
  */
 export async function sendProviderAlert(alert: DiscordAlert): Promise<void> {

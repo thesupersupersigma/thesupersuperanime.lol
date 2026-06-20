@@ -3,6 +3,7 @@ import { DM_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { BadgeToastProvider } from "@/components/badges/BadgeToastProvider";
+import { WhatsNewModal } from "@/components/WhatsNewModal";
 import Script from "next/script";
 
 const dmSans = DM_Sans({
@@ -143,6 +144,7 @@ l.parentNode.insertBefore(s, l);
     }).catch(() => {});
   }
 `}</Script>
+        <WhatsNewModal />
       </body>
     </html>
   );

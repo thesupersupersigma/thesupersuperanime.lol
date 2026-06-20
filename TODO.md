@@ -131,9 +131,9 @@
 - [x] Moderation tools for admins (delete message, timeout user)
 
 ### Community Promotion Banner (Miruro-style)
-- [ ] Dismissible banner on homepage/watch page encouraging users to share the site and join Discord
-- [ ] Different copy variants to avoid feeling stale
-- [ ] Tracks dismissal in localStorage so it doesn't reappear immediately
+- [x] Dismissible banner on homepage/watch page encouraging users to share the site and join Discord
+- [x] Different copy variants to avoid feeling stale
+- [x] Tracks dismissal in localStorage so it doesn't reappear immediately
 
 ### Changelog / Updates Page
 - [ ] `/updates` page showing recent site changes (manually maintained markdown or DB-driven)

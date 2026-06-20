@@ -50,6 +50,12 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         }}
       >
         <Link
+          href="/updates"
+          style={{ color: "#404040", fontSize: "12px", textDecoration: "none" }}
+        >
+          Updates
+        </Link>
+        <Link
           href="/privacy"
           style={{ color: "#404040", fontSize: "12px", textDecoration: "none" }}
         >

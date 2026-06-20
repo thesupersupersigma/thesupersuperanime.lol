@@ -322,6 +322,20 @@ model WatchStreak {
   lastWatchDate DateTime?
 }
 
+// ─── Changelog System ────────────────────────────────────────────────────────
+
+model Changelog {
+  id          String   @id @default(cuid())
+  version     String   // e.g. "1.4.0"
+  title       String
+  body        String   // markdown-ish plain text
+  major       Boolean  @default(false) // major releases trigger the "what's new" modal
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt(sort: Desc)])
+}
+
 // ─── Season System ───────────────────────────────────────────────────────────
 
 model Season {

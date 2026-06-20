@@ -132,6 +132,20 @@ Client (`src/components/chat/`):
 
 Admin management: the admin dashboard (`src/app/admin/page.tsx`) renders a `WatchPartiesPanel` (between the Badge Management link and `IssuesPanel`) listing active (non-expired) rooms — server-fetched on load, with client-side search by room code/host and per-row delete. Backed by `GET`/`DELETE /api/admin/watch-parties` (both `isAdmin`-gated): GET returns up to 50 non-expired rooms with the host (`discordUsername`/`username`/`email`, or null for Discord-anonymous rooms), DELETE removes a room by `{ id }`.
 
+## Changelog / Updates
+
+Backed by the `Changelog` model (`version`, `title`, `body`, `major` boolean, `publishedAt`). A `major` entry is what triggers the "What's New" modal — minor entries only show on `/updates`.
+
+- `GET /api/changelog` — public (exempted in `src/proxy.ts` via `startsWith("/api/changelog")`), returns the 50 most recent entries by `publishedAt desc`.
+- `POST /api/changelog` — `isAdmin`-gated. Creates an entry, then fires `sendChangelogPost()` (`src/lib/discord.ts`, reads `DISCORD_UPDATES_WEBHOOK_URL`) fire-and-forget — green embed for major, blue for minor, body truncated to 300 chars.
+- `DELETE /api/changelog` — `isAdmin`-gated, deletes by `{ id }`.
+
+`/updates` (`src/app/(site)/updates/page.tsx`) is a public server component listing all entries (major entries get a blue-tinted border), linked from the site footer alongside Privacy Policy / Terms of Service.
+
+`WhatsNewModal` (`src/components/WhatsNewModal.tsx`, mounted in `src/app/layout.tsx` just before `</body>`) fetches `/api/changelog` on mount, finds the newest `major === true` entry, and shows it once per entry via `localStorage.lastSeenChangelog` (1.5s delay before showing, so it doesn't flash on load).
+
+Admin management: `ChangelogPanel` (`src/app/admin/components/changelog-panel.tsx`, between Badge Management and `WatchPartiesPanel` on `/admin`) — create form (version/title/body/major checkbox) + entry list with delete.
+
 ## Key Directories
 
 | Path | Purpose |
@@ -165,6 +179,7 @@ Admin management: the admin dashboard (`src/app/admin/page.tsx`) renders a `Watc
 - `VERCEL_BYPASS_SECRET` — Vercel deployment protection bypass (used in the Discord OAuth callback redirect)
 - `DISCORD_WEBHOOK_URL` — provider health failure/recovery alerts
 - `DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_ALERT_USER_ID` — admin login / security alerts (Discord callback route)
+- `DISCORD_UPDATES_WEBHOOK_URL` — changelog/updates channel posts (`sendChangelogPost`, see Changelog / Updates)
 - `TOKEN_SECRET` / `ENCRYPTION_SECRET` — video source token signing (HMAC-SHA256) & URL encryption (AES-256-CBC)
 - `ANIVEXA_API_URL` — base URL for the Anivexa video source API (see Video Source Pipeline)
 - `CRON_SECRET` — Bearer token for `/api/cron/*` (cleanup, health-check, streak-emails)

@@ -29,6 +29,7 @@ export function proxy(req: NextRequest) {
     pathname.startsWith("/api/announcement") ||
     pathname.startsWith("/api/watch-party") ||
     pathname.startsWith("/api/chat") ||
+    pathname.startsWith("/api/changelog") ||
     pathname === "/api/discord/interactions"
   ) {
     return NextResponse.next();

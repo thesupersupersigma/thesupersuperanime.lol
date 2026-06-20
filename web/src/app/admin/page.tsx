@@ -5,6 +5,7 @@ import { DashboardClient } from "./components/dashboard-client";
 import { IssuesPanel } from "./components/issues-panel";
 import { WatchPartiesPanel } from "./components/watch-parties-panel";
 import { AnnouncementPanel } from "./components/announcement-panel";
+import { ChangelogPanel } from "./components/changelog-panel";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -82,6 +83,21 @@ export default async function AdminDashboard() {
     },
   });
 
+  // Fetch changelog entries for the admin panel
+  const rawChangelog = await db.changelog.findMany({
+    orderBy: { publishedAt: "desc" },
+    take: 50,
+  });
+
+  const initialChangelog = rawChangelog.map((c) => ({
+    id: c.id,
+    version: c.version,
+    title: c.title,
+    body: c.body,
+    major: c.major,
+    publishedAt: c.publishedAt.toISOString(),
+  }));
+
   const initialParties = rawParties.map((p) => ({
     id: p.id,
     roomCode: p.roomCode,
@@ -127,6 +143,9 @@ export default async function AdminDashboard() {
         >
           🏅 Badge Management →
         </Link>
+      </div>
+      <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
+        <ChangelogPanel initialEntries={initialChangelog} />
       </div>
       <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px 80px" }}>
         <WatchPartiesPanel initialParties={initialParties} />
