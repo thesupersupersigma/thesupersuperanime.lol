@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 
 const DISMISS_KEY = "promoBannerDismissed";
 const VARIANT_KEY = "promoBannerVariant";
@@ -36,22 +36,20 @@ export function PromoBanner() {
 
   useEffect(() => {
     const raw = localStorage.getItem(DISMISS_KEY);
-    if (raw) {
-      const dismissedAt = Number(raw);
-      if (!isNaN(dismissedAt) && Date.now() - dismissedAt < DISMISS_DURATION_MS) {
-        setDismissed(true);
-      }
-    }
+    const dismissedAt = raw ? Number(raw) : NaN;
+    const shouldDismiss = !isNaN(dismissedAt) && Date.now() - dismissedAt < DISMISS_DURATION_MS;
 
     const storedVariant = sessionStorage.getItem(VARIANT_KEY);
     const storedIndex = storedVariant !== null ? Number(storedVariant) : NaN;
-    if (!isNaN(storedIndex) && storedIndex >= 0 && storedIndex < VARIANTS.length) {
-      setVariantIndex(storedIndex);
-    } else {
-      const index = Math.floor(Math.random() * VARIANTS.length);
-      sessionStorage.setItem(VARIANT_KEY, String(index));
+    const index = !isNaN(storedIndex) && storedIndex >= 0 && storedIndex < VARIANTS.length
+      ? storedIndex
+      : Math.floor(Math.random() * VARIANTS.length);
+    if (storedVariant === null) sessionStorage.setItem(VARIANT_KEY, String(index));
+
+    startTransition(() => {
+      if (shouldDismiss) setDismissed(true);
       setVariantIndex(index);
-    }
+    });
   }, []);
 
   if (dismissed) return null;

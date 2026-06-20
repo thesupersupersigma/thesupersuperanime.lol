@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import Link from "next/link";
 
 interface EpisodeSidebarProps {
@@ -46,7 +46,7 @@ export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisod
 
   // If episode changes (e.g. auto-advance), jump to its page
   useEffect(() => {
-    setPage(Math.ceil(currentEpisode / PAGE_SIZE));
+    startTransition(() => { setPage(Math.ceil(currentEpisode / PAGE_SIZE)); });
   }, [currentEpisode]);
 
   useEffect(() => {

@@ -28,6 +28,10 @@ const STATUS_COLORS: Record<string, string> = {
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+function daysAgo(days: number): Date {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 // GitHub-style heatmap color scale (episodes watched on a given day)
 function heatColor(count: number): string {
   if (count <= 0) return "#1a1a1a";
@@ -155,7 +159,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     db.watchHistory.findMany({
       where: {
         userId: user.id,
-        updatedAt: { gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) },
+        updatedAt: { gte: daysAgo(365) },
       },
       select: { updatedAt: true },
       orderBy: { updatedAt: "asc" },

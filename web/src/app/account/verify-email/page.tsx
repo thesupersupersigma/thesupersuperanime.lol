@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, startTransition, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { verifyEmailAction } from "@/app/account/actions";
 
@@ -16,8 +16,10 @@ function VerifyEmailInner() {
 
   useEffect(() => {
     if (!token) {
-      setState("error");
-      setErrorMsg("No verification token found. Make sure you copied the full link from your email.");
+      startTransition(() => {
+        setState("error");
+        setErrorMsg("No verification token found. Make sure you copied the full link from your email.");
+      });
       return;
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, startTransition } from "react";
 import { MediaPlayer, MediaProvider, MediaPlayerInstance, useMediaState, Track } from "@vidstack/react";
 import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
 import { isHLSProvider } from "vidstack";
@@ -8,6 +8,10 @@ import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
 import { useRouter } from "next/navigation";
 import { WatchPartySync } from "@/components/player/watch-party-sync";
+
+function secondsUntil(airingAt: number): number {
+  return Math.max(0, airingAt - Date.now() / 1000);
+}
 
 export interface ServerData {
   name: string;
@@ -100,14 +104,16 @@ export function AnimePlayer({
       subServers.length > 0 ? "sub" :
       dubServers.length > 0 ? "dub" : "sub";
 
-    setAudioType(targetType);
-
     const available = servers.filter(s => s.type === targetType);
-    if (savedServer && available.find(s => s.name === savedServer)) {
-      setSelectedServerName(savedServer);
-    } else if (available.length > 0) {
-      setSelectedServerName(available[0].name);
-    }
+
+    startTransition(() => {
+      setAudioType(targetType);
+      if (savedServer && available.find(s => s.name === savedServer)) {
+        setSelectedServerName(savedServer);
+      } else if (available.length > 0) {
+        setSelectedServerName(available[0].name);
+      }
+    });
   }, [servers]);
 
   // Identify the active server within the visible set
@@ -120,7 +126,7 @@ export function AnimePlayer({
   // overlay is shown so the user can manually switch to another server.
   useEffect(() => {
     if (!selectedServerName) return;
-    setShowServerTimeout(false);
+    startTransition(() => { setShowServerTimeout(false); });
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
     serverTimeoutTimerRef.current = setTimeout(() => setShowServerTimeout(true), 14000);
     return () => {
@@ -195,6 +201,9 @@ export function AnimePlayer({
     const provider = playerRef.current?.provider;
     if (isHLSProvider(provider) && provider.instance) {
       const start = startPositionRef.current;
+      // Intentional: mutates the persistent hls.js instance's startPosition in place so a
+      // same-type src swap resumes without a seek.
+      // eslint-disable-next-line react-hooks/immutability
       provider.instance.config.startPosition = start > 0 ? start : 0;
       console.log('[resume] src changed — persistent hls.js startPosition =', start);
     }
@@ -318,10 +327,10 @@ export function AnimePlayer({
   // no refetch-through-the-proxy stall, no starvation, no false `ended`. The
   // buffer-hole tolerances stay for ordinary mid-stream stalls.
   const onProviderChange = (providerOrEvent: unknown) => {
-    const arg = providerOrEvent as any;
+    const arg = providerOrEvent as { detail?: unknown };
     // Vidstack React may pass the provider directly OR wrap it in a DOMEvent where .detail is the provider.
     // Handle both shapes so isHLSProvider actually sees the right object.
-    const provider = isHLSProvider(arg) ? arg : isHLSProvider(arg?.detail) ? arg.detail : null;
+    const provider = isHLSProvider(providerOrEvent) ? providerOrEvent : isHLSProvider(arg?.detail) ? arg.detail : null;
 
     if (!provider) return;
 
@@ -423,8 +432,10 @@ export function AnimePlayer({
   }, [malId, episodeNum]);
 
   useEffect(() => {
-    setSkipIntro(null);
-    setSkipOutro(null);
+    startTransition(() => {
+      setSkipIntro(null);
+      setSkipOutro(null);
+    });
     skipFetchedRef.current = "";
   }, [episodeNum]);
 
@@ -587,17 +598,20 @@ export function AnimePlayer({
             {totalEpisodes && episodeNum >= totalEpisodes && nextAiringEpisode ? (
               <>
                 <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "20px", marginBottom: "8px", textAlign: "center" }}>
-                  You're all caught up!
+                  You&apos;re all caught up!
                 </h2>
                 <p style={{ color: "#a3a3a3", fontSize: "13px", marginBottom: "20px", textAlign: "center" }}>
                   Episode {nextAiringEpisode.episode} is coming in
                 </p>
                 <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-                  {[
-                    { label: "Days", value: Math.floor(Math.max(0, nextAiringEpisode.airingAt - Date.now() / 1000) / 86400) },
-                    { label: "Hours", value: Math.floor((Math.max(0, nextAiringEpisode.airingAt - Date.now() / 1000) % 86400) / 3600) },
-                    { label: "Min", value: Math.floor((Math.max(0, nextAiringEpisode.airingAt - Date.now() / 1000) % 3600) / 60) },
-                  ].map(({ label, value }) => (
+                  {(() => {
+                    const remaining = secondsUntil(nextAiringEpisode.airingAt);
+                    return [
+                      { label: "Days", value: Math.floor(remaining / 86400) },
+                      { label: "Hours", value: Math.floor((remaining % 86400) / 3600) },
+                      { label: "Min", value: Math.floor((remaining % 3600) / 60) },
+                    ];
+                  })().map(({ label, value }) => (
                     <div key={label} style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", padding: "10px 16px", textAlign: "center", minWidth: "60px" }}>
                       <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "22px", fontWeight: 700, color: "#e5e5e5" }}>
                         {String(value).padStart(2, "0")}
@@ -624,7 +638,7 @@ export function AnimePlayer({
             ) : totalEpisodes && episodeNum >= totalEpisodes ? (
               <>
                 <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "20px", marginBottom: "8px", textAlign: "center" }}>
-                  You've finished this series!
+                  You&apos;ve finished this series!
                 </h2>
                 <p style={{ color: "#a3a3a3", fontSize: "13px", marginBottom: "20px", textAlign: "center" }}>
                   No more episodes available.

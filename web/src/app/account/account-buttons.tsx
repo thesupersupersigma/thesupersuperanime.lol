@@ -33,8 +33,8 @@ export function ImportButton() {
       const data = await res.json(); 
       if (!res.ok) throw new Error(data.error || "Failed to import"); 
       setStatus({ message: `Success! Imported ${data.imported} shows.`, type: "success" });
-    } catch (err: any) {
-      setStatus({ message: err.message, type: "error" });
+    } catch (err: unknown) {
+      setStatus({ message: err instanceof Error ? err.message : "Failed to import", type: "error" });
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = ""; 

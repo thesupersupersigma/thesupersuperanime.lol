@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: "Friends' Activity — thesupersuperanime",
 };
 
+function daysAgo(days: number): Date {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
@@ -38,7 +42,7 @@ export default async function FeedPage() {
     ? await db.watchHistory.findMany({
         where: {
           userId: { in: followingIds },
-          updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          updatedAt: { gte: daysAgo(7) },
         },
         orderBy: { updatedAt: "desc" },
         take: 50,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 
 interface Props {
   episode: number;
@@ -33,7 +33,7 @@ export function NextEpisodeCountdown({ episode, airingAt, compact = false }: Pro
 
   useEffect(() => {
     // Update immediately, then every second
-    setTimeLeft(getTimeLeft(airingAt));
+    startTransition(() => { setTimeLeft(getTimeLeft(airingAt)); });
     const interval = setInterval(() => {
       const t = getTimeLeft(airingAt);
       setTimeLeft(t);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, startTransition, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SearchBar } from "@/components/search-bar";
 import { AnimeCard, AnimeCardSkeleton, type WatchlistStatus } from "@/components/anime-card";
@@ -149,7 +149,9 @@ function SearchContent() {
 
   // Re-run whenever the URL query or any filter changes
   useEffect(() => {
-    performSearch(query, filters);
+    startTransition(() => {
+      performSearch(query, filters);
+    });
   }, [query, filters, performSearch]);
 
   function setFilter(key: keyof Filters, value: string) {

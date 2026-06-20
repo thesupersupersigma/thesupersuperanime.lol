@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, startTransition } from "react";
 
 interface LogEntry {
   id: string;
@@ -50,7 +50,7 @@ export function LogFeed() {
 
   // Initial fetch + auto-refresh every 30 seconds
   useEffect(() => {
-    fetchLogs();
+    startTransition(() => { fetchLogs(); });
     const interval = setInterval(fetchLogs, 30_000);
     return () => clearInterval(interval);
   }, [fetchLogs]);

@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
       withProgress: withProgress.length,
     })
     
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("\n--- IMPORT ERROR ---")
     console.error(err)
     console.error("--------------------\n")
-    return NextResponse.json({ error: err.message || "Failed to parse file." }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to parse file." }, { status: 500 })
   }
 }

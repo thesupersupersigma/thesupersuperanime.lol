@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, startTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { resetPasswordAction } from "../actions";
 
@@ -13,7 +13,7 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!token) setError("Invalid reset link. Please request a new one.");
+    if (!token) startTransition(() => { setError("Invalid reset link. Please request a new one."); });
   }, [token]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

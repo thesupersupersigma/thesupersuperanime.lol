@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -71,7 +71,9 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
 
   useEffect(() => {
     const tab = searchParams.get("tab") as Tab | null;
-    if (tab && TABS.find(t => t.id === tab)) { setActiveTab(tab); }
+    if (tab && TABS.find(t => t.id === tab)) {
+      startTransition(() => { setActiveTab(tab); });
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -297,7 +299,7 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
                 <div style={{ height: "1px", background: "#1a1a1a" }} />
                 <div>
                   <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "8px" }}> Password </h3>
-                  <p style={{ color: "#555", fontSize: "13px", marginBottom: "16px" }}> To change your password, sign out and use the "Forgot password?" link on the login screen. </p>
+                  <p style={{ color: "#555", fontSize: "13px", marginBottom: "16px" }}> To change your password, sign out and use the &quot;Forgot password?&quot; link on the login screen. </p>
                 </div> 
                 <div style={{ height: "1px", background: "#1a1a1a" }} /> 
                 <div> 
