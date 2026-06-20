@@ -35,6 +35,7 @@ export default function WatchClient() {
   const [isWatchPartyHost, setIsWatchPartyHost] = useState(false);
   const [watchPartyError, setWatchPartyError] = useState<string | null>(null);
   const [watchPartyCopied, setWatchPartyCopied] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
 
   // Fetch the current user ID for the comments component
   useEffect(() => {
@@ -93,6 +94,13 @@ export default function WatchClient() {
     } catch {
       setWatchPartyError("Could not start watch party. Please try again.");
     }
+  }
+
+  // Join an existing room by code — navigate to ?party=ROOMCODE.
+  function joinByCode() {
+    const code = joinCodeInput.trim().toUpperCase();
+    if (!code) return;
+    router.push(`/watch/${animeId}/${episodeNum}?party=${code}`);
   }
 
   useEffect(() => {
@@ -287,6 +295,45 @@ export default function WatchClient() {
                 >
                   🎬 Start Watch Party
                 </button>
+              )}
+              {currentUserId && !watchPartyCode && (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); joinByCode(); }}
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <input
+                    value={joinCodeInput}
+                    onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                    placeholder="Room code e.g. AB12CD"
+                    maxLength={6}
+                    style={{
+                      width: "160px",
+                      border: "1px solid #2a2a2a",
+                      background: "transparent",
+                      color: "#e5e5e5",
+                      fontSize: "12px",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontFamily: "inherit",
+                      textTransform: "uppercase",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      border: "1px solid #2a2a2a",
+                      background: "transparent",
+                      color: "#a3a3a3",
+                      fontSize: "12px",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Join
+                  </button>
+                </form>
               )}
               {watchPartyCopied && (
                 <span style={{ color: "#22c55e", fontSize: "12px" }}>

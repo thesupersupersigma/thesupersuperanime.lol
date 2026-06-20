@@ -41,7 +41,7 @@ export async function GET(
       send(buildState(initial));
       let lastUpdatedAt = initial.updatedAt.getTime();
 
-      // Poll DB every 2 seconds and push changes.
+      // Poll DB every 500ms and push changes (matches the host's push rate).
       const interval = setInterval(async () => {
         if (closed) { clearInterval(interval); return; }
         try {
@@ -61,7 +61,7 @@ export async function GET(
         } catch {
           clearInterval(interval);
         }
-      }, 2_000);
+      }, 500);
 
       // Keepalive ping every 25 seconds to prevent connection timeout.
       const ping = setInterval(() => {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import nacl from "tweetnacl";
 import { createWatchParty } from "@/lib/watch-party";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +54,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Discord-created rooms have no host (anonymous host).
-    const room = await createWatchParty(animeId, episodeNum);
+    // If the Discord user who ran the command has linked their site account,
+    // make them the host so they're recognized when they open the join link.
+    // (payload.member.user.id in a guild, payload.user.id in a DM.)
+    const discordUserId = payload.member?.user?.id ?? payload.user?.id ?? null;
+    let hostId: string | undefined;
+    if (discordUserId) {
+      const siteUser = await db.user.findFirst({
+        where: { discordId: discordUserId },
+        select: { id: true },
+      });
+      hostId = siteUser?.id ?? undefined;
+      console.log(`[discord-interactions] discord user ${discordUserId} → host ${hostId ?? "(unlinked)"}`);
+    }
+
+    const room = await createWatchParty(animeId, episodeNum, hostId);
     const joinUrl = `https://www.thesupersuperanime.lol/watch/${animeId}/${episodeNum}?party=${room.roomCode}`;
     console.log(`[discord-interactions] created watch party ${room.roomCode} for ${animeId}/${episodeNum}`);
 
