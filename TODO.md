@@ -196,10 +196,10 @@
 - [ ] AniList sync extended to manga read progress
 
 ### Easter Eggs
-- [ ] **Konami Code** (↑ ↑ ↓ ↓ ← → ← → B A) — some kind of visual reward (confetti, secret page, etc.)
-- [ ] **IDDQD** (Doom god mode cheat) — maybe toggle an invincible/god mode UI theme
-- [ ] **IDKFA** (Doom all weapons cheat) — unlock all badge slots displayed on profile temporarily
-- [ ] **A, B, A, C, A, B, B** — mystery (Mortal Kombat blood code on Sega Genesis)
+- [x] **Konami Code** (↑ ↑ ↓ ↓ ← → ← → B A) — some kind of visual reward (confetti, secret page, etc.)
+- [x] **IDDQD** (Doom god mode cheat) — maybe toggle an invincible/god mode UI theme
+- [x] **IDKFA** (Doom all weapons cheat) — unlock all badge slots displayed on profile temporarily
+- [x] **A, B, A, C, A, B, B** — mystery (Mortal Kombat blood code on Sega Genesis)
 
 ### Site as a Template (long-term)
 - [ ] Once the site gets significant traction, package it as a deployable template

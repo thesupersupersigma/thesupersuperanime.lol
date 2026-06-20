@@ -30,6 +30,7 @@ export function proxy(req: NextRequest) {
     pathname.startsWith("/api/watch-party") ||
     pathname.startsWith("/api/chat") ||
     pathname.startsWith("/api/changelog") ||
+    pathname === "/api/status" ||
     pathname === "/api/webhooks/github" ||
     pathname === "/api/discord/interactions"
   ) {
@@ -76,6 +77,7 @@ export function proxy(req: NextRequest) {
       pathname.startsWith("/api/watchlist") ||
       pathname.startsWith("/api/progress") ||
       pathname === "/leaderboard" ||
+      pathname === "/status" ||
       pathname === "/api/auth/me" ||
       pathname.startsWith("/user/");
 

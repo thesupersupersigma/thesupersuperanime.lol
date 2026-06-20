@@ -170,6 +170,32 @@ model ProviderLog {
   createdAt  DateTime @default(now())
 }
 
+// ─── Status Page ─────────────────────────────────────────────────────────────
+
+// Tracks outages per service for the public /status page. An incident is "open"
+// while resolvedAt is null; auto-opened/closed by the status checker.
+model StatusIncident {
+  id           String    @id @default(cuid())
+  service      String
+  startedAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  description  String?
+  autoResolved Boolean   @default(false)
+
+  @@index([service, startedAt])
+}
+
+// Per-check history rows used to compute uptime % and the 90-bar sparkline.
+model StatusCheck {
+  id        String   @id @default(cuid())
+  service   String
+  success   Boolean
+  latencyMs Int
+  checkedAt DateTime @default(now())
+
+  @@index([service, checkedAt])
+}
+
 model SourceToken {
   id        String   @id @default(cuid())
   token     String   @unique

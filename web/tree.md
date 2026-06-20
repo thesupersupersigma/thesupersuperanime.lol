@@ -1,1 +1,0 @@
-tree -I 'node_modules|.git|dist|build|graphify-out' > tree.txt

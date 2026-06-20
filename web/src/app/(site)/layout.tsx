@@ -56,6 +56,12 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           Updates
         </Link>
         <Link
+          href="/status"
+          style={{ color: "#404040", fontSize: "12px", textDecoration: "none" }}
+        >
+          Status
+        </Link>
+        <Link
           href="/privacy"
           style={{ color: "#404040", fontSize: "12px", textDecoration: "none" }}
         >

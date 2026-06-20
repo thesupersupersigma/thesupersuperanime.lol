@@ -511,7 +511,7 @@ export function AnimePlayer({
             <MediaProvider />
             {(activeServer?.subtitles ?? []).map((track, i) => (
               <Track
-                key={i}
+                key={String(i)}
                 src={`/api/subtitle-proxy?url=${encodeURIComponent(track.url)}`}
                 kind="subtitles"
                 language={track.language}

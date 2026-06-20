@@ -1,5 +1,5 @@
 import { providers as coreProviders } from "@/lib/core";
-import type { BaseProvider as CoreBaseProvider } from "@tsss/core";
+import type { BaseProvider as CoreBaseProvider } from "@/lib/core-dist/providers/base";
 import type { BaseProvider, ProviderCheckResult } from "./base";
 
 // ── Bridge adapter ───────────────────────────────────────────────────────────

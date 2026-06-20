@@ -1,23 +1,32 @@
-name: Provider Health Check
+name: Health & Status Checks
 
 on:
   schedule:
-    - cron: "0 */12 * * *" # every 12 hours
-  workflow_dispatch: # allow manual trigger from GitHub UI
+    - cron: "0 */12 * * *" # provider health check — every 12 hours
+    - cron: "*/5 * * * *" # public /status page check — every 5 minutes
+  workflow_dispatch: # allow manual trigger from GitHub UI (runs both)
 
 jobs:
-  health-check:
+  checks:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Run health check
+      - name: Run provider health check
+        if: github.event.schedule == '0 */12 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -f -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             https://thesupersuperanime.lol/api/cron/health-check
 
+      - name: Run status page check
+        if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -f -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://thesupersuperanime.lol/api/cron/status-check
+
       - name: Print result
         if: always()
-        run: echo "Health check job completed."
+        run: echo "Health/status check job completed."
