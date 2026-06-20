@@ -50,8 +50,18 @@ export default async function GenrePage({ params }: Props) {
       })).map(v => v.animeId)
     : [];
 
-  // Compute composite score and take top 10
-  const ranked = animeList
+  // Community ranking — sorted by vote count only
+  const communityRanked = animeList
+    .map(anime => ({
+      anime,
+      voteCount: voteMap.get(anime.id) ?? 0,
+      score: voteMap.get(anime.id) ?? 0,
+    }))
+    .sort((a, b) => b.voteCount - a.voteCount)
+    .slice(0, 10);
+
+  // Overall ranking — composite score, take top 10
+  const overallRanked = animeList
     .map(anime => ({
       anime,
       voteCount: voteMap.get(anime.id) ?? 0,
@@ -93,31 +103,12 @@ export default async function GenrePage({ params }: Props) {
         </p>
       </div>
 
-      {/* Ranking formula explainer */}
-      <div style={{
-        background: "#0d0d0d",
-        border: "1px solid #1f1f1f",
-        borderRadius: "6px",
-        padding: "10px 14px",
-        fontSize: "12px",
-        color: "#555",
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-      }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <span>Ranking formula: <code style={{ color: "#888", background: "#1a1a1a", padding: "1px 5px", borderRadius: "3px" }}>(AniList score × 10) + votes</code> — one vote per user, per anime, per genre.</span>
-      </div>
-
-      {ranked.length === 0 ? (
+      {communityRanked.length === 0 ? (
         <p style={{ color: "#555", fontSize: "14px" }}>No anime found for this genre.</p>
       ) : (
         <GenreVoteList
-          ranked={ranked}
+          communityRanked={communityRanked}
+          overallRanked={overallRanked}
           genre={genre}
           userVotedIds={userVotedIds}
           isLoggedIn={!!user}

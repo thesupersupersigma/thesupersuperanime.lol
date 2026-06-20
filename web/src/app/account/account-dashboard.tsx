@@ -149,10 +149,13 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
 
           {/* Tab content */} 
           <div style={{ padding: "24px" }}> 
-            {/* HISTORY TAB */} 
-            {activeTab === "history" && ( 
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}> 
-                {history.length === 0 ? ( 
+            {/* HISTORY TAB */}
+            {activeTab === "history" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
+                  <ExportHistoryButton />
+                </div>
+                {history.length === 0 ? (
                   <EmptyState message="No watch history yet. Start watching something!" /> 
                 ) : ( 
                   history.map(entry => { 
@@ -523,6 +526,55 @@ function NotificationSettings({ notifPrefs }: { notifPrefs: NotifPrefs }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function ExportHistoryButton() {
+  const [busy, setBusy] = useState(false);
+
+  async function handleExport() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/export/watch-history");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "watch-history.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silent failure — keep the button available to retry
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleExport}
+      disabled={busy}
+      style={{
+        border: "1px solid #2a2a2a",
+        background: "none",
+        color: "#555",
+        fontSize: "12px",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        cursor: busy ? "default" : "pointer",
+        opacity: busy ? 0.6 : 1,
+        transition: "color 0.15s, border-color 0.15s",
+      }}
+      onMouseEnter={e => { if (!busy) { e.currentTarget.style.color = "#a3a3a3"; e.currentTarget.style.borderColor = "#3a3a3a"; } }}
+      onMouseLeave={e => { e.currentTarget.style.color = "#555"; e.currentTarget.style.borderColor = "#2a2a2a"; }}
+    >
+      {busy ? "Exporting…" : "Export CSV"}
+    </button>
   );
 }
 

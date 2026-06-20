@@ -39,6 +39,21 @@ model User {
   genreVotes          GenreVote[]
   userBadges          UserBadge[]
   seasonResults       SeasonResult[]
+  following           Follow[]             @relation("Following")
+  followers           Follow[]             @relation("Followers")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model PasswordResetToken {

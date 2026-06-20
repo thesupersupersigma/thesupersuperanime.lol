@@ -136,6 +136,26 @@ export function Nav() {
               </svg>
             </Link>
 
+            {/* Feed — friends' activity (logged-in only) */}
+            {isLoggedIn && (
+              <Link href="/feed" style={{
+                display: "flex", alignItems: "center",
+                color: pathname === "/feed" ? "#e5e5e5" : "#888",
+                textDecoration: "none", transition: "color 150ms ease",
+              }}
+                title="Friends' Activity"
+                onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
+                onMouseLeave={e => (e.currentTarget.style.color = pathname === "/feed" ? "#e5e5e5" : "#888")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </Link>
+            )}
+
             {/* Watchlist/search bookmark */}
             <Link href="/account?tab=watchlist" style={{
               display: "flex",

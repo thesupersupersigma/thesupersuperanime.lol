@@ -76,23 +76,23 @@
 - [x] **Admin badge management panel** — UI for admins to search a user and grant/revoke any manually-grantable badge; owner can grant all badge types including admin-only ones
 
 ### Streak Emails (Duolingo-style nudges via Resend)
-- [ ] "Your streak is at risk 🔥" — if user hasn't watched today and had a streak yesterday
-- [ ] "Someone just passed you on the leaderboard" — triggered when rank changes
-- [ ] "A new episode of [anime] just dropped" — triggered when a new episode airs for something on the user's watchlist
-- [ ] "You're X episodes away from completing [anime]" — milestone nudge
-- [ ] All streak/notification emails opt-out-able in account settings
+- [x] "Your streak is at risk 🔥" — if user hasn't watched today and had a streak yesterday
+- [x] "Someone just passed you on the leaderboard" — triggered when rank changes
+- [x] "A new episode of [anime] just dropped" — triggered when a new episode airs for something on the user's watchlist
+- [x] "You're X episodes away from completing [anime]" — milestone nudge
+- [x] All streak/notification emails opt-out-able in account settings
 
 ---
 
 ## 🟡 Medium Priority
 
 ### Profile System Expansion
-- [ ] **Watch stats block** on profile — total time, episodes watched, completed anime count, favorite genre
-- [ ] **Activity/contribution graph** — GitHub-style heatmap of watch history by day (open source: fork `Platane/snk` and adapt for watch history instead of commits)
-- [ ] **"Currently watching" section** on profile — pulled from watchlist
-- [ ] **Follow/follower system** — follow other users; see follower/following counts on profile
-- [ ] **Friends' activity feed** — `/feed` page showing recent watches from people you follow
-- [ ] **Watch history export** — download as CSV, or sync to MyAnimeList via MAL API
+- [x] **Watch stats block** on profile — total time, episodes watched, completed anime count, favorite genre
+- [x] **Activity/contribution graph** — GitHub-style heatmap of watch history by day (open source: fork `Platane/snk` and adapt for watch history instead of commits)
+- [x] **"Currently watching" section** on profile — pulled from watchlist
+- [x] **Follow/follower system** — follow other users; see follower/following counts on profile
+- [x] **Friends' activity feed** — `/feed` page showing recent watches from people you follow
+- [x] **Watch history export** — download as CSV, or sync to MyAnimeList via MAL API
 
 ### Genre Voting Overhaul
 - [ ] **Split genre scoring into two tabs**:

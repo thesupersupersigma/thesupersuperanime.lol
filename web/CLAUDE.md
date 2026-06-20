@@ -103,7 +103,7 @@ All four email sends are fire-and-forget (`void ... .catch(...)`) so one Resend 
 | `src/components/` | Shared React components (player, nav, comments, episode list/sidebar, cards, announcement banner) |
 | `src/providers/` | Thin adapter wrapping `core-dist`'s legacy providers for the admin health-check dashboard only |
 | `src/lib/core-dist/` | Pre-built `@tsss/core` — rate limiting + legacy provider health checks. Do not edit directly |
-| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak) |
+| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak, Follow, Badge/UserBadge/GenreCache/AiringWatch, Season/SeasonResult) |
 
 ## Data Fetching Patterns
 

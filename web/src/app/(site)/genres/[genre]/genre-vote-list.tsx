@@ -22,16 +22,20 @@ interface RankedAnime {
 }
 
 interface Props {
-  ranked: RankedAnime[];
+  communityRanked: RankedAnime[];
+  overallRanked: RankedAnime[];
   genre: string;
   userVotedIds: number[];
   isLoggedIn: boolean;
 }
 
-export function GenreVoteList({ ranked, genre, userVotedIds, isLoggedIn }: Props) {
-  // vote state: animeId → count
+export function GenreVoteList({ communityRanked, overallRanked, genre, userVotedIds, isLoggedIn }: Props) {
+  const [activeTab, setActiveTab] = useState<"community" | "overall">("overall");
+  const ranked = activeTab === "community" ? communityRanked : overallRanked;
+
+  // vote state: animeId → count (seeded from both lists, deduped by anime id)
   const [voteCounts, setVoteCounts] = useState<Map<number, number>>(
-    () => new Map(ranked.map(r => [r.anime.id, r.voteCount]))
+    () => new Map([...communityRanked, ...overallRanked].map(r => [r.anime.id, r.voteCount]))
   );
   const [voted, setVoted] = useState<Set<number>>(
     () => new Set(userVotedIds)
@@ -114,7 +118,52 @@ export function GenreVoteList({ ranked, genre, userVotedIds, isLoggedIn }: Props
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Tab bar */}
+      <div>
+        <div style={{ display: "flex", borderBottom: "1px solid #1a1a1a" }}>
+          <button
+            onClick={() => setActiveTab("community")}
+            style={{
+              padding: "10px 16px",
+              background: "none",
+              border: "none",
+              borderBottom: activeTab === "community" ? "2px solid #3b82f6" : "2px solid transparent",
+              color: activeTab === "community" ? "#e5e5e5" : "#555",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "color 0.15s",
+              marginBottom: "-1px",
+            }}
+          >
+            Community Score
+          </button>
+          <button
+            onClick={() => setActiveTab("overall")}
+            style={{
+              padding: "10px 16px",
+              background: "none",
+              border: "none",
+              borderBottom: activeTab === "overall" ? "2px solid #3b82f6" : "2px solid transparent",
+              color: activeTab === "overall" ? "#e5e5e5" : "#555",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "color 0.15s",
+              marginBottom: "-1px",
+            }}
+          >
+            Overall Score
+          </button>
+        </div>
+        <p style={{ color: "#555", fontSize: "12px", marginTop: "8px" }}>
+          {activeTab === "community"
+            ? "Ranked purely by on-site votes — one vote per user."
+            : "Ranked by AniList score × 10 + community votes."}
+        </p>
+      </div>
+
       {ranked.map((item, idx) => {
         const { anime } = item;
         const title = getDisplayTitle(anime.title);
@@ -213,16 +262,32 @@ export function GenreVoteList({ ranked, genre, userVotedIds, isLoggedIn }: Props
               </Link>
 
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                {anime.averageScore && (
+                {activeTab === "overall" ? (
+                  <>
+                    {anime.averageScore && (
+                      <span style={{
+                        background: "#3b82f6",
+                        color: "#fff",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        padding: "1px 6px",
+                        borderRadius: "3px",
+                      }}>
+                        ★ {(anime.averageScore / 10).toFixed(1)}
+                      </span>
+                    )}
+                    <span style={{ color: "#555", fontSize: "11px" }}>↑ {votes} votes</span>
+                  </>
+                ) : (
                   <span style={{
-                    background: "#3b82f6",
-                    color: "#fff",
+                    background: votes > 0 ? "#3b82f6" : "transparent",
+                    color: votes > 0 ? "#fff" : "#555",
                     fontSize: "11px",
                     fontWeight: 600,
                     padding: "1px 6px",
                     borderRadius: "3px",
                   }}>
-                    ★ {(anime.averageScore / 10).toFixed(1)}
+                    ↑ {votes} votes
                   </span>
                 )}
                 {anime.format && (
