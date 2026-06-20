@@ -66,6 +66,14 @@ model ChatTimeout {
   reason    String?
 }
 
+model ChatChannel {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "general", "anime-discussion"
+  description String?
+  position    Int      @default(0)  // for ordering
+  createdAt   DateTime @default(now())
+}
+
 model WatchParty {
   id             String   @id @default(cuid())
   roomCode       String   @unique  // 6-char uppercase alphanumeric e.g. "AB12CD"

@@ -8,6 +8,7 @@ import { AnimePlayer, ServerData } from "@/components/player/anime-player";
 import { EpisodeSidebar } from "@/components/watch/episode-sidebar";
 import { WatchInfo } from "@/components/watch/watch-info";
 import { Comments } from "@/components/comments";
+import { PromoBanner } from "@/components/PromoBanner";
 
 export default function WatchClient() {
   const params = useParams();
@@ -345,6 +346,10 @@ export default function WatchClient() {
               )}
             </div>
           ) : null}
+
+          <div className="hidden md:block mt-3">
+            <PromoBanner />
+          </div>
 
           <div className="hidden md:block mt-6">
             <WatchInfo anime={anime} episodeNum={episodeNum} />

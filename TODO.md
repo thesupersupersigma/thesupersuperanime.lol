@@ -126,9 +126,9 @@
 - [x] "Random" button in nav or on homepage
 
 ### Sitewide Chat
-- [ ] Global chat accessible from a floating button or dedicated `/chat` page
-- [ ] Per-anime chat room on the anime detail page
-- [ ] Moderation tools for admins (delete message, timeout user)
+- [x] Global chat accessible from a floating button or dedicated `/chat` page
+- [x] Per-anime chat room on the anime detail page
+- [x] Moderation tools for admins (delete message, timeout user)
 
 ### Community Promotion Banner (Miruro-style)
 - [ ] Dismissible banner on homepage/watch page encouraging users to share the site and join Discord

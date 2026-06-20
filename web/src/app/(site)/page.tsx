@@ -4,6 +4,7 @@ import { AnimeRowSkeleton } from "@/components/anime-card";
 import { WatchlistAwareRow } from "@/components/watchlist-aware-row";
 import { ContinueWatching } from "@/components/continue-watching";
 import { HeroCarousel } from "@/components/hero-carousel";
+import { PromoBanner } from "@/components/PromoBanner";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -18,6 +19,10 @@ export default function HomePage() {
       <Suspense fallback={<div style={{ height: "50vh", minHeight: "400px", width: "100%", background: "#111", borderRadius: "8px" }} />}>
         <HeroBanner />
       </Suspense>
+
+      <section className="animate-fade-in">
+        <PromoBanner />
+      </section>
 
       {/* Continue Watching — client component, fetches per-user data */}
       <Section title="Continue Watching" className="animate-slide-up">

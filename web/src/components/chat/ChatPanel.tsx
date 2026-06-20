@@ -22,11 +22,12 @@ interface ChatMessageData {
 }
 
 interface ChatPanelProps {
-  roomId: string; // "global" or "anime-{animeId}"
+  roomId: string; // "global", "anime-{animeId}", or "channel-{id}"
   currentUserId?: string;
   isAdmin?: boolean;
   height?: number; // default 400
   placeholder?: string; // default "Say something..."
+  fillHeight?: boolean; // when true, fill the parent (height: 100%) instead of `height`
 }
 
 function timeAgo(iso: string) {
@@ -56,6 +57,7 @@ export function ChatPanel({
   isAdmin = false,
   height = 400,
   placeholder = "Say something...",
+  fillHeight = false,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [input, setInput] = useState("");
@@ -157,7 +159,7 @@ export function ChatPanel({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height }}>
+    <div style={{ display: "flex", flexDirection: "column", height: fillHeight ? "100%" : height, minHeight: 0 }}>
       {/* Messages area — plain rows on the site background, no bubbles */}
       <div
         ref={containerRef}
