@@ -147,6 +147,11 @@ l.parentNode.insertBefore(s, l);
 `}</Script>
         <WhatsNewModal />
         <EasterEggs />
+        <Script id="sw-register" strategy="afterInteractive">{`
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+`}</Script>
       </body>
     </html>
   );
