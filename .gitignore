@@ -3,6 +3,10 @@
 useless\ files:brokenstuff:unfixed\ stuff/
 tree.txt
 tree.md
+Please audit the Phase 3 implementation .md
+main.md
+ROADMAP.md
+.claudeignore.md
 
 # dependencies
 /node_modules
