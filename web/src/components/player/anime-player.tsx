@@ -7,6 +7,7 @@ import { isHLSProvider } from "vidstack";
 import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
 import { useRouter } from "next/navigation";
+import { WatchPartySync } from "@/components/player/watch-party-sync";
 
 export interface ServerData {
   name: string;
@@ -33,10 +34,14 @@ interface AnimePlayerProps {
   nextAiringEpisode?: { episode: number; airingAt: number };
   animeSlug?: string;
   malId?: number;
+  // Watch party: when set, the player is part of a synced room. The host pushes
+  // its position; guests follow it (see WatchPartySync).
+  watchPartyCode?: string;
+  isWatchPartyHost?: boolean;
 }
 
 export function AnimePlayer({
-  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure, totalEpisodes = Infinity, nextAiringEpisode, animeSlug, malId,
+  servers, animeId, episodeNum, animeTitle, mirrorUsed, fallbackReason, resumeTime = 0, onSourceFailure, totalEpisodes = Infinity, nextAiringEpisode, animeSlug, malId, watchPartyCode, isWatchPartyHost,
 }: AnimePlayerProps) {
   const router = useRouter();
   const playerRef = useRef<MediaPlayerInstance>(null);
@@ -450,6 +455,15 @@ export function AnimePlayer({
 
       {/* ── VIDEO PLAYER ── */}
       <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000" }}>
+        {watchPartyCode && (
+          <WatchPartySync
+            roomCode={watchPartyCode}
+            isHost={isWatchPartyHost ?? false}
+            playerRef={playerRef}
+            animeId={animeId}
+            episodeNum={episodeNum}
+          />
+        )}
         {playerError ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#e5e5e5" }}>
             <p style={{ marginBottom: "16px" }}>{playerError}</p>

@@ -37,7 +37,7 @@ All authentication is enforced in **`src/proxy.ts`** before any route handler ru
 Checks run in this order:
 
 1. **Static/internal passthrough** — `/_next`, `/favicon`, `/.well-known`, `robots.txt`, `sitemap.xml`, `llms.txt`, image extensions skip all checks.
-2. **Always public, no auth at all** — `/api/proxy/*`, `/api/subtitle-proxy/*`, `/api/auth/discord/*`, `/api/auth/me`, `/login`, `/api/announcement*` (includes `/api/announcement/stream`).
+2. **Always public, no auth at all** — `/api/proxy/*`, `/api/subtitle-proxy/*`, `/api/auth/discord/*`, `/api/auth/me`, `/login`, `/api/announcement*` (includes `/api/announcement/stream`), `/api/watch-party/*` (shareable rooms; the create/sync handlers still enforce auth in-route), `/api/discord/interactions` (Discord posts here with its own Ed25519 signature, verified in-route).
 3. **Cron routes** (`/api/cron/*`) — require `Authorization: Bearer <CRON_SECRET>`. `/api/cron/streak-emails` additionally re-checks the same header in-route against `CRON_SECRET` (see Nudge Emails below) — redundant with the gate above but harmless.
 4. **Site password gate** — `site-auth` cookie vs `SITE_PASSWORD`. Disable with `SITE_PASSWORD_GATE=off`. API routes get a 401 JSON response; pages redirect to `/login`.
 5. **Discord/email verification gate** — gates most remaining routes, **including `/admin/*` and `/api/admin/*`** (they are not in the exempt list). Disable entirely with `DISCORD_GATE=off`. `MASTER_GATE=off` lets anonymous (no `user-session` cookie) users browse without a session, but logged-in users still need `discord-linked=1` or `email-verified=1` cookies (mirrored from the DB into cookies since the proxy runs on the Edge and can't query Postgres). Exempt paths: `/account*`, `/api/auth/*`, `/api/import/*`, `/api/watchlist/*`, `/api/progress/*`, `/leaderboard`, `/user/*`.
@@ -92,6 +92,20 @@ This is a Vidstack (`@vidstack/react`) player wrapping hls.js. Several non-obvio
 
 All four email sends are fire-and-forget (`void ... .catch(...)`) so one Resend failure can't abort the rest of the batch. Auth: `CRON_SECRET`, same as every other `/api/cron/*` route.
 
+## Watch Parties
+
+SSE-synced rooms let a host and guests watch the same episode in lockstep. Backed by the `WatchParty` model (`roomCode`, `hostId`, `animeId`, `episodeNum`, `hostTimestamp`, `isPlaying`, `expiresAt = now + 6h`). Helpers in `src/lib/watch-party.ts` (`generateRoomCode` — 6-char A–Z0–9; `createWatchParty` — retries on roomCode collision; `getWatchParty` — returns null when not found **or expired**).
+
+Routes (all `force-dynamic`, all under the always-public proxy exempt list):
+- `POST /api/watch-party` — create a room (requires `getCurrentUser()`, host = the user). Returns `{ roomCode, animeId, episodeNum }`.
+- `GET /api/watch-party/[roomCode]` — fetch room info (public, 404 if missing/expired).
+- `POST /api/watch-party/[roomCode]/sync` — host pushes `{ timestamp, isPlaying }`; 403 unless `user.id === hostId`.
+- `GET /api/watch-party/[roomCode]/stream` — public SSE (modeled on `/api/announcement/stream`): sends state on connect, polls the DB every **2s** and pushes when `updatedAt` changes, 25s keepalive ping, emits `{ error: "expired" }` and closes when the room is gone.
+
+Client: `src/components/player/watch-party-sync.tsx` is rendered by `AnimePlayer` when `watchPartyCode` is set (props `watchPartyCode` / `isWatchPartyHost`). The host POSTs `playerRef.current.currentTime`/`!paused` every 2s; guests subscribe to the SSE stream and hard-seek only when drift exceeds **±3s** (`SYNC_TOLERANCE`, loose to absorb jitter), plus mirror play/pause. It also renders the top-left "🎬 Watch Party" pill (room code + Copy Link + Hosting/Syncing dot). `watch-client.tsx` reads `?party=ROOMCODE` via `useSearchParams()`, fetches the room to decide host vs guest, and renders the "🎬 Start Watch Party" button (logged-in users, no active party) which POSTs to `/api/watch-party` and copies the join link.
+
+Discord slash command: `POST /api/discord/interactions` verifies the Ed25519 signature with `tweetnacl` against `DISCORD_PUBLIC_KEY`, answers the PING handshake, and on `/watchparty anime_id episode` calls `createWatchParty(animeId, episodeNum)` with **no host** (anonymous-host room) and replies with the join link. Register the command once via `node scripts/register-discord-commands.mjs` (needs `DISCORD_BOT_TOKEN` + `DISCORD_APP_ID` in `.env.local`).
+
 ## Key Directories
 
 | Path | Purpose |
@@ -103,7 +117,7 @@ All four email sends are fire-and-forget (`void ... .catch(...)`) so one Resend 
 | `src/components/` | Shared React components (player, nav, comments, episode list/sidebar, cards, announcement banner) |
 | `src/providers/` | Thin adapter wrapping `core-dist`'s legacy providers for the admin health-check dashboard only |
 | `src/lib/core-dist/` | Pre-built `@tsss/core` — rate limiting + legacy provider health checks. Do not edit directly |
-| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak, Follow, Badge/UserBadge/GenreCache/AiringWatch, Season/SeasonResult) |
+| `prisma/schema.prisma` | DB schema (User, WatchHistory, Watchlist, Comment, CommentLike, SourceToken, ProviderStatus, ProviderLog, Issue, GenreVote, Announcement, WatchStreak, Follow, WatchParty, Badge/UserBadge/GenreCache/AiringWatch, Season/SeasonResult) |
 
 ## Data Fetching Patterns
 
@@ -121,6 +135,7 @@ All four email sends are fire-and-forget (`void ... .catch(...)`) so one Resend 
 - `ADMIN_1`, `ADMIN_2`, ... — Discord ID allowlist for `isAdmin()`, the sole admin authorization check (`/admin` page + every `/api/admin/*` route)
 - `DISCORD_GATE` / `MASTER_GATE` — control the Discord/email verification gate (see Auth Layers above)
 - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_BOT_TOKEN` / `DISCORD_GUILD_ID` — Discord OAuth linking
+- `DISCORD_PUBLIC_KEY` / `DISCORD_APP_ID` — Discord slash-command interactions (`/api/discord/interactions` signature verification + `scripts/register-discord-commands.mjs`); see Watch Parties
 - `VERCEL_BYPASS_SECRET` — Vercel deployment protection bypass (used in the Discord OAuth callback redirect)
 - `DISCORD_WEBHOOK_URL` — provider health failure/recovery alerts
 - `DISCORD_ALERT_WEBHOOK_URL` / `DISCORD_ALERT_USER_ID` — admin login / security alerts (Discord callback route)

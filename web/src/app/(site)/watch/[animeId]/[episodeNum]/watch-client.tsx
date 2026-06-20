@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { AnilistMedia } from "@/lib/anilist";
 import { getDisplayTitle } from "@/lib/anilist";
 import { AnimePlayer, ServerData } from "@/components/player/anime-player";
@@ -12,9 +12,11 @@ import { Comments } from "@/components/comments";
 export default function WatchClient() {
   const params = useParams();
   const router = useRouter();
-  
+  const searchParams = useSearchParams();
+
   const animeId = Number(params.animeId);
   const episodeNum = Number(params.episodeNum);
+  const partyParam = searchParams.get("party");
 
   const [anime, setAnime] = useState<AnilistMedia | null>(null);
   const [servers, setServers] = useState<ServerData[]>([]);
@@ -28,6 +30,12 @@ export default function WatchClient() {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
 
+  // ── WATCH PARTY ─────────────────────────────────────────────────────────
+  const [watchPartyCode, setWatchPartyCode] = useState<string | null>(null);
+  const [isWatchPartyHost, setIsWatchPartyHost] = useState(false);
+  const [watchPartyError, setWatchPartyError] = useState<string | null>(null);
+  const [watchPartyCopied, setWatchPartyCopied] = useState(false);
+
   // Fetch the current user ID for the comments component
   useEffect(() => {
     fetch("/api/auth/me")
@@ -35,6 +43,57 @@ export default function WatchClient() {
       .then(d => { if (d?.userId) setCurrentUserId(d.userId) })
       .catch(() => {});
   }, []);
+
+  // If the URL has ?party=ROOMCODE, join that room. Determine host vs guest by
+  // comparing the current user against the room's hostId.
+  useEffect(() => {
+    if (!partyParam) return;
+    let cancelled = false;
+    fetch(`/api/watch-party/${partyParam}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(room => {
+        if (cancelled) return;
+        if (!room) {
+          setWatchPartyError("Watch party room not found or expired.");
+          setWatchPartyCode(null);
+          return;
+        }
+        setWatchPartyError(null);
+        setWatchPartyCode(room.roomCode);
+        setIsWatchPartyHost(!!currentUserId && currentUserId === room.hostId);
+      })
+      .catch(() => {
+        if (!cancelled) setWatchPartyError("Watch party room not found or expired.");
+      });
+    return () => { cancelled = true; };
+  }, [partyParam, currentUserId]);
+
+  // Create a new watch party room (host).
+  async function startWatchParty() {
+    try {
+      const res = await fetch("/api/watch-party", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ animeId, episodeNum }),
+      });
+      if (!res.ok) {
+        setWatchPartyError("Could not start watch party. Please try again.");
+        return;
+      }
+      const data = await res.json();
+      setWatchPartyError(null);
+      setWatchPartyCode(data.roomCode);
+      setIsWatchPartyHost(true);
+      const joinUrl = `https://www.thesupersuperanime.lol/watch/${animeId}/${episodeNum}?party=${data.roomCode}`;
+      try {
+        await navigator.clipboard.writeText(joinUrl);
+        setWatchPartyCopied(true);
+        setTimeout(() => setWatchPartyCopied(false), 3000);
+      } catch { /* clipboard blocked — link still shown in the overlay */ }
+    } catch {
+      setWatchPartyError("Could not start watch party. Please try again.");
+    }
+  }
 
   useEffect(() => {
     if (isNaN(animeId) || isNaN(episodeNum)) {
@@ -204,9 +263,42 @@ export default function WatchClient() {
               }
               nextAiringEpisode={anime.nextAiringEpisode ?? undefined}
               malId={anime.idMal ?? undefined}
+              watchPartyCode={watchPartyCode ?? undefined}
+              isWatchPartyHost={isWatchPartyHost}
             />
           </div>
-          
+
+          {/* ── WATCH PARTY CONTROLS ── */}
+          {(currentUserId && !watchPartyCode) || watchPartyCopied || watchPartyError ? (
+            <div className="mt-3 px-4 md:px-0" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              {currentUserId && !watchPartyCode && (
+                <button
+                  onClick={startWatchParty}
+                  style={{
+                    border: "1px solid #2a2a2a",
+                    background: "transparent",
+                    color: "#a3a3a3",
+                    fontSize: "12px",
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  🎬 Start Watch Party
+                </button>
+              )}
+              {watchPartyCopied && (
+                <span style={{ color: "#22c55e", fontSize: "12px" }}>
+                  Link copied! Share it with friends.
+                </span>
+              )}
+              {watchPartyError && (
+                <span style={{ color: "#ef4444", fontSize: "12px" }}>{watchPartyError}</span>
+              )}
+            </div>
+          ) : null}
+
           <div className="hidden md:block mt-6">
             <WatchInfo anime={anime} episodeNum={episodeNum} />
           </div>

@@ -26,7 +26,9 @@ export function proxy(req: NextRequest) {
     pathname.startsWith("/api/auth/discord") ||
     pathname === "/api/auth/me" ||
     pathname === "/login" ||
-    pathname.startsWith("/api/announcement")
+    pathname.startsWith("/api/announcement") ||
+    pathname.startsWith("/api/watch-party") ||
+    pathname === "/api/discord/interactions"
   ) {
     return NextResponse.next();
   }
