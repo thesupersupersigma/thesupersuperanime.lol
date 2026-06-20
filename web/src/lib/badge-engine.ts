@@ -2,6 +2,20 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import { getAnimeById } from "@/lib/anilist";
+import { sendBadgeAnnouncementPost } from "@/lib/discord";
+
+/**
+ * Badge slugs notable enough to announce in the public #badges Discord channel.
+ */
+const NOTABLE_BADGE_SLUGS = new Set([
+  "episodes-100", "episodes-500", "episodes-1000",
+  "watchtime-100h", "watchtime-500h",
+  "completed-10", "completed-50",
+  "leaderboard-top10", "leaderboard-top3", "leaderboard-number1",
+  "streak-30", "streak-100",
+  "airing-10", "airing-25",
+  "weekly-champion", "season-champion",
+]);
 
 /**
  * Badge auto-grant engine.
@@ -67,6 +81,32 @@ async function sendBadgeDM(
 }
 
 /**
+ * Best-effort Discord channel post for notable badge grants. Never throws and
+ * never blocks the grant — fire-and-forget. No-ops if the badge isn't notable
+ * or the user has no username/discordUsername to build a profile link from.
+ */
+async function sendBadgeAnnouncement(
+  userId: string,
+  badge: { slug: string; name: string; description: string; icon: string },
+): Promise<void> {
+  if (!NOTABLE_BADGE_SLUGS.has(badge.slug)) return;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { discordId: true, username: true, displayName: true, discordUsername: true },
+  });
+  if (!user) return;
+
+  const profileName = user.username ?? user.discordUsername;
+  if (!profileName) return;
+
+  const displayName = user.displayName ?? user.username ?? user.discordUsername ?? "Someone";
+  const profileUrl = `https://www.thesupersuperanime.lol/user/${profileName}`;
+
+  await sendBadgeAnnouncementPost(displayName, badge.name, badge.icon, badge.description, profileUrl);
+}
+
+/**
  * Grant a badge to a user.
  *
  * Non-stackable badges are granted at most once — if the user already holds it,
@@ -95,8 +135,9 @@ export async function grantBadge(userId: string, slug: string, context?: string)
     await db.userBadge.create({
       data: { userId, badgeSlug: slug, context: context ?? null },
     });
-    // Fire-and-forget Discord DM — never blocks or fails the grant.
+    // Fire-and-forget Discord DM + channel announcement — never blocks or fails the grant.
     void sendBadgeDM(userId, badge).catch(() => {});
+    void sendBadgeAnnouncement(userId, badge).catch(() => {});
     return true;
   } catch (error) {
     if (isUniqueViolation(error)) return false;

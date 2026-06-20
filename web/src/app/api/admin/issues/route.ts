@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     take: 200,
     include: {
       user: {
-        select: { discordUsername: true, email: true },
+        select: { id: true, discordUsername: true, username: true, email: true },
       },
     },
   });

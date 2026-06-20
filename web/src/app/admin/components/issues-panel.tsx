@@ -9,7 +9,7 @@ interface IssueRow {
   animeInfo: string | null;
   status: string;
   createdAt: string;
-  user: { discordUsername: string | null; email: string } | null;
+  user: { id: string; discordUsername: string | null; username: string | null; email: string } | null;
 }
 
 interface IssuesPanelProps {
@@ -40,6 +40,8 @@ export function IssuesPanel({ initialIssues }: IssuesPanelProps) {
   const [filter, setFilter] = useState<"open" | "resolved" | "all">("open");
   const [resolving, setResolving] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [granting, setGranting] = useState<Set<string>>(new Set());
+  const [granted, setGranted] = useState<Set<string>>(new Set());
 
   const visible = filter === "all" ? issues : issues.filter(i => i.status === filter);
   const openCount = issues.filter(i => i.status === "open").length;
@@ -59,6 +61,23 @@ export function IssuesPanel({ initialIssues }: IssuesPanelProps) {
       }
     } finally {
       setResolving(s => { const n = new Set(s); n.delete(issue.id); return n; });
+    }
+  }
+
+  async function grantBugHunter(issue: IssueRow) {
+    if (!issue.user?.id || granting.has(issue.id) || granted.has(issue.id)) return;
+    setGranting(s => new Set(s).add(issue.id));
+    try {
+      const res = await fetch("/api/badges/grant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: issue.user.id, badgeSlug: "bug-hunter" }),
+      });
+      if (res.ok) {
+        setGranted(s => new Set(s).add(issue.id));
+      }
+    } finally {
+      setGranting(s => { const n = new Set(s); n.delete(issue.id); return n; });
     }
   }
 
@@ -168,7 +187,17 @@ export function IssuesPanel({ initialIssues }: IssuesPanelProps) {
                     {issue.user && (
                       <>
                         <span>·</span>
-                        <span>{issue.user.discordUsername ?? issue.user.email}</span>
+                        {(issue.user.discordUsername ?? issue.user.username) ? (
+                          <a
+                            href={`/user/${issue.user.discordUsername ?? issue.user.username}`}
+                            onClick={e => e.stopPropagation()}
+                            style={{ color: "#3b82f6", textDecoration: "none" }}
+                          >
+                            {issue.user.discordUsername ?? issue.user.email}
+                          </a>
+                        ) : (
+                          <span>{issue.user.email}</span>
+                        )}
                       </>
                     )}
                     {!issue.user && <span>· anonymous</span>}
@@ -225,6 +254,30 @@ export function IssuesPanel({ initialIssues }: IssuesPanelProps) {
                       ? "✓ Mark resolved"
                       : "↩ Reopen"}
                   </button>
+                  {issue.user?.id && (
+                    <button
+                      onClick={() => grantBugHunter(issue)}
+                      disabled={granting.has(issue.id) || granted.has(issue.id)}
+                      style={{
+                        marginLeft: "8px",
+                        background: granted.has(issue.id) ? "#22c55e18" : "#f9731618",
+                        border: `1px solid ${granted.has(issue.id) ? "#22c55e33" : "#f9731633"}`,
+                        color: granted.has(issue.id) ? "#22c55e" : "#f97316",
+                        fontSize: "12px", fontWeight: 600,
+                        padding: "6px 14px", borderRadius: "6px",
+                        cursor: granting.has(issue.id) || granted.has(issue.id) ? "not-allowed" : "pointer",
+                        fontFamily: "inherit",
+                        opacity: granting.has(issue.id) || granted.has(issue.id) ? 0.5 : 1,
+                        transition: "all 150ms ease",
+                      }}
+                    >
+                      {granted.has(issue.id)
+                        ? "🐛 Bug Hunter Granted ✓"
+                        : granting.has(issue.id)
+                        ? "Granting…"
+                        : "🐛 Grant Bug Hunter"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

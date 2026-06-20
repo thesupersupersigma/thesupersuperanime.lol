@@ -21,13 +21,7 @@ function relativeTime(date: Date | null): string {
   return `${Math.floor(diffHrs / 24)}d ago`;
 }
 
-async function postToDiscord(payload: object): Promise<void> {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.warn("[discord] DISCORD_WEBHOOK_URL not set — skipping alert");
-    return;
-  }
-
+async function postToChannel(webhookUrl: string, payload: object): Promise<void> {
   try {
     const res = await fetch(webhookUrl, {
       method: "POST",
@@ -43,6 +37,77 @@ async function postToDiscord(payload: object): Promise<void> {
   } catch (err) {
     console.error("[discord] Webhook fetch error:", err);
   }
+}
+
+async function postToDiscord(payload: object): Promise<void> {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.warn("[discord] DISCORD_WEBHOOK_URL not set — skipping alert");
+    return;
+  }
+  await postToChannel(webhookUrl, payload);
+}
+
+/**
+ * Fires when a new episode airs for an anime on someone's watchlist.
+ * Posts once per newly-aired episode to the #new-episodes channel.
+ */
+export async function sendNewEpisodeChannelPost(
+  animeTitle: string,
+  episodeNum: number,
+  animeId: number,
+  coverUrl: string
+): Promise<void> {
+  const webhookUrl = process.env.DISCORD_NEW_EPISODES_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.warn("[discord] DISCORD_NEW_EPISODES_WEBHOOK_URL not set — skipping new episode post");
+    return;
+  }
+
+  await postToChannel(webhookUrl, {
+    embeds: [
+      {
+        color: 0x3b82f6, // blue
+        title: `🎬 New Episode — ${animeTitle}`,
+        description: `Episode ${episodeNum} is now available`,
+        ...(coverUrl ? { thumbnail: { url: coverUrl } } : {}),
+        url: `https://www.thesupersuperanime.lol/anime/${animeId}`,
+        footer: { text: "thesupersuperanime.lol" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
+/**
+ * Fires when a user earns a notable milestone badge. Posts to the #badges
+ * channel.
+ */
+export async function sendBadgeAnnouncementPost(
+  displayName: string,
+  badgeName: string,
+  badgeIcon: string,
+  badgeDescription: string,
+  profileUrl: string
+): Promise<void> {
+  const webhookUrl = process.env.DISCORD_BADGES_WEBHOOK_URL;
+  if (!webhookUrl) {
+    console.warn("[discord] DISCORD_BADGES_WEBHOOK_URL not set — skipping badge announcement");
+    return;
+  }
+
+  await postToChannel(webhookUrl, {
+    embeds: [
+      {
+        color: 0xa855f7, // purple
+        title: `${badgeIcon} ${displayName} earned a badge!`,
+        description: `**${badgeName}** — ${badgeDescription}`,
+        url: profileUrl,
+        footer: { text: "thesupersuperanime.lol" },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
 }
 
 /**

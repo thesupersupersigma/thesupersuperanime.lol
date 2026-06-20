@@ -95,19 +95,19 @@
 - [x] **Watch history export** — download as CSV, or sync to MyAnimeList via MAL API
 
 ### Genre Voting Overhaul
-- [ ] **Split genre scoring into two tabs**:
+- [x] **Split genre scoring into two tabs**:
   - "Community Score" tab — pure on-site votes only, no external weighting
   - "Overall Score" tab — current formula (AniList score × weight + site votes)
-- [ ] Show vote counts and breakdown on each tab
+- [x] Show vote counts and breakdown on each tab
 
 ### Leaderboard Issues Tracking
-- [ ] **Issues/suggestions badges** — admin can grant "Bug Hunter" when a reported issue gets resolved
-- [ ] Link resolved issues to the user who reported them on their profile
+- [x] **Issues/suggestions badges** — admin can grant "Bug Hunter" when a reported issue gets resolved
+- [x] Link resolved issues to the user who reported them on their profile
 
 ### Discord Bot Expansion
-- [ ] **New episode notifications** to a `#new-episodes` Discord channel (requires knowing airing schedule — already have AniSkip/AniList data)
-- [ ] **Badge earned announcements** — optional channel for milestone achievements (e.g. "User X just hit 100h!")
-- [ ] **Watch party coordination** via bot commands
+- [x] **New episode notifications** to a `#new-episodes` Discord channel (requires knowing airing schedule — already have AniSkip/AniList data)
+- [x] **Badge earned announcements** — optional channel for milestone achievements (e.g. "User X just hit 100h!")
+- [x] **Watch party coordination** via bot commands
 
 ### Watch Parties
 - [ ] Synchronized watching — users in a "room" see the same timestamp

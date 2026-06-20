@@ -7,6 +7,7 @@ import {
   sendNewEpisodeEmail,
   sendCompletionNudgeEmail,
 } from "@/lib/resend";
+import { sendNewEpisodeChannelPost } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,7 @@ export async function GET(req: NextRequest) {
       select: { id: true, email: true, emailVerified: true, emailNotifNewEpisode: true },
     });
     const watchingUserMap = new Map(watchingUsers.map((u) => [u.id, u]));
+    const updatedAnimeIds = new Set<number>();
 
     for (const entry of watchingEntries) {
       const userId = entry.userId;
@@ -156,6 +158,7 @@ export async function GET(req: NextRequest) {
         where: { id: entry.id },
         data: { lastNotifiedEpisode: latestAired },
       });
+      updatedAnimeIds.add(entry.animeId);
 
       const user = watchingUserMap.get(userId);
       if (!user || !user.emailVerified || !user.emailNotifNewEpisode) continue;
@@ -164,6 +167,18 @@ export async function GET(req: NextRequest) {
       void sendNewEpisodeEmail(user.email, getDisplayTitle(anime.title), latestAired, entry.animeId).catch(
         (err) => console.error("[cron/streak-emails] new episode email failed:", err)
       );
+    }
+
+    for (const animeId of updatedAnimeIds) {
+      const anime = animeCache.get(animeId);
+      if (!anime?.nextAiringEpisode) continue;
+      const latestAired = anime.nextAiringEpisode.episode - 1;
+      void sendNewEpisodeChannelPost(
+        getDisplayTitle(anime.title),
+        latestAired,
+        animeId,
+        anime.coverImage.large
+      ).catch((err) => console.error("[cron/streak-emails] new episode Discord post failed:", err));
     }
     console.log(`[cron/streak-emails] new-episode: ${newEpEmails} emails`);
   }
