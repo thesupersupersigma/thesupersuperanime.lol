@@ -115,11 +115,11 @@
 - [x] Discord bot integration — create a watch party from Discord, get a join link
 
 ### Animations & Polish
-- [ ] Page transition animations (fade/slide between routes)
-- [ ] Card hover effects (subtle scale/glow on anime cards)
-- [ ] Confetti or particle effect when earning a badge
-- [ ] Skeleton loading states (already partially done — extend to more pages)
-- [ ] Smooth scroll behavior sitewide
+- [x] Page transition animations (fade/slide between routes)
+- [x] Card hover effects (subtle scale/glow on anime cards)
+- [x] Confetti or particle effect when earning a badge
+- [x] Skeleton loading states (already partially done — extend to more pages)
+- [x] Smooth scroll behavior sitewide
 
 ### Random Anime
 - [ ] `/random` route — redirects to a random anime from AniList filtered by user's genre preferences if logged in, otherwise truly random

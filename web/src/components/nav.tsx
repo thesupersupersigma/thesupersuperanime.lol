@@ -105,6 +105,26 @@ export function Nav() {
               </svg>
             </Link>
 
+            {/* Random anime */}
+            <Link href="/random" style={{
+              display: "flex", alignItems: "center",
+              color: "#888",
+              textDecoration: "none", transition: "color 150ms ease",
+            }}
+              title="Random Anime"
+              onMouseEnter={e => (e.currentTarget.style.color = "#e5e5e5")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#888")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="3" ry="3"/>
+                <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="8" cy="16" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none"/>
+              </svg>
+            </Link>
+
             {/* Leaderboard/Ranks bookmark */}
             <Link href="/leaderboard" style={{
               display: "flex", alignItems: "center",
@@ -260,6 +280,16 @@ export function Nav() {
             <line x1="3" y1="6" x2="3.01" y2="6" />
             <line x1="3" y1="12" x2="3.01" y2="12" />
             <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
+        } />
+        <MobileTab href="/random" label="Random" active={pathname === "/random"} icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="3" ry="3"/>
+            <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="8" cy="16" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none"/>
           </svg>
         } />
         <MobileTab href="/leaderboard" label="Ranks" active={pathname === "/leaderboard"} icon={
