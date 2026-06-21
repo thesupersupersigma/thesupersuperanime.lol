@@ -516,7 +516,6 @@ export function AnimePlayer({
             onProviderChange={onProviderChange}
             onEnded={onEnded}
             onError={onPlaybackError}
-            crossOrigin
             playsInline
           >
             <MediaProvider />
