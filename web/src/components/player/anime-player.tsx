@@ -406,46 +406,38 @@ export function AnimePlayer({
   }, []);
 
   useEffect(() => {
-    // Safari + HilltopAds conflict: the rmp-vast ad SDK intercepts
-    // requestFullscreen and tries to play a webm ad, which Safari can't decode,
-    // causing a black screen. Fix: on Safari, intercept the fullscreen button
-    // click and call webkitEnterFullscreen() directly on the <video> element,
-    // bypassing the ad SDK's listener entirely.
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    if (!isSafari) return;
-
+    // HilltopAds rmp-vast intercepts fullscreenchange events and hijacks fullscreen
+    // with its own ad video element (which fails in Safari with webm decode errors).
+    // Fix: prevent fullscreenchange events that originate from OUTSIDE our player
+    // container from reaching the ad SDK, and prevent the ad SDK's own video element
+    // from entering fullscreen.
     const container = containerRef.current;
     if (!container) return;
 
-    const handleFullscreenClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // Vidstack's fullscreen button has aria-label="Enter Fullscreen" or is inside
-      // [data-fullscreen-button]. Check both.
-      const isFullscreenBtn =
-        target.closest('[data-fullscreen-button]') ||
-        target.closest('[aria-label="Enter Fullscreen"]') ||
-        target.closest('[aria-label="Exit Fullscreen"]');
-      if (!isFullscreenBtn) return;
-
-      e.stopImmediatePropagation();
-      e.preventDefault();
-
-      const video = container.querySelector('video');
-      if (!video) return;
-
-      if (document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement) {
+    const blockAdFullscreen = (e: Event) => {
+      const fullscreenEl =
+        document.fullscreenElement ||
+        (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+      // If the element that went fullscreen is NOT inside our player container,
+      // stop it from propagating to the ad SDK listener on document.
+      if (fullscreenEl && !container.contains(fullscreenEl)) {
+        e.stopImmediatePropagation();
+      }
+      // If the ad SDK's video element (outside our container) entered fullscreen, exit immediately.
+      if (fullscreenEl && !container.contains(fullscreenEl) && fullscreenEl.tagName === 'VIDEO') {
         const doc = document as Document & { webkitExitFullscreen?: () => void };
         if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
         else document.exitFullscreen?.();
-      } else {
-        const vid = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
-        if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();
-        else video.requestFullscreen?.();
       }
     };
 
-    container.addEventListener('click', handleFullscreenClick, { capture: true });
-    return () => container.removeEventListener('click', handleFullscreenClick, { capture: true });
+    // Use capture:true so we run before the ad SDK's bubble-phase listeners.
+    document.addEventListener('fullscreenchange', blockAdFullscreen, { capture: true });
+    document.addEventListener('webkitfullscreenchange', blockAdFullscreen, { capture: true });
+    return () => {
+      document.removeEventListener('fullscreenchange', blockAdFullscreen, { capture: true });
+      document.removeEventListener('webkitfullscreenchange', blockAdFullscreen, { capture: true });
+    };
   }, []);
 
   // ── ANISKIP ────────────────────────────────────────────────────────────────
