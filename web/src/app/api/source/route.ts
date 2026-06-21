@@ -14,21 +14,15 @@ interface NormalizedStream {
   subtitles: { url: string; language: string; label: string; default: boolean }[];
 }
 
-const PROVIDER_PRIORITY: Record<string, number> = {
-  anineko: 0,
-  anikoto: 1,
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { animeTitle, episodeNum, animeId } = body as {
-      animeTitle?: string;
+    const { episodeNum, animeId } = body as {
       episodeNum?: number;
       animeId?: number;
     };
 
-    if (!animeTitle || episodeNum == null || animeId == null) {
+    if (episodeNum == null || animeId == null) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -39,24 +33,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
-    console.log(`[/api/source] Fetching streams for: ${animeTitle} | Ep: ${episodeNum}`);
+    console.log(`[/api/source] Fetching streams for animeId: ${animeId} | Ep: ${episodeNum}`);
 
-    const { streams: allStreams, mirrorUsed, fallbackReason } = await fetchAnivexa(animeId, episodeNum);
+    let allStreams: NormalizedStream[] = [];
+    let fallbackReason = "primary";
+    try {
+      allStreams = await fetchScraper(animeId, episodeNum);
+      if (allStreams.length === 0) fallbackReason = "not_found";
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      fallbackReason = name === "TimeoutError" || name === "AbortError" ? "timeout" : "error";
+    }
 
     if (allStreams.length === 0) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
     }
 
-    // For each audio type, keep only the streams from the highest-priority provider
+    // Group streams per audio type (each type comes from a single provider)
     const typeMap = new Map<string, NormalizedStream[]>();
     for (const type of ["sub", "dub"] as const) {
       const streamsOfType = allStreams.filter(s => s.type === type);
       if (streamsOfType.length === 0) continue;
-      // Pick the provider with the lowest priority number (highest priority)
-      const bestProvider = streamsOfType.reduce((best, s) =>
-        (PROVIDER_PRIORITY[s.provider] ?? 99) < (PROVIDER_PRIORITY[best.provider] ?? 99) ? s : best
-      ).provider;
-      typeMap.set(type, streamsOfType.filter(s => s.provider === bestProvider));
+      typeMap.set(type, streamsOfType);
     }
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
@@ -122,8 +120,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log(`[/api/source] Compiled ${finalServers.length} servers for ${animeTitle} ep ${episodeNum}`);
-    return NextResponse.json({ servers: finalServers, mirrorUsed, fallbackReason });
+    console.log(`[/api/source] Compiled ${finalServers.length} servers for animeId ${animeId} ep ${episodeNum}`);
+    return NextResponse.json({ servers: finalServers, fallbackReason });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -131,112 +129,74 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function fetchAnivexa(
-  animeId: number,
-  episodeNum: number
-): Promise<{ streams: NormalizedStream[]; mirrorUsed: number; fallbackReason: string }> {
-  const baseUrl = process.env.ANIVEXA_API_URL;
-  if (!baseUrl) throw new Error("ANIVEXA_API_URL is not set");
-
-  try {
-    const streams = await fetchAnevixaFromUrl(baseUrl, animeId, episodeNum);
-    if (streams.length > 0) {
-      return { streams, mirrorUsed: 1, fallbackReason: "primary" };
-    }
-    return { streams: [], mirrorUsed: 0, fallbackReason: "not_found" };
-  } catch (err) {
-    const name = err instanceof Error ? err.name : "";
-    const reason = name === "TimeoutError" || name === "AbortError" ? "timeout" : "error";
-    return { streams: [], mirrorUsed: 0, fallbackReason: reason };
-  }
-}
-
-async function fetchAnevixaFromUrl(
-  baseUrl: string,
+async function fetchScraper(
   animeId: number,
   episodeNum: number
 ): Promise<NormalizedStream[]> {
+  const baseUrl = process.env.SCRAPER_API_URL;
+  if (!baseUrl) throw new Error("SCRAPER_API_URL is not set");
+
   const epsRes = await fetch(`${baseUrl}/episodes/${animeId}`, {
-    signal: AbortSignal.timeout(40000),
+    signal: AbortSignal.timeout(45000),
   });
   if (!epsRes.ok) return [];
-  const epsData = await epsRes.json();
+  const result = (await epsRes.json()) as {
+    provider: string | null;
+    providerId: string;
+    episodes: { id: string; number: number; title?: string }[];
+    reason?: string;
+  };
 
-  const providers = ["anikoto", "anineko"] as const;
-  const audioTypes = ["sub", "dub"] as const;
-  const validStreams: NormalizedStream[] = [];
+  if (!result.provider || !Array.isArray(result.episodes) || result.episodes.length === 0) {
+    return [];
+  }
 
-  await Promise.all(
-    providers.flatMap((provider) =>
-      audioTypes.map(async (audioType) => {
-        const eps = epsData?.[provider]?.episodes?.[audioType];
-        if (!Array.isArray(eps)) return;
+  const ep = result.episodes.find((e) => e.number === episodeNum);
+  if (!ep) return [];
 
-        const ep = eps.find((e: { number: number; id: string }) => e.number === episodeNum);
-        if (!ep?.id) return;
-
-        try {
-          const watchRes = await fetch(`${baseUrl}/${ep.id}`, {
-            signal: AbortSignal.timeout(15000),
-          });
-          if (!watchRes.ok) return;
-          const watchData = await watchRes.json();
-
-          // anikoto returns ssub.streams / sdub.streams
-          // anineko returns streams directly
-          const rawStreams: unknown[] =
-            watchData.streams ??
-            (audioType === "sub" ? watchData.ssub?.streams : watchData.sdub?.streams) ??
-            [];
-
-          const rawSubtitles: unknown[] =
-            watchData.subtitles ??
-            (audioType === "sub" ? watchData.ssub?.subtitles : watchData.sdub?.subtitles) ??
-            [];
-
-          const subtitles = (rawSubtitles as Array<{
-            file?: string;
-            url?: string;
-            label?: string;
-            language?: string;
-            kind?: string;
-            default?: boolean;
-          }>)
-            .filter(t => (t.file || t.url) && t.kind !== "thumbnails")
-            .map(t => ({
-              url: t.file ?? t.url ?? "",
-              language: t.language ?? "en",
-              label: t.label ?? "English",
-              default: t.default ?? false,
-            }));
-
-          const hlsStreams = rawStreams.filter((s: unknown) => {
-            const stream = s as { type?: string; url?: string };
-            return stream.type === "hls";
-          });
-          if (hlsStreams.length === 0) return;
-
-          for (const _s of hlsStreams) {
-            const s = _s as { url: string; quality?: string | number; referer?: string };
-            validStreams.push({
-              provider,
-              type: audioType,
-              url: s.url,
-              quality: s.quality ? String(s.quality) : "auto",
-              isM3U8: true,
-              cookies: "",
-              referer: s.referer ?? "",
-              subtitles,
-            });
-          }
-        } catch {
-          // provider timed out or errored, skip silently
-        }
-      })
-    )
+  const watchRes = await fetch(
+    `${baseUrl}/watch?provider=${encodeURIComponent(result.provider)}&episodeId=${encodeURIComponent(ep.id)}`,
+    { signal: AbortSignal.timeout(20000) }
   );
+  if (!watchRes.ok) return [];
+  const watch = (await watchRes.json()) as {
+    sub: ScraperResult | null;
+    dub: ScraperResult | null;
+  };
 
-  return validStreams.sort(
-    (a, b) => (PROVIDER_PRIORITY[a.provider] ?? 99) - (PROVIDER_PRIORITY[b.provider] ?? 99)
-  );
+  const provider = result.provider.toLowerCase();
+  const streams: NormalizedStream[] = [];
+
+  for (const type of ["sub", "dub"] as const) {
+    const watchResult = watch[type];
+    if (!watchResult) continue;
+
+    const subtitles = (watchResult.subtitles ?? []).map((sub) => ({
+      url: sub.url,
+      language: sub.lang,
+      label: sub.lang,
+      default: false,
+    }));
+
+    for (const source of watchResult.sources ?? []) {
+      streams.push({
+        provider,
+        type,
+        url: source.url,
+        quality: source.quality,
+        isM3U8: source.isM3U8,
+        cookies: "",
+        referer: watchResult.headers?.Referer ?? "",
+        subtitles,
+      });
+    }
+  }
+
+  return streams;
+}
+
+interface ScraperResult {
+  sources: { url: string; quality: string; isM3U8: boolean }[];
+  subtitles: { url: string; lang: string }[];
+  headers: { Referer?: string };
 }

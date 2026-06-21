@@ -76,11 +76,9 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     }
 
     const targetUrl = new URL(decryptedUrl);
-    let referer = "https://megaplay.buzz/";
-
-    if (storedReferer && !storedReferer.includes(targetUrl.hostname)) {
-      referer = storedReferer.endsWith("/") ? storedReferer : storedReferer + "/";
-    }
+    let referer = storedReferer
+      ? (storedReferer.endsWith("/") ? storedReferer : storedReferer + "/")
+      : "https://megaplay.buzz/";
 
     if (decryptedUrl.includes("kwik") || decryptedUrl.includes("owocdn") || decryptedUrl.includes("uwu.m3u8") || targetUrl.hostname.endsWith(".top")) {
       referer = "https://kwik.cx/";
@@ -123,7 +121,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
             let keyUrl;
             try { keyUrl = new URL(originalUri, playlistRes.url).toString(); } catch { keyUrl = originalUri; }
             
-            const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies, ".key");
+            const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies, storedReferer, ".key");
             tokensToInsert.push(tData.dbData);
             line = line.replace(`URI="${originalUri}"`, `URI="${tData.serveToken}"`);
           }
@@ -136,7 +134,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         let chunkUrl;
         try { chunkUrl = new URL(trimmed, playlistRes.url).toString(); } catch { chunkUrl = trimmed; }
         
-        const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies, ".ts");
+        const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies, storedReferer, ".ts");
         tokensToInsert.push(tData.dbData);
         rewrittenLines.push(tData.serveToken);
       }
@@ -159,10 +157,16 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
 
     // THE FIX: Listen to req.signal. If you skip ahead, the browser aborts the request. 
     // This instantly kills the old Kwik download so the network doesn't get clogged!
-    const streamRes = await fetch(decryptedUrl, { 
-      headers: fetchHeaders, 
-      signal: req.signal 
+    const streamRes = await fetch(decryptedUrl, {
+      headers: fetchHeaders,
+      signal: req.signal
     });
+
+    if (!streamRes.ok && streamRes.status !== 206) {
+      console.error(`[proxy/segment] FAIL ${streamRes.status} — url: ${decryptedUrl}`);
+      console.error(`[proxy/segment] referer used: ${fetchHeaders["Referer"]}`);
+      console.error(`[proxy/segment] stored referer was: ${storedReferer}`);
+    }
 
     if (!streamRes.ok && streamRes.status !== 206) return NextResponse.json({ error: `Failed chunk fetch` }, { status: 502 });
 
@@ -210,11 +214,11 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
 }
 
 function buildTokenData(
-  url: string, record: { sessionId: string; ip: string; expiresAt: Date }, key: Buffer, tokenSecret: string, cookies: string, explicitExt?: string
+  url: string, record: { sessionId: string; ip: string; expiresAt: Date }, key: Buffer, tokenSecret: string, cookies: string, referer: string, explicitExt?: string
 ): { serveToken: string, dbData: TokenInsertData } {
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
-  const payload = JSON.stringify({ url, cookies });
+  const payload = JSON.stringify({ url, cookies, referer });
   const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
   const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 

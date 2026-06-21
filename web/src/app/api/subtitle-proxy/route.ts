@@ -24,18 +24,23 @@ export async function GET(req: NextRequest) {
     "s.megaplay.buzz",
     "lostproject.club",
     "watching.onl",
+    "cdn.anizara.store",
   ];
   const isAllowed = allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h));
   if (!isAllowed) {
     return NextResponse.json({ error: "Host not allowed" }, { status: 403 });
   }
 
+  const isAnizara = parsed.hostname.includes("anizara.store");
+  const referer = isAnizara ? "https://anineko.to/" : "https://megaplay.buzz/";
+  const origin = isAnizara ? "https://anineko.to" : "https://megaplay.buzz";
+
   try {
     const res = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": "https://megaplay.buzz/",
-        "Origin": "https://megaplay.buzz",
+        "Referer": referer,
+        "Origin": origin,
       },
       signal: AbortSignal.timeout(10000),
     });
