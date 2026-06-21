@@ -406,37 +406,37 @@ export function AnimePlayer({
   }, []);
 
   useEffect(() => {
-    // HilltopAds rmp-vast intercepts fullscreenchange events and hijacks fullscreen
-    // with its own ad video element (which fails in Safari with webm decode errors).
-    // Fix: prevent fullscreenchange events that originate from OUTSIDE our player
-    // container from reaching the ad SDK, and prevent the ad SDK's own video element
-    // from entering fullscreen.
+    // HilltopAds rmp-vast calls requestFullscreen() on its own <video> element
+    // directly, which Safari intercepts and shows as a black screen.
+    // Fix: on Safari, patch HTMLVideoElement.prototype.requestFullscreen and
+    // webkitEnterFullscreen to block any video element that is NOT inside our
+    // player container from entering fullscreen.
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (!isSafari) return;
+
     const container = containerRef.current;
     if (!container) return;
 
-    const blockAdFullscreen = (e: Event) => {
-      const fullscreenEl =
-        document.fullscreenElement ||
-        (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
-      // If the element that went fullscreen is NOT inside our player container,
-      // stop it from propagating to the ad SDK listener on document.
-      if (fullscreenEl && !container.contains(fullscreenEl)) {
-        e.stopImmediatePropagation();
-      }
-      // If the ad SDK's video element (outside our container) entered fullscreen, exit immediately.
-      if (fullscreenEl && !container.contains(fullscreenEl) && fullscreenEl.tagName === 'VIDEO') {
-        const doc = document as Document & { webkitExitFullscreen?: () => void };
-        if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
-        else document.exitFullscreen?.();
-      }
+    const originalRequestFullscreen = HTMLVideoElement.prototype.requestFullscreen;
+    const originalWebkitEnterFullscreen = (HTMLVideoElement.prototype as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen;
+
+    HTMLVideoElement.prototype.requestFullscreen = function(this: HTMLVideoElement, ...args) {
+      if (!container.contains(this)) return Promise.resolve();
+      return originalRequestFullscreen.apply(this, args);
     };
 
-    // Use capture:true so we run before the ad SDK's bubble-phase listeners.
-    document.addEventListener('fullscreenchange', blockAdFullscreen, { capture: true });
-    document.addEventListener('webkitfullscreenchange', blockAdFullscreen, { capture: true });
+    if (originalWebkitEnterFullscreen) {
+      (HTMLVideoElement.prototype as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen = function(this: HTMLVideoElement) {
+        if (!container.contains(this)) return;
+        originalWebkitEnterFullscreen.apply(this);
+      };
+    }
+
     return () => {
-      document.removeEventListener('fullscreenchange', blockAdFullscreen, { capture: true });
-      document.removeEventListener('webkitfullscreenchange', blockAdFullscreen, { capture: true });
+      HTMLVideoElement.prototype.requestFullscreen = originalRequestFullscreen;
+      if (originalWebkitEnterFullscreen) {
+        (HTMLVideoElement.prototype as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen = originalWebkitEnterFullscreen;
+      }
     };
   }, []);
 
