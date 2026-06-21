@@ -72,8 +72,7 @@ export default function RootLayout({
         <Nav />
         <BadgeToastProvider>{children}</BadgeToastProvider>
         {process.env.NEXT_PUBLIC_ADS_ENABLED === "true" && (
-          <>
-            <Script id="hta-inpage" strategy="afterInteractive">{`(function(egki){
+          <Script id="hta-inpage" strategy="afterInteractive">{`(function(egki){
 var d = document,
     s = d.createElement('script'),
     l = d.scripts[d.scripts.length - 1];
@@ -83,17 +82,6 @@ s.async = true;
 s.referrerPolicy = 'no-referrer-when-downgrade';
 l.parentNode.insertBefore(s, l);
 })({})`}</Script>
-            <Script id="hta-video-slider" strategy="afterInteractive">{`(function(ixys){
-var d = document,
-    s = d.createElement('script'),
-    l = d.scripts[d.scripts.length - 1];
-s.settings = ixys || {};
-s.src = "//deliciouslip.com/bhX.Vgs/djG_lJ0/YTWHcB/Mepm/9Su/ZwUclEkXPiTlcBwoO/DUIKxLN/DfUbtUNTzYAK4-MCjJER0DOEQh";
-s.async = true;
-s.referrerPolicy = 'no-referrer-when-downgrade';
-l.parentNode.insertBefore(s, l);
-})({})`}</Script>
-          </>
         )}
         <Script id="webmcp" strategy="afterInteractive">{`
   if ('modelContext' in navigator) {
