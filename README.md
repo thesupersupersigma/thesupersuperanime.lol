@@ -1,4 +1,9 @@
 <!-- tree -I 'node_modules|.git|.next|graphify-out|useless files:brokenstuff:unfixed stuff' > tree.txt -->
+
+# I WILL BE SHUTTING DOWN/PASSWORD LOCKING THE SITE UNTILL I SORT SOME THINGS OUT
+## API WILL STILL BE UP UNLESS I END UP CHANGING MY MIND.
+
+
 # thesupersuperanime.lol
 
 A full-featured anime streaming site built solo — AniList metadata, custom HLS proxy, leaderboards, badges, watch parties, sitewide chat, and more.
