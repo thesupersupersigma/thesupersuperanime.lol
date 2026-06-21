@@ -49,6 +49,7 @@ export function AnimePlayer({
 }: AnimePlayerProps) {
   const router = useRouter();
   const playerRef = useRef<MediaPlayerInstance>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // --- STATE ---
   const [audioType, setAudioType]             = useState<"sub" | "dub">("sub");
@@ -404,6 +405,49 @@ export function AnimePlayer({
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    // Safari + HilltopAds conflict: the rmp-vast ad SDK intercepts
+    // requestFullscreen and tries to play a webm ad, which Safari can't decode,
+    // causing a black screen. Fix: on Safari, intercept the fullscreen button
+    // click and call webkitEnterFullscreen() directly on the <video> element,
+    // bypassing the ad SDK's listener entirely.
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (!isSafari) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleFullscreenClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Vidstack's fullscreen button has aria-label="Enter Fullscreen" or is inside
+      // [data-fullscreen-button]. Check both.
+      const isFullscreenBtn =
+        target.closest('[data-fullscreen-button]') ||
+        target.closest('[aria-label="Enter Fullscreen"]') ||
+        target.closest('[aria-label="Exit Fullscreen"]');
+      if (!isFullscreenBtn) return;
+
+      e.stopImmediatePropagation();
+      e.preventDefault();
+
+      const video = container.querySelector('video');
+      if (!video) return;
+
+      if (document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement) {
+        const doc = document as Document & { webkitExitFullscreen?: () => void };
+        if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+        else document.exitFullscreen?.();
+      } else {
+        const vid = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+        if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();
+        else video.requestFullscreen?.();
+      }
+    };
+
+    container.addEventListener('click', handleFullscreenClick, { capture: true });
+    return () => container.removeEventListener('click', handleFullscreenClick, { capture: true });
+  }, []);
+
   // ── ANISKIP ────────────────────────────────────────────────────────────────
 
   const fetchSkipTimes = useCallback(async (durationSecs: number) => {
@@ -483,7 +527,7 @@ export function AnimePlayer({
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
 
       {/* ── VIDEO PLAYER ── */}
-      <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000" }}>
+      <div ref={containerRef} style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000" }}>
         {watchPartyCode && (
           <WatchPartySync
             roomCode={watchPartyCode}
