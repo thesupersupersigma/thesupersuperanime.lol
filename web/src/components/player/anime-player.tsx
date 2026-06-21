@@ -89,27 +89,6 @@ export function AnimePlayer({
   // Soft-stall watchdog timer.
   const stallTimerRef       = useRef<NodeJS.Timeout | null>(null);
 
-  // Safari (desktop + iOS) can't composite hls.js/MSE-driven video when entering
-  // fullscreen — the video layer paints black while audio keeps playing (a known
-  // WebKit limitation). Letting Safari play HLS *natively* routes fullscreen through
-  // the platform compositor (Vidstack's native VideoProvider uses
-  // webkitSetPresentationMode), which renders correctly. So we flip Vidstack's
-  // `preferNativeHLS` for Safari ONLY: it reorders the provider loaders so the
-  // native <video> loader is tried before the hls.js loader. On Safari the native
-  // loader claims the HLS source (canPlayType passes); on Chrome/Firefox it declines
-  // (native HLS unsupported) and they fall through to hls.js exactly as before — so
-  // their pipeline (and onProviderChange's startPosition/maxBufferHole/nudgeMaxRetry
-  // tuning) is completely untouched.
-  //
-  // Computed once via a useState lazy initializer so it is SSR-safe (navigator is
-  // undefined on the server → false) and STABLE for the player's first client render
-  // — which is when Vidstack selects its provider. The value must be correct up
-  // front; flipping it after mount would force a disruptive provider re-select
-  // mid-stream and break resume.
-  const [isSafari] = useState(
-    () => typeof navigator !== "undefined" && /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
-  );
-
   const hasDub         = servers.some(s => s.type === "dub");
   const visibleServers = servers.filter(s => s.type === audioType);
 
@@ -158,15 +137,6 @@ export function AnimePlayer({
 
   const activeSource = activeServer?.sources[0];
   const srcUrl       = activeSource ? `/api/proxy/${activeSource.token}` : "";
-  // On Safari, advertise the canonical Apple HLS MIME so Vidstack's native <video>
-  // loader is GUARANTEED to claim the source (`application/vnd.apple.mpegurl` is the
-  // exact type Safari's canPlayType accepts — it's what Vidstack's own
-  // canPlayHLSNatively() probes). Other browsers keep `application/x-mpegurl` and the
-  // unchanged hls.js path (the MIME is just a selection hint — hls.js parses the
-  // manifest regardless, so this is a no-op for them). MP4 stays video/mp4.
-  const srcType      = activeSource?.isM3U8
-    ? (isSafari ? "application/vnd.apple.mpegurl" : "application/x-mpegurl")
-    : "video/mp4";
 
   // ── SERVER / AUDIO / QUALITY HANDLERS ─────────────────────────────────────
 
@@ -435,17 +405,6 @@ export function AnimePlayer({
     if (serverTimeoutTimerRef.current) clearTimeout(serverTimeoutTimerRef.current);
   }, []);
 
-  // NOTE: The ad SDK (HilltopAds rmp-vast) tries to drive its own <video> into
-  // fullscreen via requestFullscreen()/webkitEnterFullscreen(). That is now blocked
-  // globally and earlier by the `beforeInteractive` PlayerShield in layout.tsx, which
-  // patches those same prototype methods and inspects the call stack to allow our
-  // player while rejecting the ad SDK. The previous in-component prototype patch here
-  // was redundant with the shield (it double-patched the same methods) and was
-  // implicated in a Vidstack `this.el.setAttribute` crash, so it has been removed.
-  // With native HLS on Safari (preferNativeHLS above), Vidstack enters fullscreen via
-  // webkitSetPresentationMode — a path neither the shield nor that patch touches — so
-  // the video composites correctly.
-
   // ── ANISKIP ────────────────────────────────────────────────────────────────
 
   const fetchSkipTimes = useCallback(async (durationSecs: number) => {
@@ -550,10 +509,8 @@ export function AnimePlayer({
           <MediaPlayer
             ref={playerRef}
             title={`${animeTitle} - Episode ${episodeNum}`}
-            src={{ src: srcUrl, type: srcType }}
-            // Safari only: native HLS so fullscreen composites correctly (see isSafari
-            // note above). false everywhere else keeps the hls.js pipeline intact.
-            preferNativeHLS={isSafari}
+            src={{ src: srcUrl, type: activeSource?.isM3U8 ? "application/x-mpegurl" : "video/mp4" }}
+            crossOrigin
             onTimeUpdate={onTimeUpdate}
             onCanPlay={onCanPlay}
             onWaiting={onWaiting}
