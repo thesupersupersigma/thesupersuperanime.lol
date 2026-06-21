@@ -511,6 +511,7 @@ export function AnimePlayer({
             title={`${animeTitle} - Episode ${episodeNum}`}
             src={{ src: srcUrl, type: activeSource?.isM3U8 ? "application/x-mpegurl" : "video/mp4" }}
             crossOrigin
+            fullscreenTarget="container"
             onTimeUpdate={onTimeUpdate}
             onCanPlay={onCanPlay}
             onWaiting={onWaiting}
