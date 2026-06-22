@@ -5,7 +5,8 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY web/package.json web/package-lock.json ./
-RUN npm ci
+# Force dev deps to be installed regardless of NODE_ENV injected by Coolify
+RUN NODE_ENV=development npm ci
 
 # ── Stage 2: Build ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
