@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
     tsconfigPath: './tsconfig.json'
   },
-  transpilePackages: ["@tsss/core"],
+  output: "standalone",
   serverExternalPackages: [
     "playwright",
     "playwright-extra",

@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "@tsss/core": "file:../core",
     "@vidstack/react": "^1.12.13",
     "canvas-confetti": "^1.9.4",
     "crypto-js": "^4.2.0",
