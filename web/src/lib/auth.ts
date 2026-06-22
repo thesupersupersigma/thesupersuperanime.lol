@@ -143,6 +143,24 @@ export async function requireAuth() {
 }
 
 /**
+ * Returns the currently logged-in user only if their profile is complete,
+ * otherwise null.
+ *
+ * Use this in API routes/actions that should be blocked until a user has a
+ * public identity (chat, comments). A profile is "complete" when the user has
+ * EITHER a linked Discord (discordId) OR a custom username set. When it returns
+ * null, distinguish the two cases at the call site:
+ *   - getCurrentUser() === null  → not logged in → respond 401
+ *   - logged in but incomplete    → respond 403 ("finish setting up profile")
+ */
+export async function requireCompleteProfile() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (!user.discordId && !user.username) return null;
+  return user;
+}
+
+/**
  * Get the currently logged-in user from the database.
  *
  * Includes `needsEmailVerification: true` when the user signed up with

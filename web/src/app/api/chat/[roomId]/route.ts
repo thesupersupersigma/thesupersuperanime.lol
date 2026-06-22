@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, requireCompleteProfile } from "@/lib/auth";
 import { CHAT_USER_SELECT, isValidRoomId } from "@/lib/chat";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +40,12 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Sign in to chat" }, { status: 401 });
+  }
+  if (!(await requireCompleteProfile())) {
+    return NextResponse.json(
+      { error: "Finish setting up your profile to continue" },
+      { status: 403 },
+    );
   }
 
   // Server-side timeout enforcement — the client UI is only feedback.

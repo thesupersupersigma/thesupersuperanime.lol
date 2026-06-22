@@ -36,7 +36,7 @@ export default function LoginPage() {
             marginBottom: "8px",
           }}
         >
-          thesupersuperanime
+          thesupersuperanime will be down for a bit. im working on making the site 100x better while its down. if you REALLY want acess to the site dm thesuper2sigma on discord
         </h1>
 
         <input

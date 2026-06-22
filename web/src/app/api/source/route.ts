@@ -49,12 +49,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
     }
 
-    // Group streams per audio type (each type comes from a single provider)
+    // Group streams per provider + audio type, so each provider gets its own server entry
     const typeMap = new Map<string, NormalizedStream[]>();
-    for (const type of ["sub", "dub"] as const) {
-      const streamsOfType = allStreams.filter(s => s.type === type);
-      if (streamsOfType.length === 0) continue;
-      typeMap.set(type, streamsOfType);
+    for (const stream of allStreams) {
+      const key = `${stream.provider}:${stream.type}`;
+      const existing = typeMap.get(key);
+      if (existing) existing.push(stream);
+      else typeMap.set(key, [stream]);
     }
 
     const encryptionSecret = process.env.ENCRYPTION_SECRET;
@@ -69,8 +70,9 @@ export async function POST(req: NextRequest) {
     const encKey = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
     const finalServers = [];
 
-    for (const [streamType, streams] of typeMap.entries()) {
-      const providerName = streams[0].provider;
+    for (const [key, streams] of typeMap.entries()) {
+      const [providerName, streamType] = key.split(":");
+      const serverName = providerName.charAt(0).toUpperCase() + providerName.slice(1);
       const tokenizedSources = await Promise.all(
         streams.map(async (source) => {
           const iv = randomBytes(16);
@@ -113,7 +115,7 @@ export async function POST(req: NextRequest) {
         return true;
       });
       finalServers.push({
-        name: providerName,
+        name: serverName,
         type: streamType as "sub" | "dub",
         sources: tokenizedSources,
         subtitles: dedupedSubtitles,
@@ -136,63 +138,140 @@ async function fetchScraper(
   const baseUrl = process.env.SCRAPER_API_URL;
   if (!baseUrl) throw new Error("SCRAPER_API_URL is not set");
 
-  const epsRes = await fetch(`${baseUrl}/episodes/${animeId}`, {
-    signal: AbortSignal.timeout(45000),
-  });
-  if (!epsRes.ok) return [];
-  const result = (await epsRes.json()) as {
-    provider: string | null;
-    providerId: string;
-    episodes: { id: string; number: number; title?: string }[];
-    reason?: string;
-  };
+  // Fire /info (provider list) and primary /episodes (best provider) concurrently.
+  const [infoRes, primaryEpsRes] = await Promise.allSettled([
+    fetch(`${baseUrl}/info/${animeId}`, { signal: AbortSignal.timeout(15000) })
+      .then(r => r.ok ? r.json() : null) as Promise<{ mappings: { provider: string; id: string; title: string; score: number }[] } | null>,
+    fetch(`${baseUrl}/episodes/${animeId}`, { signal: AbortSignal.timeout(30000) })
+      .then(r => r.ok ? r.json() : null) as Promise<{ provider: string | null; episodes: { id: string; number: number }[] } | null>,
+  ]);
 
-  if (!result.provider || !Array.isArray(result.episodes) || result.episodes.length === 0) {
-    return [];
+  const info = infoRes.status === "fulfilled" ? infoRes.value : null;
+  const primaryEps = primaryEpsRes.status === "fulfilled" ? primaryEpsRes.value : null;
+
+  console.log(`[source] /info result:`, JSON.stringify(info?.mappings?.map(m => m.provider)));
+  console.log(`[source] primary /episodes provider:`, primaryEps?.provider, `episodes:`, primaryEps?.episodes?.length ?? 0);
+
+  // Build the set of providers to query. Start with the primary winner so it goes first.
+  // Then add all providers from /info mappings that we haven't tried yet.
+  const providerQueue: { provider: string }[] = [];
+  const seen = new Set<string>();
+
+  if (primaryEps?.provider) {
+    const key = primaryEps.provider.toLowerCase();
+    seen.add(key);
+    providerQueue.push({ provider: primaryEps.provider });
   }
 
-  const ep = result.episodes.find((e) => e.number === episodeNum);
-  if (!ep) return [];
-
-  const watchRes = await fetch(
-    `${baseUrl}/watch?provider=${encodeURIComponent(result.provider)}&episodeId=${encodeURIComponent(ep.id)}`,
-    { signal: AbortSignal.timeout(20000) }
-  );
-  if (!watchRes.ok) return [];
-  const watch = (await watchRes.json()) as {
-    sub: ScraperResult | null;
-    dub: ScraperResult | null;
-  };
-
-  const provider = result.provider.toLowerCase();
-  const streams: NormalizedStream[] = [];
-
-  for (const type of ["sub", "dub"] as const) {
-    const watchResult = watch[type];
-    if (!watchResult) continue;
-
-    const subtitles = (watchResult.subtitles ?? []).map((sub) => ({
-      url: sub.url,
-      language: sub.lang,
-      label: sub.lang,
-      default: false,
-    }));
-
-    for (const source of watchResult.sources ?? []) {
-      streams.push({
-        provider,
-        type,
-        url: source.url,
-        quality: source.quality,
-        isM3U8: source.isM3U8,
-        cookies: "",
-        referer: watchResult.headers?.Referer ?? "",
-        subtitles,
-      });
+  if (info?.mappings) {
+    for (const m of info.mappings) {
+      const key = m.provider.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        providerQueue.push({ provider: m.provider });
+      }
     }
   }
 
-  return streams;
+  console.log(`[source] providerQueue:`, providerQueue.map(p => p.provider));
+
+  if (providerQueue.length === 0) return [];
+
+  // For providers other than the primary, fetch their episode lists in parallel.
+  // The primary already has its episode list from the concurrent call above.
+  const episodesByProvider = new Map<string, { id: string; number: number }[]>();
+
+  if (primaryEps?.provider && primaryEps.episodes?.length) {
+    episodesByProvider.set(primaryEps.provider.toLowerCase(), primaryEps.episodes);
+  }
+
+  const secondaryProviders = providerQueue.slice(1);
+  if (secondaryProviders.length > 0) {
+    const epsResults = await Promise.allSettled(
+      secondaryProviders.map(({ provider }) =>
+        fetch(`${baseUrl}/episodes/${animeId}?provider=${encodeURIComponent(provider)}`, {
+          signal: AbortSignal.timeout(20000),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => ({ provider, data }))
+      )
+    );
+    for (const result of epsResults) {
+      if (result.status === "fulfilled" && result.value?.data?.episodes?.length) {
+        episodesByProvider.set(
+          result.value.provider.toLowerCase(),
+          result.value.data.episodes
+        );
+      }
+    }
+  }
+
+  console.log(`[source] episodesByProvider keys:`, [...episodesByProvider.keys()]);
+
+  // For each provider that has episodes, find the requested episode and fire /watch in parallel.
+  const watchCalls: { provider: string; episodeId: string }[] = [];
+  for (const { provider } of providerQueue) {
+    const eps = episodesByProvider.get(provider.toLowerCase());
+    if (!eps) continue;
+    const ep = eps.find((e) => e.number === episodeNum);
+    if (!ep) continue;
+    watchCalls.push({ provider, episodeId: ep.id });
+  }
+
+  console.log(`[source] watchCalls:`, watchCalls.map(w => w.provider));
+
+  if (watchCalls.length === 0) return [];
+
+  const watchResults = await Promise.allSettled(
+    watchCalls.map(({ provider, episodeId }) =>
+      fetch(
+        `${baseUrl}/watch?provider=${encodeURIComponent(provider)}&episodeId=${encodeURIComponent(episodeId)}`,
+        { signal: AbortSignal.timeout(15000) }
+      )
+        .then(r => r.ok ? r.json() : null)
+        .then(data => ({ provider, data }))
+    )
+  );
+
+  for (const result of watchResults) {
+    if (result.status === "rejected") console.log(`[source] watch FAILED:`, result.reason?.message ?? result.reason);
+    if (result.status === "fulfilled" && result.value?.data) console.log(`[source] watch OK:`, result.value.provider, `sub:`, !!result.value.data.sub, `dub:`, !!result.value.data.dub);
+  }
+
+  const allStreams: NormalizedStream[] = [];
+
+  for (const result of watchResults) {
+    if (result.status !== "fulfilled" || !result.value?.data) continue;
+    const { provider, data } = result.value;
+    const providerKey = provider.toLowerCase();
+
+    for (const type of ["sub", "dub"] as const) {
+      const watchResult = data[type] as ScraperResult | null;
+      if (!watchResult?.sources?.length) continue;
+
+      const subtitles = (watchResult.subtitles ?? []).map((sub) => ({
+        url: sub.url,
+        language: sub.lang,
+        label: sub.lang,
+        default: false,
+      }));
+
+      for (const source of watchResult.sources) {
+        allStreams.push({
+          provider: providerKey,
+          type,
+          url: source.url,
+          quality: source.quality,
+          isM3U8: source.isM3U8,
+          cookies: "",
+          referer: watchResult.headers?.Referer ?? "",
+          subtitles,
+        });
+      }
+    }
+  }
+
+  return allStreams;
 }
 
 interface ScraperResult {

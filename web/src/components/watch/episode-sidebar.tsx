@@ -196,19 +196,6 @@ export function EpisodeSidebar({ totalEpisodes, nextAiringEpisode, currentEpisod
                       <div style={{ fontSize: "11px", color: "#888" }}>
                         Episode {ep}
                       </div>
-                      {streamingEp?.title && (
-                        <div style={{
-                          fontSize: "13px",
-                          fontWeight: 500,
-                          color: "#e5e5e5",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}>
-                          {streamingEp.title}
-                        </div>
-                      )}
                     </div>
                     <div style={{ fontSize: "11px", color: "#666", marginTop: "4px" }}>
                       {airingAt ? formatAirDate(airingAt) : ""}

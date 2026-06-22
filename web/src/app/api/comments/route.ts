@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireCompleteProfile } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Simple in-memory rate limit — 1 comment per 30s per user
@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
   // Added !user.id to ensure TypeScript knows both the user and the ID exist
   if (!user || !user.id) {
     return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+  }
+  if (!(await requireCompleteProfile())) {
+    return NextResponse.json(
+      { error: "Finish setting up your profile to continue" },
+      { status: 403 },
+    );
   }
 
   // Rate limit

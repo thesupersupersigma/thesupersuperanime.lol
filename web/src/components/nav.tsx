@@ -297,6 +297,7 @@ export function Nav() {
       {/* Mobile bottom tab bar */}
       <div className="mobile-tab-bar" style={{
         position: "fixed",
+        flexDirection: "row",
         bottom: 0,
         left: 0,
         right: 0,
@@ -431,7 +432,7 @@ function AvatarImage({ userInfo, size, iconSize }: {
   if (userInfo?.discordAvatar && userInfo?.discordId) {
     return (
       <img
-        src={`https://cdn.discordapp.com/avatars/${userInfo.discordId}/${userInfo.discordAvatar}.png?size=64`}
+        src={`https://cdn.discordapp.com/avatars/${userInfo.discordId}/${userInfo.discordAvatar.replace(/\.png$/i, "")}.png?size=64`}
         alt="avatar" width={size} height={size}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />

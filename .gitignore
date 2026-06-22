@@ -7,6 +7,7 @@ Please audit the Phase 3 implementation .md
 main.md
 ROADMAP.md
 .claudeignore.md
+FEATURES.md
 
 # dependencies
 /node_modules

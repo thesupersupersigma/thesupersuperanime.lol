@@ -25,6 +25,19 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     redirect("/account/verify-email-pending");
   }
 
+  // Gate: a logged-in user with neither a linked Discord nor a custom username
+  // has an incomplete profile — force them through setup before browsing.
+  // Runs AFTER the verification block so unverified users hit verification
+  // first. setup-profile lives at /account/setup-profile (outside the (site)
+  // group), so this can't loop.
+  if (
+    user !== null &&
+    user.discordId === null &&
+    !user.username
+  ) {
+    redirect("/account/setup-profile");
+  }
+
   return (
     <>
       <AnnouncementBanner />
