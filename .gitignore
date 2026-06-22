@@ -9,6 +9,14 @@ ROADMAP.md
 .claudeignore.md
 FEATURES.md
 
+TEST.md
+AUDIT-admin.md
+AUDIT-api.md
+AUDIT-auth.md
+AUDIT-chat.md
+AUDIT-player.md
+AUDIT-social.md
+
 # dependencies
 /node_modules
 /.pnp

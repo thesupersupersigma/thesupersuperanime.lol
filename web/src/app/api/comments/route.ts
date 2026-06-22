@@ -15,7 +15,12 @@ export async function GET(req: NextRequest) {
             animeId: Number(animeId),
             episodeId: episodeId,
             parentId: null,       // top-level only
-            deletedAt: null,
+            // Keep a comment if it's live, OR it's a tombstone that still has
+            // at least one non-deleted reply (so reply threads aren't lost).
+            OR: [
+                { deletedAt: null },
+                { deletedAt: { not: null }, replies: { some: { deletedAt: null } } },
+            ],
         },
         orderBy: { createdAt: "desc" },
         take: 50,
@@ -51,7 +56,16 @@ export async function GET(req: NextRequest) {
         },
     });
 
-    return NextResponse.json({ comments });
+    // Never leak a deleted comment's original content/author — blank it into a
+    // tombstone shape. Replies are already filtered to non-deleted above.
+    const sanitized = comments.map((c) => {
+        if (c.deletedAt) {
+            return { ...c, content: "", user: null, likes: [], isSpoiler: false, deleted: true };
+        }
+        return { ...c, deleted: false };
+    });
+
+    return NextResponse.json({ comments: sanitized });
 }
 
 export async function POST(req: NextRequest) {

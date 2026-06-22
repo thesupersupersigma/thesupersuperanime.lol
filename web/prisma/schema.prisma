@@ -44,6 +44,17 @@ model User {
   watchParties        WatchParty[]
   chatMessages        ChatMessage[]
   chatTimeout         ChatTimeout?
+  sessions            Session[]
+}
+
+model Session {
+  token     String   @id // opaque random token stored in the "user-session" cookie
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model ChatMessage {
@@ -216,12 +227,12 @@ model Comment {
   id        String        @id @default(cuid())
   animeId   Int
   episodeId String?       // null = anime-level comment, "animeId-episodeNum" = episode comment
-  userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   content   String
   isSpoiler Boolean       @default(false)
   parentId  String?
-  parent    Comment?      @relation("Replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent    Comment?      @relation("Replies", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   replies   Comment[]     @relation("Replies")
   likes     CommentLike[]
   deletedAt DateTime?

@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/lib/db";
-import { hashPassword, verifyPassword, getCurrentUser } from "@/lib/auth";
+import { hashPassword, verifyPassword, getCurrentUser, createUserSession, destroyUserSession, destroyAllUserSessions } from "@/lib/auth";
 import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "@/lib/resend";
 import { sendNewSignupAlert } from "@/lib/discord";
 import { grantAdminBadges } from "@/lib/badge-engine";
@@ -29,13 +29,7 @@ export async function signUpAction(formData: FormData) {
         emailVerifyExpires: verifyExpires,
       },
     });
-    const cookieStore = await cookies();
-    cookieStore.set("user-session", user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-    });
+    await createUserSession(user.id);
     grantAdminBadges(user.id).catch(console.error);
     // Fire-and-forget — don't block signup on email/discord
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -125,13 +119,8 @@ export async function signInAction(formData: FormData) {
     if (!user || !verifyPassword(password, user.passwordHash)) { 
       return { error: "Invalid email or password." }; 
     } 
-    const cookieStore = await cookies(); 
-    cookieStore.set("user-session", user.id, { 
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === "production", 
-      sameSite: "lax", 
-      maxAge: 60 * 60 * 24 * 30, 
-    }); 
+    const cookieStore = await cookies();
+    await createUserSession(user.id);
     grantAdminBadges(user.id).catch(console.error);
     if (user.discordId) {
       cookieStore.set("discord-linked", "1", {
@@ -165,8 +154,8 @@ export async function signInAction(formData: FormData) {
 } 
 
 export async function logOutAction() {
+  await destroyUserSession();
   const cookieStore = await cookies();
-  cookieStore.delete("user-session");
   cookieStore.delete("discord-linked");
   cookieStore.delete("email-verified");
   revalidatePath("/account");
@@ -217,14 +206,10 @@ export async function resetPasswordAction(formData: FormData) {
       where: { token }, 
       data: { usedAt: new Date() }, 
     }) 
-    const cookieStore = await cookies() 
-    cookieStore.set("user-session", record.userId, { 
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === "production", 
-      sameSite: "lax", 
-      maxAge: 60 * 60 * 24 * 30, 
-    }) 
-    return { success: true } 
+    // Invalidate any existing/stolen sessions before issuing a fresh one.
+    await destroyAllUserSessions(record.userId)
+    await createUserSession(record.userId)
+    return { success: true }
   } catch (err) { 
     console.error("[resetPassword]", err) 
     return { error: "Something went wrong." } 
@@ -359,6 +344,14 @@ export async function completeProfileSetupAction(formData: FormData) {
 export async function deleteAccountAction() {
   const user = await getCurrentUser();
   if (!user) return { error: "Not logged in" };
+
+  // Soft-delete this user's comments first so they survive as "[deleted]"
+  // tombstones (keeping their reply threads). The user.delete below then
+  // nulls out userId on those rows via the Comment.user SetNull relation.
+  await db.comment.updateMany({
+    where: { userId: user.id },
+    data: { deletedAt: new Date() },
+  });
 
   // Cascade deletes handle related records via Prisma schema onDelete: Cascade
   await db.user.delete({ where: { id: user.id } });

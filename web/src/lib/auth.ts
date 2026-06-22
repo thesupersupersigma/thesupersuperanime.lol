@@ -160,6 +160,54 @@ export async function requireCompleteProfile() {
   return user;
 }
 
+// Session cookie lifetime — 30 days, matching the original user-session cookie.
+const USER_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+
+/**
+ * Create a new server-side session for the given user and set the
+ * USER_SESSION_COOKIE to the opaque session token (NOT the user id).
+ *
+ * The cookie keeps the exact same options used everywhere else for
+ * "user-session" so nothing downstream (proxy presence check, etc.) changes.
+ */
+export async function createUserSession(userId: string): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + USER_SESSION_MAX_AGE * 1000);
+  await db.session.create({ data: { token, userId, expiresAt } });
+
+  const cookieStore = await cookies();
+  cookieStore.set(USER_SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: USER_SESSION_MAX_AGE,
+  });
+
+  return token;
+}
+
+/**
+ * Destroy the current session: delete the Session row for the cookie's token
+ * (if any) and clear the USER_SESSION_COOKIE.
+ */
+export async function destroyUserSession(): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(USER_SESSION_COOKIE)?.value;
+  if (token) {
+    await db.session.deleteMany({ where: { token } });
+  }
+  cookieStore.delete(USER_SESSION_COOKIE);
+}
+
+/**
+ * Invalidate every session belonging to a user (e.g. after a password reset),
+ * so any existing or stolen session token stops working.
+ */
+export async function destroyAllUserSessions(userId: string): Promise<void> {
+  await db.session.deleteMany({ where: { userId } });
+}
+
 /**
  * Get the currently logged-in user from the database.
  *
@@ -170,34 +218,40 @@ export async function requireCompleteProfile() {
  */
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const userId = cookieStore.get(USER_SESSION_COOKIE)?.value;
-  if (!userId) return null;
+  const token = cookieStore.get(USER_SESSION_COOKIE)?.value;
+  if (!token) return null;
 
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      createdAt: true,
-      discordId: true,          // needed for the gate check
-      discordUsername: true,    // needed for comments/leaderboard later
-      discordAvatar: true,      // needed for comments/leaderboard later
-      emailVerified: true,      // needed for email verification gate
-      emailVerifyToken: true,   // null = old/already-verified user; non-null = pending
-      username: true,           // custom username for email-only users
-      displayName: true,        // custom display name for email-only users
-      avatarPreset: true,       // 1-14 preset avatar for email-only users
-      anilistId: true,
-      anilistUsername: true,
-      anilistToken: true,
-      emailNotifStreak: true,
-      emailNotifRanked: true,
-      emailNotifNewEpisode: true,
-      emailNotifCompletion: true,
+  const session = await db.session.findUnique({
+    where: { token },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          createdAt: true,
+          discordId: true,          // needed for the gate check
+          discordUsername: true,    // needed for comments/leaderboard later
+          discordAvatar: true,      // needed for comments/leaderboard later
+          emailVerified: true,      // needed for email verification gate
+          emailVerifyToken: true,   // null = old/already-verified user; non-null = pending
+          username: true,           // custom username for email-only users
+          displayName: true,        // custom display name for email-only users
+          avatarPreset: true,       // 1-14 preset avatar for email-only users
+          anilistId: true,
+          anilistUsername: true,
+          anilistToken: true,
+          emailNotifStreak: true,
+          emailNotifRanked: true,
+          emailNotifNewEpisode: true,
+          emailNotifCompletion: true,
+        },
+      },
     },
   });
 
-  if (!user) return null;
+  if (!session || session.expiresAt < new Date()) return null;
+
+  const user = session.user;
 
   return {
     ...user,

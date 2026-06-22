@@ -42,7 +42,7 @@ export function LoginForm() {
         
         // --- YOUR REPLACED LOGIC STARTS HERE ---
         if (res?.success) {
-          if ('requiresDiscord' in res && res.requiresDiscord) {
+          if (view === "signup" || ('requiresDiscord' in res && res.requiresDiscord)) {
             window.location.href = "/account/link-discord";
           } else {
             router.refresh();
