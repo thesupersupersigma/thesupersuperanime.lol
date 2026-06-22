@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton, AniListConnectButton } from "./account-buttons";
-import { unlinkDiscordAction, deleteAccountAction, updateProfileAction } from "./actions";
+import { unlinkDiscordAction, deleteAccountAction, updateProfileAction, startAniListLinkAction } from "./actions";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 import { BadgeCard } from "@/components/badges/BadgeCard";
 
@@ -366,7 +366,7 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
                   ) : (
                     <div>
                       <p style={{ color: "#555", fontSize: "13px", marginBottom: "12px" }}>No AniList account linked.</p>
-                      <AniListConnectButton userId={user.id} />
+                      <AniListConnectButton action={startAniListLinkAction} />
                       <p style={{ color: "#444", fontSize: "12px", marginTop: "8px", lineHeight: "1.5" }}>
                         Link your AniList account to sync your watch progress and import your list.
                       </p>

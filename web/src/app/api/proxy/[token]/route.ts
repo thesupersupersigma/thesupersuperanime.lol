@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createDecipheriv, createCipheriv, randomBytes, createHmac } from "crypto";
 import { db } from "@/lib/db";
+import { isBlockedProxyTarget } from "@/lib/ssrf-guard";
 
 interface Params { params: Promise<{ token: string }>; }
 
@@ -76,6 +77,14 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     }
 
     const targetUrl = new URL(decryptedUrl);
+
+    // Block SSRF to internal/private/reserved targets. This single gate covers
+    // both the playlist fetch and every segment fetch, since each rewritten
+    // segment re-enters this handler and is re-checked here before any fetch.
+    if (isBlockedProxyTarget(decryptedUrl)) {
+      return NextResponse.json({ error: "Blocked target" }, { status: 403 });
+    }
+
     let referer = storedReferer
       ? (storedReferer.endsWith("/") ? storedReferer : storedReferer + "/")
       : "https://megaplay.buzz/";
@@ -92,10 +101,17 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     };
 
     if (record.isM3U8) {
-      const playlistRes = await fetch(decryptedUrl, { 
-        headers: fetchHeaders, 
+      let playlistRes = await fetch(decryptedUrl, {
+        headers: fetchHeaders,
+        redirect: "manual", // re-check the redirect target for SSRF before following
         signal: req.signal // Abort if user navigates away
       });
+
+      if (playlistRes.status >= 300 && playlistRes.status < 400) {
+        const followed = await followRedirectOnce(playlistRes, decryptedUrl, fetchHeaders, req.signal);
+        if (!followed) return NextResponse.json({ error: "Blocked target" }, { status: 403 });
+        playlistRes = followed;
+      }
 
       if (!playlistRes.ok) {
         console.error(`[proxy] upstream FAIL — ${playlistRes.status} ${playlistRes.statusText}`);
@@ -155,12 +171,19 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const rangeHeader = req.headers.get("range");
     if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
 
-    // THE FIX: Listen to req.signal. If you skip ahead, the browser aborts the request. 
+    // THE FIX: Listen to req.signal. If you skip ahead, the browser aborts the request.
     // This instantly kills the old Kwik download so the network doesn't get clogged!
-    const streamRes = await fetch(decryptedUrl, {
+    let streamRes = await fetch(decryptedUrl, {
       headers: fetchHeaders,
+      redirect: "manual", // re-check the redirect target for SSRF before following
       signal: req.signal
     });
+
+    if (streamRes.status >= 300 && streamRes.status < 400) {
+      const followed = await followRedirectOnce(streamRes, decryptedUrl, fetchHeaders, req.signal);
+      if (!followed) return NextResponse.json({ error: "Blocked target" }, { status: 403 });
+      streamRes = followed;
+    }
 
     if (!streamRes.ok && streamRes.status !== 206) {
       console.error(`[proxy/segment] FAIL ${streamRes.status} — url: ${decryptedUrl}`);
@@ -211,6 +234,33 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     console.error("[/api/proxy] Error:", err instanceof Error ? err.stack : String(err));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+// Given a 3xx response, resolve its Location against the request URL, re-run the
+// SSRF guard on it, and follow exactly ONE hop (no further redirects). Returns
+// the followed response, or null if the redirect is missing/blocked/loops again
+// (caller turns null into a 403).
+async function followRedirectOnce(
+  redirectRes: Response,
+  baseUrl: string,
+  headers: Record<string, string>,
+  signal: AbortSignal
+): Promise<Response | null> {
+  const location = redirectRes.headers.get("location");
+  if (!location) return null;
+
+  let nextUrl: string;
+  try {
+    nextUrl = new URL(location, baseUrl).toString();
+  } catch {
+    return null;
+  }
+
+  if (isBlockedProxyTarget(nextUrl)) return null;
+
+  const res = await fetch(nextUrl, { headers, redirect: "manual", signal });
+  if (res.status >= 300 && res.status < 400) return null; // only one hop allowed
+  return res;
 }
 
 function buildTokenData(

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -11,23 +12,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/account?tab=settings&error=cancelled", req.url));
   }
 
-  let userId: string | null = null;
+  // Link to the SESSION user only — never trust a userId from state. The state
+  // now carries only a CSRF nonce that must match the oauth-nonce cookie.
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.redirect(new URL("/account?tab=settings&error=no_session", req.url));
+  }
+
+  let nonce: string | null = null;
   try {
     if (state) {
       const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
-      userId = decoded.userId ?? null;
+      nonce = decoded.nonce ?? null;
     }
   } catch {
     return NextResponse.redirect(new URL("/account?tab=settings&error=server", req.url));
   }
 
-  if (!userId) {
-    return NextResponse.redirect(new URL("/account?tab=settings&error=no_session", req.url));
-  }
-
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return NextResponse.redirect(new URL("/account?tab=settings&error=no_session", req.url));
+  // CSRF check: the nonce in state must match the httpOnly oauth-nonce cookie.
+  const cookieNonce = req.cookies.get("oauth-nonce")?.value ?? null;
+  if (!nonce || !cookieNonce || nonce !== cookieNonce) {
+    const res = NextResponse.redirect(new URL("/account?tab=settings&error=csrf", req.url));
+    res.cookies.delete("oauth-nonce");
+    return res;
   }
 
   const clientId = process.env.ANILIST_CLIENT_ID!;
@@ -78,11 +85,14 @@ export async function GET(req: NextRequest) {
 
     // Save to DB
     await db.user.update({
-      where: { id: userId },
+      where: { id: user.id },
       data: { anilistId, anilistUsername, anilistToken: accessToken },
     });
 
-    return NextResponse.redirect(new URL("/account?tab=settings&anilist=linked", req.url));
+    const response = NextResponse.redirect(new URL("/account?tab=settings&anilist=linked", req.url));
+    // CSRF nonce consumed — clear it.
+    response.cookies.delete("oauth-nonce");
+    return response;
   } catch (err) {
     console.error("[AniList OAuth]", err);
     return NextResponse.redirect(new URL("/account?tab=settings&error=server", req.url));

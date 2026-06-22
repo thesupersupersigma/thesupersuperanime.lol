@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { grantBadge } from "@/lib/badge-engine";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -12,25 +13,30 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/account/link-discord?error=cancelled", req.url));
   }
 
-  // Decode userId from state — no cookie needed
-  let userId: string | null = null;
+  // Link to the SESSION user only — never trust a userId from state. The state
+  // now carries only a CSRF nonce that must match the oauth-nonce cookie set at
+  // the initiation site.
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", req.url));
+  }
+
+  let nonce: string | null = null;
   try {
     if (state) {
       const decoded = JSON.parse(Buffer.from(state, "base64url").toString());
-      userId = decoded.userId ?? null;
+      nonce = decoded.nonce ?? null;
     }
   } catch {
     return NextResponse.redirect(new URL("/account/link-discord?error=server", req.url));
   }
 
-  if (!userId) {
-    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", req.url));
-  }
-
-  // Verify user actually exists in DB
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", req.url));
+  // CSRF check: the nonce in state must match the httpOnly oauth-nonce cookie.
+  const cookieNonce = req.cookies.get("oauth-nonce")?.value ?? null;
+  if (!nonce || !cookieNonce || nonce !== cookieNonce) {
+    const res = NextResponse.redirect(new URL("/account/link-discord?error=csrf", req.url));
+    res.cookies.delete("oauth-nonce");
+    return res;
   }
 
   const clientId = process.env.DISCORD_CLIENT_ID!;
@@ -80,7 +86,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Save Discord info to user
     await db.user.update({
-      where: { id: userId },
+      where: { id: user.id },
       data: {
         discordId: discordUser.id,
         discordUsername: discordUser.username,
@@ -90,7 +96,7 @@ export async function GET(req: NextRequest) {
 
     // Grant the "verified" badge immediately on link (fire-and-forget) rather
     // than waiting for the next watch-progress badge sweep.
-    void grantBadge(userId, "verified").catch(console.error);
+    void grantBadge(user.id, "verified").catch(console.error);
 
     // 4. Auto-join user to Discord server
     try {
@@ -157,6 +163,8 @@ export async function GET(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
     });
+    // CSRF nonce consumed — clear it.
+    response.cookies.delete("oauth-nonce");
 
     return response;
   } catch (err) {

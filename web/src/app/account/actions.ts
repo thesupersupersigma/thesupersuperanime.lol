@@ -5,8 +5,75 @@ import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from 
 import { sendNewSignupAlert } from "@/lib/discord";
 import { grantAdminBadges } from "@/lib/badge-engine";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
+
+/**
+ * Sets a short-lived httpOnly CSRF nonce cookie and returns the same nonce.
+ * The OAuth callbacks re-check this against the nonce embedded in `state`, and
+ * link the identity to the SESSION user only (never to a userId from state).
+ */
+async function setOAuthNonce(): Promise<string> {
+  const nonce = randomBytes(16).toString("hex");
+  const cookieStore = await cookies();
+  cookieStore.set("oauth-nonce", nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+  return nonce;
+}
+
+/**
+ * Begins Discord account linking for the logged-in user. Generates a CSRF nonce
+ * cookie and redirects to Discord's authorize URL with the nonce in `state`.
+ * The user is resolved from the session in the callback — no userId in state.
+ */
+export async function startDiscordLinkAction() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/account");
+
+  const nonce = await setOAuthNonce();
+  const state = Buffer.from(JSON.stringify({ nonce })).toString("base64url");
+
+  const bypassSecret = process.env.VERCEL_BYPASS_SECRET ?? "";
+  const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const callbackUrl = bypassSecret
+    ? `${cleanBaseUrl}/api/auth/discord/callback?x-vercel-protection-bypass=${bypassSecret}&x-vercel-set-bypass-cookie=true`
+    : `${cleanBaseUrl}/api/auth/discord/callback`;
+
+  const params = new URLSearchParams({
+    client_id: process.env.DISCORD_CLIENT_ID!,
+    redirect_uri: callbackUrl,
+    response_type: "code",
+    scope: "identify guilds.join",
+    state,
+  });
+  redirect(`https://discord.com/api/oauth2/authorize?${params}`);
+}
+
+/**
+ * Begins AniList account linking for the logged-in user. Sets the CSRF nonce
+ * cookie and returns the authorize URL for the client to navigate to (the
+ * callback resolves the user from the session and verifies the nonce).
+ */
+export async function startAniListLinkAction(): Promise<{ url?: string; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not logged in." };
+
+  const nonce = await setOAuthNonce();
+  const state = Buffer.from(JSON.stringify({ nonce })).toString("base64url");
+
+  const clientId = process.env.NEXT_PUBLIC_ANILIST_CLIENT_ID;
+  const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const redirectUri = encodeURIComponent(`${cleanBaseUrl}/api/auth/anilist/callback`);
+  return {
+    url: `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${state}`,
+  };
+}
 
 export async function signUpAction(formData: FormData) {
   const email = formData.get("email")?.toString().toLowerCase().trim();

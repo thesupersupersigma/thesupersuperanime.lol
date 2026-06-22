@@ -126,13 +126,12 @@ export function UnlinkDiscordButton({ action }: { action: () => Promise<{ error?
   );
 }
 
-export function AniListConnectButton({ userId }: { userId: string }) {
-  function handleClick() {
-    const state = btoa(JSON.stringify({ userId })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-    const clientId = process.env.NEXT_PUBLIC_ANILIST_CLIENT_ID;
-    const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-    const redirectUri = encodeURIComponent(`${cleanBaseUrl}/api/auth/anilist/callback`);
-    window.location.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${state}`;
+export function AniListConnectButton({ action }: { action: () => Promise<{ url?: string; error?: string }> }) {
+  async function handleClick() {
+    // The server action sets the CSRF nonce cookie and returns the authorize URL
+    // (state carries only the nonce; the callback links to the session user).
+    const res = await action();
+    if (res.url) window.location.href = res.url;
   }
 
   return (

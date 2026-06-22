@@ -35,15 +35,43 @@ export async function GET(req: NextRequest) {
   const referer = isAnizara ? "https://anineko.to/" : "https://megaplay.buzz/";
   const origin = isAnizara ? "https://anineko.to" : "https://megaplay.buzz";
 
+  const fetchHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Referer": referer,
+    "Origin": origin,
+  };
+
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Referer": referer,
-        "Origin": origin,
-      },
+    let res = await fetch(url, {
+      headers: fetchHeaders,
+      redirect: "manual", // re-check the redirect target against the allowlist before following
       signal: AbortSignal.timeout(10000),
     });
+
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) return NextResponse.json({ error: "Blocked redirect" }, { status: 403 });
+
+      let nextUrl: URL;
+      try {
+        nextUrl = new URL(location, url);
+      } catch {
+        return NextResponse.json({ error: "Invalid redirect" }, { status: 403 });
+      }
+
+      const redirectAllowed = allowedHosts.some(h => nextUrl.hostname === h || nextUrl.hostname.endsWith("." + h));
+      if (!redirectAllowed) return NextResponse.json({ error: "Redirect host not allowed" }, { status: 403 });
+
+      res = await fetch(nextUrl.toString(), {
+        headers: fetchHeaders,
+        redirect: "manual",
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        return NextResponse.json({ error: "Too many redirects" }, { status: 403 });
+      }
+    }
 
     if (!res.ok) {
       return NextResponse.json({ error: `Upstream ${res.status}` }, { status: 502 });

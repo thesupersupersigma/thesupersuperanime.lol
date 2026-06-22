@@ -1,26 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-
-function buildDiscordOAuthUrl(userId: string) {
-  const state = Buffer.from(JSON.stringify({ userId })).toString("base64url");
-  
-  const bypassSecret = process.env.VERCEL_BYPASS_SECRET ?? "";
-  const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  
-  // Append bypass params so Vercel lets Discord's redirect through
-  const callbackUrl = bypassSecret
-    ? `${cleanBaseUrl}/api/auth/discord/callback?x-vercel-protection-bypass=${bypassSecret}&x-vercel-set-bypass-cookie=true`
-    : `${cleanBaseUrl}/api/auth/discord/callback`;
-
-  const params = new URLSearchParams({
-    client_id: process.env.DISCORD_CLIENT_ID!,
-    redirect_uri: callbackUrl,
-    response_type: "code",
-    scope: "identify guilds.join",
-    state,
-  });
-  return `https://discord.com/api/oauth2/authorize?${params}`;
-}
+import { startDiscordLinkAction } from "../actions";
 
 export default async function LinkDiscordPage({
   searchParams,
@@ -49,9 +29,8 @@ export default async function LinkDiscordPage({
     user: "Could not fetch your Discord profile. Please try again.",
     server: "Something went wrong. Please try again.",
     no_session: "Session expired. Please try again.",
+    csrf: "Your link request expired or didn't match. Please try again.",
   };
-
-  const oauthUrl = buildDiscordOAuthUrl(user.id);
 
   return (
     <div style={{
@@ -124,19 +103,24 @@ export default async function LinkDiscordPage({
             </span>
           </div>
 
-          <a href={oauthUrl} style={{
-            display: "block",
-            background: "#5865F2",
-            color: "#fff",
-            padding: "13px",
-            borderRadius: "8px",
-            fontWeight: 700,
-            fontSize: "14px",
-            textDecoration: "none",
-            marginBottom: "10px",
-          }}>
-            Link Discord
-          </a>
+          <form action={startDiscordLinkAction} style={{ margin: 0 }}>
+            <button type="submit" style={{
+              display: "block",
+              width: "100%",
+              background: "#5865F2",
+              color: "#fff",
+              padding: "13px",
+              border: "none",
+              borderRadius: "8px",
+              fontWeight: 700,
+              fontSize: "14px",
+              fontFamily: "inherit",
+              cursor: "pointer",
+              marginBottom: "10px",
+            }}>
+              Link Discord
+            </button>
+          </form>
 
           <p style={{ color: "#555", fontSize: "11px", lineHeight: "1.6", margin: 0 }}>
             Gives you a profile picture and username automatically. Also joins you to our Discord server.

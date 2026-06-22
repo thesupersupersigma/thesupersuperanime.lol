@@ -26,6 +26,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Validate/coerce inputs before they reach the scraper URL. animeId is
+    // interpolated into a path (`/info/${id}`), so reject anything that isn't a
+    // positive integer to block path-bearing/string injection.
+    const id = Number(animeId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return NextResponse.json({ error: "Invalid animeId" }, { status: 400 });
+    }
+
+    const ep = Number(episodeNum);
+    if (!Number.isInteger(ep)) {
+      return NextResponse.json({ error: "Invalid episodeNum" }, { status: 400 });
+    }
+
     const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
 
@@ -33,12 +46,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
-    console.log(`[/api/source] Fetching streams for animeId: ${animeId} | Ep: ${episodeNum}`);
+    console.log(`[/api/source] Fetching streams for animeId: ${id} | Ep: ${ep}`);
 
     let allStreams: NormalizedStream[] = [];
     let fallbackReason = "primary";
     try {
-      allStreams = await fetchScraper(animeId, episodeNum);
+      allStreams = await fetchScraper(id, ep);
       if (allStreams.length === 0) fallbackReason = "not_found";
     } catch (err) {
       const name = err instanceof Error ? err.name : "";
@@ -122,7 +135,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log(`[/api/source] Compiled ${finalServers.length} servers for animeId ${animeId} ep ${episodeNum}`);
+    console.log(`[/api/source] Compiled ${finalServers.length} servers for animeId ${id} ep ${ep}`);
     return NextResponse.json({ servers: finalServers, fallbackReason });
 
   } catch (err: unknown) {
