@@ -9,8 +9,13 @@ export async function GET(req: NextRequest) {
   const error = searchParams.get("error");
   const state = searchParams.get("state");
 
+  // Base all user-facing redirects on NEXT_PUBLIC_SITE_URL — behind Traefik the
+  // container's request host is its bind address (0.0.0.0:3000), so req.url would
+  // leak that host into redirects.
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || req.nextUrl.origin;
+
   if (error || !code) {
-    return NextResponse.redirect(new URL("/account/link-discord?error=cancelled", req.url));
+    return NextResponse.redirect(new URL("/account/link-discord?error=cancelled", base));
   }
 
   // Link to the SESSION user only — never trust a userId from state. The state
@@ -18,7 +23,7 @@ export async function GET(req: NextRequest) {
   // the initiation site.
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", req.url));
+    return NextResponse.redirect(new URL("/account/link-discord?error=no_session", base));
   }
 
   let nonce: string | null = null;
@@ -28,13 +33,13 @@ export async function GET(req: NextRequest) {
       nonce = decoded.nonce ?? null;
     }
   } catch {
-    return NextResponse.redirect(new URL("/account/link-discord?error=server", req.url));
+    return NextResponse.redirect(new URL("/account/link-discord?error=server", base));
   }
 
   // CSRF check: the nonce in state must match the httpOnly oauth-nonce cookie.
   const cookieNonce = req.cookies.get("oauth-nonce")?.value ?? null;
   if (!nonce || !cookieNonce || nonce !== cookieNonce) {
-    const res = NextResponse.redirect(new URL("/account/link-discord?error=csrf", req.url));
+    const res = NextResponse.redirect(new URL("/account/link-discord?error=csrf", base));
     res.cookies.delete("oauth-nonce");
     return res;
   }
@@ -43,11 +48,7 @@ export async function GET(req: NextRequest) {
   const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
   const botToken = process.env.DISCORD_BOT_TOKEN!;
   const guildId = process.env.DISCORD_GUILD_ID!;
-  const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  const bypassSecret = process.env.VERCEL_BYPASS_SECRET ?? "";
-  const redirectUri = bypassSecret
-    ? `${cleanBaseUrl}/api/auth/discord/callback?x-vercel-protection-bypass=${bypassSecret}&x-vercel-set-bypass-cookie=true`
-    : `${cleanBaseUrl}/api/auth/discord/callback`;
+  const redirectUri = `${base}/api/auth/discord/callback`;
   try {
     // 1. Exchange code for access token
     const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     if (!tokenRes.ok) {
       console.error("[Discord] Token exchange failed:", await tokenRes.text());
-      return NextResponse.redirect(new URL("/account/link-discord?error=token", req.url));
+      return NextResponse.redirect(new URL("/account/link-discord?error=token", base));
     }
 
     const tokenData = await tokenRes.json();
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!userRes.ok) {
-      return NextResponse.redirect(new URL("/account/link-discord?error=user", req.url));
+      return NextResponse.redirect(new URL("/account/link-discord?error=user", base));
     }
 
     const discordUser = await userRes.json();
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
     })();
 
     // 6. Set discord-linked cookie and redirect home
-    const response = NextResponse.redirect(new URL("/", req.url));
+    const response = NextResponse.redirect(new URL("/", base));
     response.cookies.set("discord-linked", "1", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -169,6 +170,6 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("[Discord OAuth]", err);
-    return NextResponse.redirect(new URL("/account/link-discord?error=server", req.url));
+    return NextResponse.redirect(new URL("/account/link-discord?error=server", base));
   }
 }

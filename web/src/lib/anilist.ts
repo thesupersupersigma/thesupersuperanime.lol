@@ -140,6 +140,34 @@ const SEARCH_FRAGMENT = `
 
 // ── Query helpers ──────────────────────────────
 
+// Concurrency cap: since migrating to a single VM IP, all AniList traffic shares
+// one rate-limit bucket. Limit how many AniList network requests run at once so
+// cold-cache bursts (e.g. a fresh deploy loading the home page) don't trip the
+// limit. Cache hits resolve fast and free their slot, so warm pages are barely
+// affected.
+const MAX_CONCURRENT = 5;
+let activeRequests = 0;
+const waitQueue: (() => void)[] = [];
+
+async function acquireSlot(): Promise<void> {
+  if (activeRequests < MAX_CONCURRENT) {
+    activeRequests++;
+    return;
+  }
+  await new Promise<void>((resolve) => waitQueue.push(resolve));
+  activeRequests++;
+}
+
+function releaseSlot(): void {
+  activeRequests--;
+  const next = waitQueue.shift();
+  if (next) next();
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const MAX_RETRIES = 3;
+
 async function anilistFetch<T>(
   query: string,
   variables: Record<string, unknown> = {},
@@ -157,22 +185,45 @@ async function anilistFetch<T>(
     ...(revalidate ? { next: { revalidate } } : {}),
   };
 
-  const res = await fetch(ANILIST_URL, fetchOptions);
+  await acquireSlot();
+  try {
+    let res!: Response;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`AniList API error ${res.status}: ${text}`);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      res = await fetch(ANILIST_URL, fetchOptions);
+
+      // 429: don't fail immediately. Honor Retry-After if present, otherwise
+      // back off exponentially (1s, 2s, 4s), then retry the same request.
+      if (res.status === 429 && attempt < MAX_RETRIES - 1) {
+        const retryAfter = Number(res.headers.get("Retry-After"));
+        const waitMs =
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : 1000 * 2 ** attempt;
+        await sleep(waitMs);
+        continue;
+      }
+
+      break;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`AniList API error ${res.status}: ${text}`);
+    }
+
+    const json = await res.json();
+
+    if (json.errors) {
+      throw new Error(
+        `AniList GraphQL error: ${json.errors.map((e: { message: string }) => e.message).join(", ")}`
+      );
+    }
+
+    return json.data as T;
+  } finally {
+    releaseSlot();
   }
-
-  const json = await res.json();
-
-  if (json.errors) {
-    throw new Error(
-      `AniList GraphQL error: ${json.errors.map((e: { message: string }) => e.message).join(", ")}`
-    );
-  }
-
-  return json.data as T;
 }
 
 // ── Public API ─────────────────────────────────
@@ -299,7 +350,7 @@ export async function searchAnime(
     season: filters.season || undefined,
     seasonYear: filters.seasonYear || undefined,
     format: filters.format || undefined,
-  }, "no-store");
+  }, "force-cache", 3600);
 
   return data.Page.media;
 }
