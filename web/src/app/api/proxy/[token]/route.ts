@@ -11,13 +11,11 @@ interface TokenInsertData {
   token: string; url: string; sessionId: string; ip: string; quality: string; isM3U8: boolean; expiresAt: Date; used: boolean;
 }
 
-function getProxyBase(isPlaylist: boolean) {
-  // Playlists (.m3u8) stay on Vercel: they're tiny and must be re-fetched through
-  // this same handler so their segment URLs get rewritten too. Only heavy media
-  // segments (.ts/.key) are offloaded to the VM to save Vercel bandwidth.
-  if (isPlaylist) return "/api/proxy";
-  const vmUrl = process.env.PROXY_VM_URL;
-  return vmUrl ? vmUrl.replace(/\/$/, "") + "/proxy" : "/api/proxy";
+function getProxyBase(_isPlaylist: boolean) {
+  // Everything runs on the same VM now — no Vercel bandwidth to save.
+  // Route all segment and playlist tokens through Next.js so the browser
+  // never sees internal hostnames like host.docker.internal.
+  return "/api/proxy";
 }
 
 export async function HEAD(req: NextRequest, { params }: Params) { return handleRequest(req, await params, true); }
