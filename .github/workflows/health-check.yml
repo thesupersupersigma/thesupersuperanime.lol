@@ -18,14 +18,14 @@ jobs:
           curl -f -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            https://thesupersuperanime.lol/api/cron/health-check
+            https://www.thesupersuperanime.lol/api/cron/health-check
 
       - name: Run status page check
         if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -f -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://thesupersuperanime.lol/api/cron/status-check
+            https://www.thesupersuperanime.lol/api/cron/status-check
 
       - name: Print result
         if: always()

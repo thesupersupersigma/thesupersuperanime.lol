@@ -39,11 +39,8 @@ export async function startDiscordLinkAction() {
   const nonce = await setOAuthNonce();
   const state = Buffer.from(JSON.stringify({ nonce })).toString("base64url");
 
-  const bypassSecret = process.env.VERCEL_BYPASS_SECRET ?? "";
   const cleanBaseUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  const callbackUrl = bypassSecret
-    ? `${cleanBaseUrl}/api/auth/discord/callback?x-vercel-protection-bypass=${bypassSecret}&x-vercel-set-bypass-cookie=true`
-    : `${cleanBaseUrl}/api/auth/discord/callback`;
+  const callbackUrl = `${cleanBaseUrl}/api/auth/discord/callback`;
 
   const params = new URLSearchParams({
     client_id: process.env.DISCORD_CLIENT_ID!,
@@ -130,16 +127,6 @@ export async function verifyEmailAction(token: string) {
       where: { id: user.id },
       data: { emailVerified: true, emailVerifyToken: null, emailVerifyExpires: null },
     });
-    // Mirror the verified state into a cookie so the Edge middleware gate lets
-    // this user through without a linked Discord account.
-    const cookieStore = await cookies();
-    cookieStore.set("email-verified", "1", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-      path: "/",
-    });
     // Send welcome email (fire-and-forget)
     void sendWelcomeEmail(user.email).catch(err =>
       console.error("[verifyEmail] welcome email failed:", err)
@@ -186,30 +173,14 @@ export async function signInAction(formData: FormData) {
     if (!user || !verifyPassword(password, user.passwordHash)) { 
       return { error: "Invalid email or password." }; 
     } 
-    const cookieStore = await cookies();
     await createUserSession(user.id);
     grantAdminBadges(user.id).catch(console.error);
     if (user.discordId) {
-      cookieStore.set("discord-linked", "1", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-      });
       revalidatePath("/account");
       return { success: true }
     }
-    // A verified email passes the gate without Discord. Mirror that into a
-    // cookie so the Edge middleware lets them through (it can't read the DB).
+    // A verified email passes the gate without Discord.
     if (user.emailVerified) {
-      cookieStore.set("email-verified", "1", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-      });
       revalidatePath("/account");
       return { success: true }
     }
@@ -222,9 +193,6 @@ export async function signInAction(formData: FormData) {
 
 export async function logOutAction() {
   await destroyUserSession();
-  const cookieStore = await cookies();
-  cookieStore.delete("discord-linked");
-  cookieStore.delete("email-verified");
   revalidatePath("/account");
 }
 
@@ -334,23 +302,8 @@ export async function unlinkDiscordAction() {
   if (!user) return { error: "Not logged in" }; 
   await db.user.update({ 
     where: { id: user.id }, 
-    data: { discordId: null, discordUsername: null, discordAvatar: null, }, 
-  }); 
-  const cookieStore = await cookies();
-  cookieStore.delete("discord-linked");
-  // A verified email still passes the gate after unlinking, so keep that
-  // cookie alive; otherwise the middleware would bounce them to link-discord.
-  if (user.emailVerified) {
-    cookieStore.set("email-verified", "1", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-      path: "/",
-    });
-  } else {
-    cookieStore.delete("email-verified");
-  }
+    data: { discordId: null, discordUsername: null, discordAvatar: null, },
+  });
   revalidatePath("/account");
   return { success: true };
 }
@@ -425,8 +378,6 @@ export async function deleteAccountAction() {
 
   const cookieStore = await cookies();
   cookieStore.delete("user-session");
-  cookieStore.delete("discord-linked");
-  cookieStore.delete("email-verified");
 
   revalidatePath("/");
   return { success: true };
