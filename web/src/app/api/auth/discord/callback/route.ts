@@ -155,16 +155,8 @@ export async function GET(req: NextRequest) {
       }
     })();
 
-    // 6. Set discord-linked cookie and redirect home
+    // 6. Redirect home (CSRF nonce consumed — clear it).
     const response = NextResponse.redirect(new URL("/", base));
-    response.cookies.set("discord-linked", "1", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-      path: "/",
-    });
-    // CSRF nonce consumed — clear it.
     response.cookies.delete("oauth-nonce");
 
     return response;
