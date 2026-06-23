@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { runStatusChecks, type StatusService, type ServiceStatus, type OverallStatus } from "@/lib/status";
+import { getStatusSnapshot, type StatusService, type ServiceStatus, type OverallStatus } from "@/lib/status";
 import { RefreshButton } from "./refresh-button";
 
 export const metadata: Metadata = {
@@ -141,7 +141,7 @@ function ServiceGroupCard({ title, services }: { title: string; services: Status
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function StatusPage() {
-  const data = await runStatusChecks();
+  const data = await getStatusSnapshot();
 
   const infra = data.services.filter((s) => s.group === "infrastructure");
   const providers = data.services.filter((s) => s.group === "providers");

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { runStatusChecks } from "@/lib/status";
+import { getStatusSnapshot } from "@/lib/status";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/status — public. Live-pings all services and returns uptime status. */
+/**
+ * GET /api/status — public. Returns a READ-ONLY uptime snapshot from persisted
+ * data (no live pings, no DB writes). The live checks run via the cron only, so
+ * hammering this endpoint can't amplify load or pollute uptime history.
+ */
 export async function GET() {
   try {
-    const result = await runStatusChecks();
+    const result = await getStatusSnapshot();
     return NextResponse.json(result);
   } catch (err) {
     console.error("[/api/status]", err);

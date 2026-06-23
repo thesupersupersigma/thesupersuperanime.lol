@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ImportButton, SignOutButton, UnlinkDiscordButton, DeleteAccountButton, AniListConnectButton } from "./account-buttons";
-import { unlinkDiscordAction, deleteAccountAction, updateProfileAction, startAniListLinkAction, startDiscordLinkAction } from "./actions";
+import { unlinkDiscordAction, deleteAccountAction, updateProfileAction, startAniListLinkAction, startDiscordLinkAction, setProfilePrivacyAction } from "./actions";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
 import { BadgeCard } from "@/components/badges/BadgeCard";
 
@@ -28,6 +28,7 @@ interface Props {
     username?: string | null;
     displayName?: string | null;
     anilistUsername?: string | null;
+    profilePrivate: boolean;
   };
   notifPrefs: NotifPrefs;
   history: HistoryEntry[];
@@ -381,6 +382,9 @@ export function AccountDashboard({ user, notifPrefs, history, watchlist, badges,
                 <NotificationSettings notifPrefs={notifPrefs} />
 
                 <div style={{ height: "1px", background: "#1a1a1a" }} />
+                <PrivacySettings initialPrivate={user.profilePrivate} />
+
+                <div style={{ height: "1px", background: "#1a1a1a" }} />
                 <div>
                   <h3 style={{
                     fontFamily: "'Syne', sans-serif", fontSize: "15px",
@@ -531,6 +535,71 @@ function NotificationSettings({ notifPrefs }: { notifPrefs: NotifPrefs }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Privacy settings ──────────────────────────────────────────────────────
+
+function PrivacySettings({ initialPrivate }: { initialPrivate: boolean }) {
+  const [isPrivate, setIsPrivate] = useState(initialPrivate);
+  const [saving, setSaving] = useState(false);
+
+  async function handleToggle() {
+    if (saving) return;
+    const value = !isPrivate;
+    setIsPrivate(value);
+    setSaving(true);
+    try {
+      const res = await setProfilePrivacyAction(value);
+      if (!("success" in res) || !res.success) throw new Error();
+    } catch {
+      // Revert on failure
+      setIsPrivate(!value);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5", marginBottom: "12px" }}>
+        Privacy
+      </h3>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+        <span style={{ color: "#a3a3a3", fontSize: "13px" }}>Private profile</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isPrivate}
+          disabled={saving}
+          onClick={handleToggle}
+          style={{
+            width: "40px",
+            height: "22px",
+            borderRadius: "11px",
+            border: "none",
+            padding: "2px",
+            background: isPrivate ? "#2563eb" : "#2a2a2a",
+            cursor: saving ? "default" : "pointer",
+            flexShrink: 0,
+            transition: "background 0.15s",
+            display: "flex",
+            justifyContent: isPrivate ? "flex-end" : "flex-start",
+            opacity: saving ? 0.7 : 1,
+          }}
+        >
+          <div style={{
+            width: "18px",
+            height: "18px",
+            borderRadius: "50%",
+            background: "#fff",
+          }} />
+        </button>
+      </div>
+      <p style={{ color: "#444", fontSize: "12px", marginTop: "8px", lineHeight: "1.5" }}>
+        When on, only you can see your watch history, watchlist, and activity.
+      </p>
     </div>
   );
 }

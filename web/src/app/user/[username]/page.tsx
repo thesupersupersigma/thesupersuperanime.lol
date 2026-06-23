@@ -92,6 +92,166 @@ function buildHeatmap(countsByDate: Map<string, number>) {
   return { columns, monthLabels };
 }
 
+type ProfileUser = {
+  id: string;
+  discordUsername: string | null;
+  discordAvatar: string | null;
+  username: string | null;
+  displayName: string | null;
+  avatarPreset: number | null;
+  profilePrivate: boolean;
+};
+
+type BadgeRow = Awaited<ReturnType<typeof db.userBadge.findMany>>[number] & {
+  badge: { slug: string; name: string; description: string; icon: string; rarity: string; rarityOrder: number };
+};
+
+// Shared profile header (avatar, name, follower/following counts, follow button).
+function ProfileHeader({
+  user,
+  followersCount,
+  followingCount,
+  viewerId,
+  isOwnProfile,
+  isFollowing,
+}: {
+  user: ProfileUser;
+  followersCount: number;
+  followingCount: number;
+  viewerId: string | null;
+  isOwnProfile: boolean;
+  isFollowing: boolean;
+}) {
+  return (
+    <div style={{
+      background: "#111", border: "1px solid #2a2a2a",
+      borderRadius: "16px", padding: "28px 32px",
+      display: "flex", alignItems: "center", gap: "16px",
+      position: "relative", overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute", top: 0, left: 0, width: "100%", height: "1px",
+        background: "linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)",
+      }} />
+      <Image
+        src={getUserAvatar(user)}
+        alt={getUserDisplayName(user)}
+        width={56} height={56}
+        style={{ borderRadius: "50%", border: "2px solid #2a2a2a", flexShrink: 0, objectFit: "cover" }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <h1 style={{
+          fontFamily: "'Syne', sans-serif", fontSize: "20px",
+          fontWeight: 700, color: "#e5e5e5", letterSpacing: "-0.02em", marginBottom: "3px",
+        }}>
+          {getUserDisplayName(user)}
+        </h1>
+        <p style={{ color: "#555", fontSize: "12px" }}>
+          {user.profilePrivate ? "Private profile" : "Public profile"} · <span style={{ color: "#a3a3a3" }}>{followersCount}</span> follower{followersCount === 1 ? "" : "s"} · <span style={{ color: "#a3a3a3" }}>{followingCount}</span> following
+        </p>
+      </div>
+      {viewerId && !isOwnProfile && (
+        <FollowButton followingId={user.id} initialIsFollowing={isFollowing} viewerId={viewerId} />
+      )}
+    </div>
+  );
+}
+
+// Shared Badges section.
+function BadgesSection({ badges }: { badges: BadgeRow[] }) {
+  if (badges.length === 0) return null;
+  return (
+    <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "16px", overflow: "hidden" }}>
+      <div style={{ padding: "20px 24px", borderBottom: "1px solid #1a1a1a" }}>
+        <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "15px", fontWeight: 600, color: "#e5e5e5" }}>
+          Badges
+        </h2>
+      </div>
+      <div style={{ padding: "16px 24px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+        {badges.map((userBadge, i) => (
+          <BadgeCard
+            key={userBadge.id}
+            slug={userBadge.badge.slug}
+            name={userBadge.badge.name}
+            description={userBadge.badge.description}
+            icon={userBadge.badge.icon}
+            rarity={userBadge.badge.rarity}
+            rarityOrder={userBadge.badge.rarityOrder}
+            grantedAt={userBadge.grantedAt.toISOString()}
+            context={userBadge.context}
+            index={i}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Rendered when a profile is private and the viewer isn't the owner: header +
+// badges as normal, with the activity sections replaced by a single card.
+function PrivateProfileView({
+  user,
+  badges,
+  followersCount,
+  followingCount,
+  viewerId,
+  isOwnProfile,
+  isFollowing,
+}: {
+  user: ProfileUser;
+  badges: BadgeRow[];
+  followersCount: number;
+  followingCount: number;
+  viewerId: string | null;
+  isOwnProfile: boolean;
+  isFollowing: boolean;
+}) {
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5",
+      paddingTop: "80px", paddingBottom: "80px",
+      paddingLeft: "24px", paddingRight: "24px",
+    }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+        <Link
+          href="/leaderboard"
+          style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#555", fontSize: "13px", textDecoration: "none", width: "fit-content" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 5l-7 7 7 7" />
+          </svg>
+          Back to leaderboard
+        </Link>
+
+        <ProfileHeader
+          user={user}
+          followersCount={followersCount}
+          followingCount={followingCount}
+          viewerId={viewerId}
+          isOwnProfile={isOwnProfile}
+          isFollowing={isFollowing}
+        />
+
+        {/* Private notice — replaces all activity sections */}
+        <div style={{
+          background: "#111", border: "1px solid #2a2a2a", borderRadius: "16px",
+          padding: "48px 24px", textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", marginBottom: "12px" }}>🔒</div>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "16px", fontWeight: 600, color: "#e5e5e5", marginBottom: "6px" }}>
+            This profile is private
+          </h2>
+          <p style={{ color: "#555", fontSize: "13px" }}>
+            This user has chosen to keep their watch history, watchlist, and activity private.
+          </p>
+        </div>
+
+        <BadgesSection badges={badges} />
+      </div>
+    </div>
+  );
+}
+
 export default async function UserProfilePage({ params }: PageProps) {
   const { username } = await params;
   const decodedUsername = decodeURIComponent(username);
@@ -111,6 +271,7 @@ export default async function UserProfilePage({ params }: PageProps) {
       username: true,
       displayName: true,
       avatarPreset: true,
+      profilePrivate: true,
     },
   });
 
@@ -120,16 +281,44 @@ export default async function UserProfilePage({ params }: PageProps) {
   const viewerId = viewer?.id ?? null;
   const isOwnProfile = viewerId === user.id;
 
-  const [
-    historyAgg,
-    watchlistRaw,
-    recentHistoryRaw,
-    badges,
-    followersCount,
-    followingCount,
-    followRow,
-    heatmapRows,
-  ] = await Promise.all([
+  // The owner always sees everything; for everyone else, the private flag
+  // hides the activity sections (history, watchlist, stats, heatmap).
+  const activityVisible = isOwnProfile || !user.profilePrivate;
+
+  // Header (follow counts/button) and Badges always render — fetch those first.
+  const [badges, followersCount, followingCount, followRow] = await Promise.all([
+    db.userBadge.findMany({
+      where: { userId: user.id },
+      include: { badge: true },
+      orderBy: [{ badge: { rarityOrder: "desc" } }, { grantedAt: "asc" }],
+    }),
+    db.follow.count({ where: { followingId: user.id } }),
+    db.follow.count({ where: { followerId: user.id } }),
+    viewerId && !isOwnProfile
+      ? db.follow.findUnique({
+          where: { followerId_followingId: { followerId: viewerId, followingId: user.id } },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const isFollowing = Boolean(followRow);
+
+  if (!activityVisible) {
+    return (
+      <PrivateProfileView
+        user={user}
+        badges={badges}
+        followersCount={followersCount}
+        followingCount={followingCount}
+        viewerId={viewerId}
+        isOwnProfile={isOwnProfile}
+        isFollowing={isFollowing}
+      />
+    );
+  }
+
+  // ── Activity data (only fetched when visible — skips the AniList fan-out) ─────
+  const [historyAgg, watchlistRaw, recentHistoryRaw, heatmapRows] = await Promise.all([
     db.watchHistory.aggregate({
       where: { userId: user.id },
       _count: { episodeId: true },
@@ -144,18 +333,6 @@ export default async function UserProfilePage({ params }: PageProps) {
       orderBy: { updatedAt: "desc" },
       take: 10,
     }),
-    db.userBadge.findMany({
-      where: { userId: user.id },
-      include: { badge: true },
-      orderBy: [{ badge: { rarityOrder: "desc" } }, { grantedAt: "asc" }],
-    }),
-    db.follow.count({ where: { followingId: user.id } }),
-    db.follow.count({ where: { followerId: user.id } }),
-    viewerId && !isOwnProfile
-      ? db.follow.findUnique({
-          where: { followerId_followingId: { followerId: viewerId, followingId: user.id } },
-        })
-      : Promise.resolve(null),
     db.watchHistory.findMany({
       where: {
         userId: user.id,
@@ -165,8 +342,6 @@ export default async function UserProfilePage({ params }: PageProps) {
       orderBy: { updatedAt: "asc" },
     }),
   ]);
-
-  const isFollowing = Boolean(followRow);
 
   const totalEpisodes = historyAgg._count.episodeId;
   const totalMinutes = Math.floor((historyAgg._sum.duration ?? 0) / 60);

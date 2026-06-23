@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireCompleteProfile } from "@/lib/auth";
+import { requireAuth, requireVerified } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Simple in-memory rate limit — 1 comment per 30s per user
@@ -75,9 +75,9 @@ export async function POST(req: NextRequest) {
   if (!user || !user.id) {
     return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
   }
-  if (!(await requireCompleteProfile())) {
+  if (!(await requireVerified())) {
     return NextResponse.json(
-      { error: "Finish setting up your profile to continue" },
+      { error: "Verify your email or link Discord to participate." },
       { status: 403 },
     );
   }

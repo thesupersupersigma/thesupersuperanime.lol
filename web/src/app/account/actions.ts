@@ -297,7 +297,26 @@ export async function updateProfileAction(formData: FormData) {
   return { success: true };
 }
 
-export async function unlinkDiscordAction() { 
+/**
+ * Toggles the current user's profile privacy. When `profilePrivate` is true,
+ * only the owner can see their watch history, watchlist, stats, and activity
+ * on their public profile page. Works for ALL users (including Discord-linked
+ * ones) — privacy is separate from the manual-profile restriction.
+ */
+export async function setProfilePrivacyAction(isPrivate: boolean) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not logged in." };
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { profilePrivate: isPrivate },
+  });
+
+  revalidatePath("/account");
+  return { success: true };
+}
+
+export async function unlinkDiscordAction() {
   const user = await getCurrentUser(); 
   if (!user) return { error: "Not logged in" }; 
   await db.user.update({ 

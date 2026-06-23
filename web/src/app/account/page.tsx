@@ -111,6 +111,7 @@ export default async function AccountPage() {
           username: user.username ?? null,
           displayName: user.displayName ?? null,
           anilistUsername: user.anilistUsername ?? null,
+          profilePrivate: user.profilePrivate,
         }}
         notifPrefs={{
           emailNotifStreak: user.emailNotifStreak,

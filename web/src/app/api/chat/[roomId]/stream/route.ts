@@ -4,6 +4,11 @@ import { CHAT_USER_SELECT, isValidRoomId } from "@/lib/chat";
 
 export const dynamic = "force-dynamic";
 
+// Cap concurrent SSE connections so unbounded DB-polling streams can't be used
+// to exhaust connections/DB load. New connections past the cap get a 503.
+const MAX_CONNECTIONS = 300;
+let activeConnections = 0;
+
 // SSE stream for a chat room. Sends the last 50 messages on connect, then
 // polls every 1.5s and pushes only NEW messages (delta) to keep it lean.
 // Public, no auth (modeled on /api/announcement/stream + watch-party stream).
@@ -16,7 +21,18 @@ export async function GET(
     return new Response("Invalid room", { status: 400 });
   }
 
+  if (activeConnections >= MAX_CONNECTIONS) {
+    return new Response("Too many connections", { status: 503 });
+  }
+  activeConnections++;
+
   let closed = false;
+  // Decrement at most once, whether we close via cancel() or an internal error.
+  const release = () => {
+    if (closed) return;
+    closed = true;
+    activeConnections--;
+  };
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -65,7 +81,7 @@ export async function GET(
       }, 25_000);
     },
     cancel() {
-      closed = true;
+      release();
     },
   });
 

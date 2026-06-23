@@ -2,8 +2,24 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// Cap concurrent SSE connections so unbounded DB-polling streams can't be used
+// to exhaust connections/DB load. New connections past the cap get a 503.
+const MAX_CONNECTIONS = 300;
+let activeConnections = 0;
+
 export async function GET() {
+  if (activeConnections >= MAX_CONNECTIONS) {
+    return new Response("Too many connections", { status: 503 });
+  }
+  activeConnections++;
+
   let closed = false;
+  // Decrement at most once, whether we close via cancel() or an internal error.
+  const release = () => {
+    if (closed) return;
+    closed = true;
+    activeConnections--;
+  };
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -42,7 +58,7 @@ export async function GET() {
       }, 25_000);
     },
     cancel() {
-      closed = true;
+      release();
     },
   });
 

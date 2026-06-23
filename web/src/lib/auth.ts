@@ -160,6 +160,25 @@ export async function requireCompleteProfile() {
   return user;
 }
 
+/**
+ * Returns the currently logged-in user only if their account is verified,
+ * otherwise null.
+ *
+ * Use this in API routes/actions that should be blocked until a user has
+ * proven ownership of an identity (chat, comments, social writes). An account
+ * is "verified" when the user has EITHER a linked Discord (discordId) OR a
+ * verified email (emailVerified). When it returns null, distinguish the two
+ * cases at the call site:
+ *   - getCurrentUser() === null  → not logged in → respond 401
+ *   - logged in but unverified    → respond 403 ("verify email or link Discord")
+ */
+export async function requireVerified() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (user.discordId === null && user.emailVerified !== true) return null;
+  return user;
+}
+
 // Session cookie lifetime — 30 days, matching the original user-session cookie.
 const USER_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -244,6 +263,7 @@ export async function getCurrentUser() {
           emailNotifRanked: true,
           emailNotifNewEpisode: true,
           emailNotifCompletion: true,
+          profilePrivate: true,
         },
       },
     },

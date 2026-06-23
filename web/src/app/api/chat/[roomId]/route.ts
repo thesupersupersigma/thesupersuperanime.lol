@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentUser, requireCompleteProfile } from "@/lib/auth";
+import { getCurrentUser, requireVerified } from "@/lib/auth";
 import { CHAT_USER_SELECT, isValidRoomId } from "@/lib/chat";
 
 export const dynamic = "force-dynamic";
@@ -41,9 +41,9 @@ export async function POST(
   if (!user) {
     return NextResponse.json({ error: "Sign in to chat" }, { status: 401 });
   }
-  if (!(await requireCompleteProfile())) {
+  if (!(await requireVerified())) {
     return NextResponse.json(
-      { error: "Finish setting up your profile to continue" },
+      { error: "Verify your email or link Discord to participate." },
       { status: 403 },
     );
   }

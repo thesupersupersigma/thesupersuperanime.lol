@@ -28,6 +28,7 @@ model User {
   emailNotifRanked    Boolean              @default(true)
   emailNotifNewEpisode Boolean             @default(true)
   emailNotifCompletion Boolean             @default(true)
+  profilePrivate      Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   watchHistory        WatchHistory[]

@@ -79,6 +79,8 @@ export async function GET(req: NextRequest) {
       username: true,
       displayName: true,
       avatarPreset: true,
+      discordId: true,
+      emailVerified: true,
     },
   });
 
@@ -88,7 +90,10 @@ export async function GET(req: NextRequest) {
     .filter(h => {
       if (!h.userId || !userMap.has(h.userId!)) return false;
       const u = userMap.get(h.userId!)!;
-      return !!(u.username || u.displayName || u.discordUsername);
+      return (
+        !!(u.username || u.displayName || u.discordUsername) &&
+        (u.discordId !== null || u.emailVerified === true)
+      );
     })
     .map(h => {
       const user = userMap.get(h.userId!)!;

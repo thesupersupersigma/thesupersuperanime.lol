@@ -20,6 +20,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No valid anime found in this file." }, { status: 400 })
     }
 
+    // Bound the AniList resolution fan-out + bulk inserts before doing any work.
+    if (entries.length > 5000) {
+      return NextResponse.json({ error: "Import too large — max 5000 entries." }, { status: 400 })
+    }
+
     // Resolve MAL IDs to AniList IDs if it's an XML file
     const resolved = needsIdResolution
       ? await resolveMalIds(entries)
@@ -63,6 +68,6 @@ export async function POST(req: NextRequest) {
     console.error("\n--- IMPORT ERROR ---")
     console.error(err)
     console.error("--------------------\n")
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to parse file." }, { status: 500 })
+    return NextResponse.json({ error: "Failed to import file." }, { status: 500 })
   }
 }

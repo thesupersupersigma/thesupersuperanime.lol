@@ -1,14 +1,12 @@
 import { db } from "@/lib/db";
 
 // ── Shared status logic ───────────────────────────────────────────────────────
-// Single source of truth used by:
-//   - GET /api/status            (public JSON)
-//   - /status page               (server component, calls runStatusChecks() inline)
-//   - GET /api/cron/status-check (every 5 min via GitHub Actions)
-//
-// Each invocation live-pings the infrastructure services, reflects the latest
-// ProviderStatus rows, writes a StatusCheck row per service (for uptime history),
-// and opens/resolves StatusIncident rows.
+// Two code paths:
+//   - runStatusChecks()   — live pings + persistence (StatusCheck/incident writes).
+//                           Cron-only: GET /api/cron/status-check, every 5 min.
+//   - getStatusSnapshot() — READ-ONLY assembly from persisted data, no pings/writes.
+//                           Public reads: GET /api/status + the /status page, so
+//                           hammering them can't amplify load or pollute history.
 
 export type ServiceStatus = "operational" | "degraded" | "outage" | "unknown";
 export type OverallStatus = "operational" | "degraded" | "outage";
@@ -316,5 +314,125 @@ export async function runStatusChecks(): Promise<StatusResult> {
     overallStatus,
     lastUpdated: now.toISOString(),
     incidents: { opened, resolved },
+  };
+}
+
+/**
+ * READ-ONLY status snapshot — NO live pings, NO DB writes. Assembles the same
+ * StatusResult shape from already-persisted data so public reads (GET /api/status,
+ * the /status page) don't amplify load or pollute uptime history. The live checks
+ * + persistence are the cron's job (runStatusChecks, every 5 min).
+ *
+ * Each infra service's current status/latency is derived from its most recent
+ * StatusCheck row (a service with no rows yet reads "unknown"); provider services
+ * come from ProviderStatus; uptime % + history use the last 90 StatusCheck rows
+ * per service; currently-open StatusIncident rows are reflected as before.
+ */
+export async function getStatusSnapshot(): Promise<StatusResult> {
+  const now = new Date();
+
+  // Provider rows + open incidents up front (parallel).
+  const [providerStatuses, openIncidents] = await Promise.all([
+    db.providerStatus.findMany({ orderBy: { displayName: "asc" } }),
+    db.statusIncident.findMany({
+      where: { resolvedAt: null },
+      orderBy: { startedAt: "desc" },
+    }),
+  ]);
+
+  const openByService = new Map<string, (typeof openIncidents)[number]>();
+  for (const inc of openIncidents) {
+    if (!openByService.has(inc.service)) openByService.set(inc.service, inc);
+  }
+
+  // Last 90 checks per infra service (parallel) — drives both the current
+  // reading (newest row) and the uptime % + sparkline.
+  const infraHistories = await Promise.all(
+    INFRA.map((def) =>
+      db.statusCheck.findMany({
+        where: { service: def.id },
+        orderBy: { checkedAt: "desc" },
+        take: HISTORY_LIMIT,
+      })
+    )
+  );
+
+  const observations: Observation[] = [];
+
+  INFRA.forEach((def, i) => {
+    const latest = infraHistories[i][0]; // newest, since ordered desc
+    observations.push({
+      id: def.id,
+      name: def.name,
+      group: "infrastructure",
+      status: latest ? (latest.success ? "operational" : "outage") : "unknown",
+      latencyMs: latest ? latest.latencyMs : null,
+      lastChecked: latest ? latest.checkedAt : now,
+    });
+  });
+
+  for (const ps of providerStatuses) {
+    observations.push({
+      id: ps.providerId,
+      name: ps.displayName,
+      group: "providers",
+      status: mapProviderStatus(ps.status),
+      latencyMs: ps.latencyMs ?? null,
+      lastChecked: ps.lastCheckedAt ?? now,
+      error: ps.errorMessage ?? undefined,
+    });
+  }
+
+  // Provider services need their StatusCheck history too (infra already fetched).
+  const providerHistories = await Promise.all(
+    providerStatuses.map((ps) =>
+      db.statusCheck.findMany({
+        where: { service: ps.providerId },
+        orderBy: { checkedAt: "desc" },
+        take: HISTORY_LIMIT,
+      })
+    )
+  );
+  const histories = [...infraHistories, ...providerHistories];
+
+  const services: StatusService[] = observations.map((o, i) => {
+    const rows = histories[i].slice().reverse(); // oldest → newest
+    const total = rows.length;
+    const successes = rows.filter((r) => r.success).length;
+    const uptimePercent = total ? Math.round((successes / total) * 1000) / 10 : 100;
+
+    const history: (boolean | null)[] = rows.map((r) => r.success);
+    while (history.length < HISTORY_LIMIT) history.unshift(null);
+
+    const open = openByService.get(o.id);
+
+    return {
+      id: o.id,
+      name: o.name,
+      group: o.group,
+      status: o.status,
+      latencyMs: o.latencyMs,
+      uptimePercent,
+      lastChecked: o.lastChecked.toISOString(),
+      incident: open
+        ? { startedAt: open.startedAt.toISOString(), description: open.description ?? "" }
+        : undefined,
+      history,
+    };
+  });
+
+  const hasOutage = services.some((s) => s.status === "outage");
+  const hasDegraded = services.some((s) => s.status === "degraded");
+  const overallStatus: OverallStatus = hasOutage
+    ? "outage"
+    : hasDegraded
+      ? "degraded"
+      : "operational";
+
+  return {
+    services,
+    overallStatus,
+    lastUpdated: now.toISOString(),
+    incidents: { opened: 0, resolved: 0 },
   };
 }
