@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createDecipheriv, createCipheriv, randomBytes, createHmac } from "crypto";
 import { db } from "@/lib/db";
 import { isBlockedProxyTarget } from "@/lib/ssrf-guard";
+import { getClientIp } from "@/lib/request-ip";
 
 interface Params { params: Promise<{ token: string }>; }
 
@@ -30,7 +31,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     if (!record) return NextResponse.json({ error: "Invalid token" }, { status: 403 });
     if (new Date() > record.expiresAt) return NextResponse.json({ error: "Token expired" }, { status: 410 });
 
-    const requestIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
+    const requestIp = getClientIp(req);
     if (record.ip !== requestIp && record.ip !== "unknown") return NextResponse.json({ error: "IP mismatch" }, { status: 403 });
 
     const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";

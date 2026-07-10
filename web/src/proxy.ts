@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Constant-time string comparison usable on the Edge runtime (no Node crypto).
+ * Iterates over the longer string's length so timing doesn't leak where the
+ * strings diverge; only returns true when lengths match AND nothing mismatched.
+ */
+function timingSafeEqualString(a: string, b: string): boolean {
+  const len = Math.max(a.length, b.length);
+  let mismatch = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < len; i++) {
+    mismatch |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return mismatch === 0;
+}
+
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -42,7 +56,7 @@ export function proxy(req: NextRequest) {
   if (pathname.startsWith("/api/cron")) {
     const authHeader = req.headers.get("authorization") ?? "";
     const expectedToken = process.env.CRON_SECRET;
-    if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+    if (!expectedToken || !timingSafeEqualString(authHeader, `Bearer ${expectedToken}`)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     return NextResponse.next();
@@ -53,7 +67,11 @@ export function proxy(req: NextRequest) {
   const sitePasswordGateEnabled = process.env.SITE_PASSWORD_GATE !== "off";
   if (sitePasswordGateEnabled) {
     const siteAuth = req.cookies.get("site-auth");
-    if (!siteAuth || siteAuth.value !== process.env.SITE_PASSWORD) {
+    if (
+      !siteAuth ||
+      !process.env.SITE_PASSWORD ||
+      !timingSafeEqualString(siteAuth.value, process.env.SITE_PASSWORD)
+    ) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }

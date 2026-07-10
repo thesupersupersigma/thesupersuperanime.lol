@@ -5,10 +5,23 @@ import { checkRateLimit } from "@/lib/core";
 import { syncToAniList } from "@/lib/anilist-sync";
 import { checkAndGrantBadges, recordAiringWatch, updateWatchStreak } from "@/lib/badge-engine";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const sessionId = await getSessionId();
     const user = await getCurrentUser();
+
+    // Exact-episode lookup (used by the watch page for resume position).
+    // Same response shape as the dedup path — a single-item array — so
+    // callers using `.find()` keep working unchanged.
+    const episodeId = req.nextUrl.searchParams.get("episodeId");
+    if (episodeId) {
+      const record = await db.watchHistory.findUnique({
+        where: user
+          ? { userId_episodeId: { userId: user.id, episodeId } }
+          : { sessionId_episodeId: { sessionId, episodeId } },
+      });
+      return NextResponse.json({ history: record ? [record] : [] });
+    }
 
     const history = await db.watchHistory.findMany({
       where: user ? { userId: user.id } : { sessionId },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { AnilistMedia } from "@/lib/anilist";
 import { getDisplayTitle } from "@/lib/anilist";
@@ -96,6 +96,46 @@ export default function WatchClient() {
       setWatchPartyError("Could not start watch party. Please try again.");
     }
   }
+
+  // Timestamp of the last dead-token source refetch — guards against a
+  // persistently dead source hammering /api/source in a loop.
+  const lastRefetchRef = useRef(0);
+
+  // Re-fetch sources after a fatal playback error (expired/dead proxy token).
+  // Passed to AnimePlayer as onSourceFailure; a fresh /api/source response
+  // mints new tokens and the player picks up the new srcUrl.
+  const refetchSources = useCallback(async () => {
+    if (!anime) return;
+    const now = Date.now();
+    if (now - lastRefetchRef.current < 5000) {
+      setError("Stream unavailable — try another server");
+      return;
+    }
+    lastRefetchRef.current = now;
+    try {
+      const sourceRes = await fetch("/api/source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          animeId,
+          episodeNum,
+          animeTitle: getDisplayTitle(anime.title),
+        }),
+      });
+      if (!sourceRes.ok) throw new Error("No playable streams found");
+      const sourceData = await sourceRes.json();
+      if (sourceData.servers && sourceData.servers.length > 0) {
+        setServers(sourceData.servers);
+        setMirrorUsed(sourceData.mirrorUsed);
+        setFallbackReason(sourceData.fallbackReason);
+      } else {
+        throw new Error("No servers available for this episode.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [anime, animeId, episodeNum]);
 
   // Join an existing room by code — navigate to ?party=ROOMCODE.
   function joinByCode() {
@@ -265,6 +305,7 @@ export default function WatchClient() {
               mirrorUsed={mirrorUsed}
               fallbackReason={fallbackReason}
               resumeTime={resumeTime}
+              onSourceFailure={refetchSources}
               totalEpisodes={
                 anime.nextAiringEpisode?.episode
                   ? anime.nextAiringEpisode.episode - 1

@@ -4,10 +4,28 @@ import { hashPassword, verifyPassword, getCurrentUser, createUserSession, destro
 import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "@/lib/resend";
 import { sendNewSignupAlert } from "@/lib/discord";
 import { grantAdminBadges } from "@/lib/badge-engine";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
+
+// ── In-memory rate limiting for auth actions ────────────────────────────────
+// Same idea as the comments-route limiter: per-key attempt timestamps, pruned
+// on each check. Best-effort (per server instance), no reset on success so a
+// successful login can't be used to clear the counter.
+const rateLimitMap = new Map<string, number[]>();
+
+function isRateLimited(key: string, maxAttempts: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (rateLimitMap.get(key) ?? []).filter(ts => now - ts < windowMs);
+  if (recent.length >= maxAttempts) {
+    rateLimitMap.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  rateLimitMap.set(key, recent);
+  return false;
+}
 
 /**
  * Sets a short-lived httpOnly CSRF nonce cookie and returns the same nonce.
@@ -77,6 +95,10 @@ export async function signUpAction(formData: FormData) {
   const password = formData.get("password")?.toString();
   if (!email || !password || password.length < 6) {
     return { error: "Invalid email or password too short (min 6 chars)." };
+  }
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (isRateLimited(`signup:${ip}`, 5, 60 * 60 * 1000)) {
+    return { error: "Too many signups from this network. Try again later." };
   }
   try {
     const existingUser = await db.user.findUnique({ where: { email } });
@@ -167,9 +189,12 @@ export async function resendVerificationEmailAction() {
 export async function signInAction(formData: FormData) { 
   const email = formData.get("email")?.toString().toLowerCase().trim(); 
   const password = formData.get("password")?.toString(); 
-  if (!email || !password) return { error: "Email and password required." }; 
-  try { 
-    const user = await db.user.findUnique({ where: { email } }); 
+  if (!email || !password) return { error: "Email and password required." };
+  if (isRateLimited(`signin:${email}`, 5, 15 * 60 * 1000)) {
+    return { error: "Too many attempts. Try again in a few minutes." };
+  }
+  try {
+    const user = await db.user.findUnique({ where: { email } });
     if (!user || !verifyPassword(password, user.passwordHash)) { 
       return { error: "Invalid email or password." }; 
     } 
@@ -198,8 +223,13 @@ export async function logOutAction() {
 
 export async function requestPasswordResetAction(formData: FormData) { 
   const email = formData.get("email")?.toString().toLowerCase().trim(); 
-  if (!email) return { error: "Email required." }; 
-  try { 
+  if (!email) return { error: "Email required." };
+  // Over the limit: pretend success (matching the unknown-email path) so the
+  // limiter can't be used to confirm whether an email exists.
+  if (isRateLimited(`reset:${email}`, 3, 60 * 60 * 1000)) {
+    return { success: true };
+  }
+  try {
     const user = await db.user.findUnique({ where: { email } }); 
     if (!user) return { success: true } 
     await db.passwordResetToken.updateMany({ 

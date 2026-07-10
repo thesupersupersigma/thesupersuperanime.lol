@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, createCipheriv, randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/core";
+import { getClientIp } from "@/lib/request-ip";
 
 interface NormalizedStream {
   provider: string;
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "unknown";
+    const ip = getClientIp(req);
 
     if (!checkRateLimit(sessionId, 10, 60_000)) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });

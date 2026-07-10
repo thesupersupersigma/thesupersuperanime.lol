@@ -3,6 +3,16 @@ import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { db } from "./db";
 export { getUserAvatar, getUserDisplayName } from "./user-utils";
 
+/**
+ * Length-safe constant-time string comparison for secrets.
+ */
+export function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 const AUTH_COOKIE = "site-auth";
 const SESSION_COOKIE = "session-id";
 const USER_SESSION_COOKIE = "user-session"; // The new cookie for logged-in users
@@ -15,7 +25,7 @@ const USER_SESSION_COOKIE = "user-session"; // The new cookie for logged-in user
  * Verify password and set auth cookie
  */
 export async function setAuthCookie(password: string): Promise<boolean> {
-  if (password !== process.env.SITE_PASSWORD) {
+  if (!process.env.SITE_PASSWORD || !safeCompare(password, process.env.SITE_PASSWORD)) {
     return false;
   }
 
@@ -64,7 +74,8 @@ export async function getSessionId(): Promise<string> {
 export async function verifyAuth(): Promise<boolean> {
   const cookieStore = await cookies();
   const auth = cookieStore.get(AUTH_COOKIE);
-  return auth?.value === process.env.SITE_PASSWORD;
+  if (!auth?.value || !process.env.SITE_PASSWORD) return false;
+  return safeCompare(auth.value, process.env.SITE_PASSWORD);
 }
 
 /**
