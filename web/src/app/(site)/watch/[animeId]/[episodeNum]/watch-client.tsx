@@ -296,7 +296,7 @@ export default function WatchClient() {
 
         {/* Main Player Area */}
         <div className="flex-1 min-w-0 flex flex-col">
-          <div className="w-full bg-black md:rounded-lg overflow-hidden shadow-xl" style={{ border: "1px solid #2a2a2a" }}>
+          <div className="w-full bg-black md:rounded-lg shadow-xl" style={{ border: "1px solid #2a2a2a" }}>
             <AnimePlayer
               servers={servers}
               animeId={animeId}
@@ -388,7 +388,7 @@ export default function WatchClient() {
             </div>
           ) : null}
 
-          <div className="hidden md:block mt-3">
+          <div className="hidden md:block mt-6">
             <PromoBanner />
           </div>
 

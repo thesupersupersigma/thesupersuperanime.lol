@@ -497,7 +497,10 @@ export function AnimePlayer({
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
 
       {/* ── VIDEO PLAYER ── */}
-      <div ref={containerRef} style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000" }}>
+      {/* overflow:hidden + md:rounded-lg live HERE (not on the watch-client wrapper) so
+          the video's rounded corners are clipped without also clipping the server
+          dropdown, which renders as a sibling below this box. */}
+      <div ref={containerRef} className="md:rounded-lg" style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000", overflow: "hidden" }}>
         {watchPartyCode && (
           <WatchPartySync
             roomCode={watchPartyCode}
@@ -740,7 +743,7 @@ export function AnimePlayer({
               background: "#1a1a1a",
               color:      "#fff",
               border:     `1px solid ${serverDropdownOpen ? "#3b82f6" : "#333"}`,
-              padding:    "8px 14px",
+              padding:    "7px 14px",
               borderRadius: "6px",
               fontSize:   "13px",
               fontWeight: 500,
@@ -769,7 +772,7 @@ export function AnimePlayer({
               borderRadius: "8px",
               overflow:     "hidden",
               boxShadow:    "0 12px 32px rgba(0,0,0,0.5)",
-              zIndex:       20,
+              zIndex:       200,
             }}>
               {visibleServers.map(server => (
                 <button
