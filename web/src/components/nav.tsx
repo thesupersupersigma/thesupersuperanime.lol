@@ -429,10 +429,10 @@ function AvatarImage({ userInfo, size, iconSize }: {
   size: number;
   iconSize: number;
 }) {
-  if (userInfo?.discordAvatar && userInfo?.discordId) {
+  if (userInfo?.discordAvatar) {
     return (
       <img
-        src={`https://cdn.discordapp.com/avatars/${userInfo.discordId}/${userInfo.discordAvatar.replace(/\.png$/i, "")}.png?size=64`}
+        src={userInfo.discordAvatar}
         alt="avatar" width={size} height={size}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
@@ -441,7 +441,7 @@ function AvatarImage({ userInfo, size, iconSize }: {
   if (userInfo?.avatarPreset) {
     return (
       <img
-        src={`/avatars/${userInfo.avatarPreset}.png`}
+        src={`/avatars/PP_${userInfo.avatarPreset}.png`}
         alt="avatar" width={size} height={size}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />

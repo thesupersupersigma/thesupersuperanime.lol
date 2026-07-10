@@ -320,7 +320,7 @@ export default function WatchClient() {
 
           {/* ── WATCH PARTY CONTROLS ── */}
           {(currentUserId && !watchPartyCode) || watchPartyCopied || watchPartyError ? (
-            <div className="mt-3 px-4 md:px-0" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <div className="mt-4 px-4 md:px-0" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
               {currentUserId && !watchPartyCode && (
                 <button
                   onClick={startWatchParty}

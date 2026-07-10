@@ -60,6 +60,8 @@ export function AnimePlayer({
   const [duration, setDuration]               = useState(0);
   // True when the server hasn't produced any playable output within 14 s.
   const [showServerTimeout, setShowServerTimeout] = useState(false);
+  const [serverDropdownOpen, setServerDropdownOpen] = useState(false);
+  const serverDropdownRef = useRef<HTMLDivElement>(null);
   const controlsVisible = useMediaState('controlsVisible', playerRef);
 
   interface SkipInterval { startTime: number; endTime: number; }
@@ -91,6 +93,17 @@ export function AnimePlayer({
 
   const hasDub         = servers.some(s => s.type === "dub");
   const visibleServers = servers.filter(s => s.type === audioType);
+
+  // Close server dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (serverDropdownRef.current && !serverDropdownRef.current.contains(e.target as Node)) {
+        setServerDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   // ── PREFERENCES ───────────────────────────────────────────────────────────
 
@@ -717,27 +730,73 @@ export function AnimePlayer({
         <div style={{ width: "1px", height: "20px", background: "#2a2a2a", marginRight: "4px", flexShrink: 0 }} />
 
         <span style={{ color: "#a3a3a3", fontSize: "14px", alignSelf: "center", marginRight: "4px", fontWeight: 600 }}>Servers:</span>
-        {visibleServers.map(server => (
+        <div ref={serverDropdownRef} style={{ position: "relative" }}>
           <button
-            key={server.name}
-            onClick={() => handleServerChange(server.name)}
+            onClick={() => setServerDropdownOpen(o => !o)}
             style={{
-              background: server.name === selectedServerName ? "#3b82f6" : "#1a1a1a",
-              color:      server.name === selectedServerName ? "#fff" : "#a3a3a3",
-              border:     `1px solid ${server.name === selectedServerName ? "#3b82f6" : "#333"}`,
+              display:    "flex",
+              alignItems: "center",
+              gap:        "8px",
+              background: "#1a1a1a",
+              color:      "#fff",
+              border:     `1px solid ${serverDropdownOpen ? "#3b82f6" : "#333"}`,
               padding:    "8px 14px",
               borderRadius: "6px",
               fontSize:   "13px",
               fontWeight: 500,
               cursor:     "pointer",
-              transition: "all 0.2s ease",
+              transition: "border-color 0.2s ease",
             }}
-            onMouseEnter={e => { if (server.name !== selectedServerName) e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={e => { if (server.name !== selectedServerName) e.currentTarget.style.color = "#a3a3a3"; }}
           >
-            {server.name}
+            {selectedServerName || "Select server"}
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: serverDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
-        ))}
+
+          {serverDropdownOpen && (
+            <div style={{
+              position:     "absolute",
+              top:          "calc(100% + 6px)",
+              left:         0,
+              minWidth:     "160px",
+              background:   "#111",
+              border:       "1px solid #2a2a2a",
+              borderRadius: "8px",
+              overflow:     "hidden",
+              boxShadow:    "0 12px 32px rgba(0,0,0,0.5)",
+              zIndex:       20,
+            }}>
+              {visibleServers.map(server => (
+                <button
+                  key={server.name}
+                  onClick={() => { handleServerChange(server.name); setServerDropdownOpen(false); }}
+                  style={{
+                    display:    "block",
+                    width:      "100%",
+                    textAlign:  "left",
+                    background: server.name === selectedServerName ? "#3b82f6" : "transparent",
+                    color:      server.name === selectedServerName ? "#fff" : "#a3a3a3",
+                    border:     "none",
+                    padding:    "9px 14px",
+                    fontSize:   "13px",
+                    fontWeight: 500,
+                    cursor:     "pointer",
+                    transition: "background 0.15s ease, color 0.15s ease",
+                  }}
+                  onMouseEnter={e => { if (server.name !== selectedServerName) { e.currentTarget.style.background = "#1a1a1a"; e.currentTarget.style.color = "#fff"; } }}
+                  onMouseLeave={e => { if (server.name !== selectedServerName) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#a3a3a3"; } }}
+                >
+                  {server.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── MIRROR BADGE ── */}
