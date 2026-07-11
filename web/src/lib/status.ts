@@ -56,8 +56,8 @@ interface InfraDef {
   ping: () => Promise<PingResult>;
 }
 
-// Vercel / site — any response (incl. 401) means the site is serving requests.
-async function pingVercel(): Promise<PingResult> {
+// Site — any response (incl. 401) means the site is serving requests.
+async function pingSite(): Promise<PingResult> {
   const start = Date.now();
   try {
     await fetch(`${SITE_URL}/api/auth/me`, {
@@ -97,19 +97,6 @@ async function pingAnivexa(): Promise<PingResult> {
   }
 }
 
-// tsss-proxy (nginx) — any status code means the proxy is reachable.
-async function pingProxy(): Promise<PingResult> {
-  const start = Date.now();
-  try {
-    await fetch("https://nginx.thesupersuperanime.lol:8443", {
-      signal: AbortSignal.timeout(PING_TIMEOUT_MS),
-    });
-    return { success: true, latencyMs: Date.now() - start };
-  } catch (e) {
-    return { success: false, latencyMs: Date.now() - start, error: errMsg(e) };
-  }
-}
-
 // AniList GraphQL — healthy only on a 2xx response.
 async function pingAnilist(): Promise<PingResult> {
   const start = Date.now();
@@ -131,10 +118,9 @@ async function pingAnilist(): Promise<PingResult> {
 }
 
 const INFRA: InfraDef[] = [
-  { id: "vercel", name: "Vercel (Site)", ping: pingVercel },
+  { id: "site", name: "Site (VM)", ping: pingSite },
   { id: "database", name: "Neon Database", ping: pingDatabase },
   { id: "anivexa", name: "Anivexa API", ping: pingAnivexa },
-  { id: "proxy", name: "tsss-proxy (HTTPS)", ping: pingProxy },
   { id: "anilist", name: "AniList API", ping: pingAnilist },
 ];
 

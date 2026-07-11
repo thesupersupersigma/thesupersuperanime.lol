@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ANILIST_GENRES } from "@/lib/genres";
+
+// ── In-memory rate limiting for genre votes ─────────────────────────────────
+// Same pattern as the auth-actions limiter: per-key attempt timestamps, pruned
+// on each check. Best-effort (per server instance).
+const rateLimitMap = new Map<string, number[]>();
+
+function isRateLimited(key: string, maxAttempts: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (rateLimitMap.get(key) ?? []).filter(ts => now - ts < windowMs);
+  if (recent.length >= maxAttempts) {
+    rateLimitMap.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  rateLimitMap.set(key, recent);
+  return false;
+}
 
 // POST /api/genre-votes  — cast a vote (idempotent: ignore duplicate)
 export async function POST(req: NextRequest) {
@@ -15,6 +33,14 @@ export async function POST(req: NextRequest) {
 
   if (!animeId || !genre) {
     return NextResponse.json({ error: "animeId and genre are required" }, { status: 400 });
+  }
+
+  if (!(ANILIST_GENRES as readonly string[]).includes(genre)) {
+    return NextResponse.json({ error: "Invalid genre" }, { status: 400 });
+  }
+
+  if (isRateLimited(user.id, 30, 5 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many votes, slow down." }, { status: 429 });
   }
 
   // upsert-style: createMany with skipDuplicates
@@ -41,6 +67,10 @@ export async function DELETE(req: NextRequest) {
 
   if (!animeId || !genre) {
     return NextResponse.json({ error: "animeId and genre are required" }, { status: 400 });
+  }
+
+  if (!(ANILIST_GENRES as readonly string[]).includes(genre)) {
+    return NextResponse.json({ error: "Invalid genre" }, { status: 400 });
   }
 
   await db.genreVote.deleteMany({
