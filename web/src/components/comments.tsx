@@ -19,7 +19,8 @@ interface CommentData {
   isSpoiler: boolean;
   createdAt: string;
   user: CommentUser | null;
-  likes: { userId: string }[];
+  likeCount: number;
+  likedByMe: boolean;
   replies: CommentData[];
   deleted?: boolean;
 }
@@ -79,8 +80,8 @@ function CommentCard({
   const [posting, setPosting] = useState(false);
   const [liking, setLiking] = useState(false);
 
-  const isLiked = comment.likes.some(l => l.userId === currentUserId);
-  const likeCount = comment.likes.length;
+  const isLiked = comment.likedByMe;
+  const likeCount = comment.likeCount;
   const isOwn = comment.user?.id === currentUserId;
   const isDeleted = comment.deleted === true;
 
@@ -369,9 +370,8 @@ export function Comments({ animeId, episodeId, currentUserId }: Props) {
       if (c.id !== commentId) return c;
       return {
         ...c,
-        likes: liked
-          ? [...c.likes, { userId: currentUserId! }]
-          : c.likes.filter(l => l.userId !== currentUserId),
+        likedByMe: liked,
+        likeCount: c.likeCount + (liked ? 1 : -1),
       };
     };
 

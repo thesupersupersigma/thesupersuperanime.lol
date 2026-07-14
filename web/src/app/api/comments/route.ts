@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireVerified } from "@/lib/auth";
+import { requireAuth, requireVerified, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // Simple in-memory rate limit — 1 comment per 30s per user
@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
     const animeId = req.nextUrl.searchParams.get("animeId");
     if (!animeId) return NextResponse.json({ error: "animeId required" }, { status: 400 });
     const episodeId = req.nextUrl.searchParams.get("episodeId") ?? null;
+
+    const viewer = await getCurrentUser();
 
     const comments = await db.comment.findMany({
         where: {
@@ -36,6 +38,7 @@ export async function GET(req: NextRequest) {
                 },
             },
             likes: { select: { userId: true } },
+            _count: { select: { likes: true } },
             replies: {
                 where: { deletedAt: null },
                 orderBy: { createdAt: "asc" },
@@ -51,6 +54,7 @@ export async function GET(req: NextRequest) {
                         },
                     },
                     likes: { select: { userId: true } },
+                    _count: { select: { likes: true } },
                 },
             },
         },
@@ -58,11 +62,19 @@ export async function GET(req: NextRequest) {
 
     // Never leak a deleted comment's original content/author — blank it into a
     // tombstone shape. Replies are already filtered to non-deleted above.
+    // Also never expose the raw list of who liked a comment (userIds) to
+    // every visitor — only the count, plus whether THIS viewer liked it.
+    const stripLikes = <T extends { likes: { userId: string }[]; _count: { likes: number } }>(c: T) => {
+        const { likes, _count, ...rest } = c;
+        return { ...rest, likeCount: _count.likes, likedByMe: viewer ? likes.some(l => l.userId === viewer.id) : false };
+    };
+
     const sanitized = comments.map((c) => {
+        const base = stripLikes({ ...c, replies: c.replies.map(stripLikes) });
         if (c.deletedAt) {
-            return { ...c, content: "", user: null, likes: [], isSpoiler: false, deleted: true };
+            return { ...base, content: "", user: null, isSpoiler: false, deleted: true };
         }
-        return { ...c, deleted: false };
+        return { ...base, deleted: false };
     });
 
     return NextResponse.json({ comments: sanitized });
@@ -130,12 +142,11 @@ export async function POST(req: NextRequest) {
           avatarPreset: true,
         },
       },
-      likes: { select: { userId: true } },
     },
   });
 
-  // New comments never have replies, add empty array for consistent shape
-  const commentWithReplies = { ...comment, replies: [] };
+  // New comments never have replies or likes yet — build the same shape GET returns.
+  const commentWithReplies = { ...comment, replies: [], likeCount: 0, likedByMe: false };
 
   // The exclamation mark (user!.id) overrides any lingering TS doubts
   rateLimitMap.set(user!.id, Date.now());

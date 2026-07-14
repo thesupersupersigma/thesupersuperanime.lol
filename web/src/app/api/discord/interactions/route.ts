@@ -27,6 +27,25 @@ function ephemeral(content: string) {
   });
 }
 
+// ── In-memory rate limiting for Discord interactions ────────────────────────
+// This route is gate-exempt (always-public in proxy.ts, Discord calls it
+// directly) so it has no upstream rate limiting at all. Same Map<string,
+// number[]> pattern used elsewhere in the codebase, keyed on the invoking
+// Discord user id.
+const rateLimitMap = new Map<string, number[]>();
+
+function isRateLimited(key: string, maxAttempts: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (rateLimitMap.get(key) ?? []).filter(ts => now - ts < windowMs);
+  if (recent.length >= maxAttempts) {
+    rateLimitMap.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  rateLimitMap.set(key, recent);
+  return false;
+}
+
 interface AnilistMedia {
   id: number;
   title: { romaji?: string | null; english?: string | null };
@@ -94,6 +113,13 @@ export async function POST(req: NextRequest) {
   // ── PING — required for endpoint verification ─────────────────────────────
   if (payload.type === PING) {
     return Response.json({ type: PONG });
+  }
+
+  // ── Rate limit — keyed on the invoking Discord user, guild member or DM ────
+  const invokerId: string | undefined = payload.member?.user?.id ?? payload.user?.id;
+  if (invokerId && isRateLimited(invokerId, 10, 30 * 1000)) {
+    console.log(`[discord-interactions] rate limited: ${invokerId}`);
+    return ephemeral("You're doing that too much — please slow down and try again shortly.");
   }
 
   // ── Slash commands ─────────────────────────────────────────────────────────

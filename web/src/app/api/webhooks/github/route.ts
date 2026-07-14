@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sendChangelogPost } from "@/lib/discord";
 
@@ -37,6 +38,24 @@ export async function POST(req: NextRequest) {
 
   if (!secret || !verifySignature(rawBody, signatureHeader, secret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  const deliveryId = req.headers.get("x-github-delivery");
+  if (!deliveryId) {
+    return NextResponse.json({ error: "Missing delivery id" }, { status: 400 });
+  }
+
+  // Replay protection: a captured valid signed payload could otherwise be
+  // resubmitted indefinitely, re-creating changelog entries and re-posting to
+  // Discord each time. The unique constraint on deliveryId is the guard —
+  // a duplicate delivery throws P2002 and we short-circuit before processing.
+  try {
+    await db.webhookDelivery.create({ data: { deliveryId } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+    throw e;
   }
 
   let payload: GitHubPushPayload;

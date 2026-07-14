@@ -4,8 +4,13 @@ import { db } from "@/lib/db";
 import { getAnimeById, getDisplayTitle } from "@/lib/anilist";
 
 // Escape a value for safe inclusion in a CSV field.
+// Also guards against formula injection: a value starting with =, +, -, or @
+// can execute as a formula when the CSV is opened in Excel/Sheets.
 function csvEscape(value: string | number): string {
-  const str = String(value);
+  let str = String(value);
+  if (/^[=+\-@]/.test(str)) {
+    str = `'${str}`;
+  }
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }

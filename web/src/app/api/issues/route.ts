@@ -2,6 +2,33 @@ import { NextResponse, NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
+// ── In-memory rate limiting for issue reports ───────────────────────────────
+// Same pattern as the auth-actions / genre-votes limiters: per-key attempt
+// timestamps, pruned on each check. Best-effort (per server instance).
+const rateLimitMap = new Map<string, number[]>();
+
+function isRateLimited(key: string, maxAttempts: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (rateLimitMap.get(key) ?? []).filter(ts => now - ts < windowMs);
+  if (recent.length >= maxAttempts) {
+    rateLimitMap.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  rateLimitMap.set(key, recent);
+  return false;
+}
+
+// Neutralizes markdown that would misbehave once mirrored into a GitHub issue
+// body: @mentions (would ping arbitrary users/teams) and image embeds (would
+// allow tracking-pixel abuse). Only used for the GitHub mirror — the DB copy
+// (and admin panel) keeps the original, unsanitized text.
+function sanitizeForGithub(text: string): string {
+  return text
+    .replace(/!\[([^\]]*)\]\(([^)]*)\)/g, "[image removed]")
+    .replace(/@(\w)/g, "@​$1");
+}
+
 export async function GET() {
   const issues = await db.issue.findMany({
     orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
@@ -50,6 +77,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
   }
 
+  if (isRateLimited(user.id, 5, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many reports — try again later." }, { status: 429 });
+  }
+
   const issue = await db.issue.create({
     data: {
       type,
@@ -68,10 +99,10 @@ export async function POST(req: NextRequest) {
       const ghTitle = `[${type}] ${titleDesc}`;
 
       const bodyLines: string[] = [];
-      bodyLines.push(`## Description\n\n${description.trim()}`);
+      bodyLines.push(`## Description\n\n${sanitizeForGithub(description.trim())}`);
 
       if (animeInfo?.trim()) {
-        bodyLines.push(`## Anime / Episode\n\n${animeInfo.trim()}`);
+        bodyLines.push(`## Anime / Episode\n\n${sanitizeForGithub(animeInfo.trim())}`);
       }
 
       const submitter = user.discordUsername

@@ -272,6 +272,12 @@ model Issue {
   @@index([createdAt])
 }
 
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  deliveryId String   @unique
+  receivedAt DateTime @default(now())
+}
+
 model GenreVote {
   id        String   @id @default(cuid())
   userId    String

@@ -7,6 +7,9 @@ import { getClientIp } from "@/lib/request-ip";
 interface NormalizedStream {
   provider: string;
   type: "sub" | "dub";
+  /** the real source-site server this stream came from (e.g. "HD-1", "VidCloud"); "" for
+   *  providers that don't yet report one (single-server fallback). */
+  serverName: string;
   url: string;
   quality: string;
   isM3U8: boolean;
@@ -63,10 +66,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
     }
 
-    // Group streams per provider + audio type, so each provider gets its own server entry
+    // Group streams per provider + audio type + real server name, so each distinct server the
+    // provider offers becomes its own selectable entry. Keying only on provider+type would
+    // merge multiple real servers (HD-1, VidCloud, …) into one fake entry with several sources;
+    // including serverName keeps them separate. Providers that report no serverName ("") still
+    // collapse to a single entry per provider+type, exactly as before.
     const typeMap = new Map<string, NormalizedStream[]>();
     for (const stream of allStreams) {
-      const key = `${stream.provider}:${stream.type}`;
+      const key = `${stream.provider}:${stream.type}:${stream.serverName}`;
       const existing = typeMap.get(key);
       if (existing) existing.push(stream);
       else typeMap.set(key, [stream]);
@@ -84,9 +91,15 @@ export async function POST(req: NextRequest) {
     const encKey = Buffer.from(encryptionSecret, "hex").subarray(0, 32);
     const finalServers = [];
 
-    for (const [key, streams] of typeMap.entries()) {
-      const [providerName, streamType] = key.split(":");
-      const serverName = providerName.charAt(0).toUpperCase() + providerName.slice(1);
+    for (const streams of typeMap.values()) {
+      // All streams in a group share the same provider/type/serverName; read them off the first
+      // rather than re-splitting the map key (serverName could contain a ":").
+      const { provider: providerName, type: streamType, serverName } = streams[0];
+      const providerLabel = providerName.charAt(0).toUpperCase() + providerName.slice(1);
+      // Incorporate the real server name so multi-server providers are distinguishable in the
+      // dropdown (e.g. "Anikototv — HD-1", "Anikototv — VidCloud"). Providers that report no
+      // server name fall back to just the provider label — unchanged from before.
+      const displayName = serverName ? `${providerLabel} — ${serverName}` : providerLabel;
       const tokenizedSources = await Promise.all(
         streams.map(async (source) => {
           const iv = randomBytes(16);
@@ -129,8 +142,8 @@ export async function POST(req: NextRequest) {
         return true;
       });
       finalServers.push({
-        name: serverName,
-        type: streamType as "sub" | "dub",
+        name: displayName,
+        type: streamType,
         sources: tokenizedSources,
         subtitles: dedupedSubtitles,
       });
@@ -260,27 +273,35 @@ async function fetchScraper(
     const providerKey = provider.toLowerCase();
 
     for (const type of ["sub", "dub"] as const) {
-      const watchResult = data[type] as ScraperResult | null;
-      if (!watchResult?.sources?.length) continue;
+      // RECONSUMET-TS now returns an ARRAY of results per type (one per real server the
+      // provider offers), or null. Providers not yet updated send a single-element array
+      // (the aggregator's fallback), so this loop handles both without special-casing.
+      const serverResults = data[type] as ScraperResult[] | null;
+      if (!Array.isArray(serverResults)) continue;
 
-      const subtitles = (watchResult.subtitles ?? []).map((sub) => ({
-        url: sub.url,
-        language: sub.lang,
-        label: sub.lang,
-        default: false,
-      }));
+      for (const watchResult of serverResults) {
+        if (!watchResult?.sources?.length) continue;
 
-      for (const source of watchResult.sources) {
-        allStreams.push({
-          provider: providerKey,
-          type,
-          url: source.url,
-          quality: source.quality,
-          isM3U8: source.isM3U8,
-          cookies: "",
-          referer: watchResult.headers?.Referer ?? "",
-          subtitles,
-        });
+        const subtitles = (watchResult.subtitles ?? []).map((sub) => ({
+          url: sub.url,
+          language: sub.lang,
+          label: sub.lang,
+          default: false,
+        }));
+
+        for (const source of watchResult.sources) {
+          allStreams.push({
+            provider: providerKey,
+            type,
+            serverName: (watchResult.serverName ?? "").trim(),
+            url: source.url,
+            quality: source.quality,
+            isM3U8: source.isM3U8,
+            cookies: "",
+            referer: watchResult.headers?.Referer ?? "",
+            subtitles,
+          });
+        }
       }
     }
   }
@@ -289,6 +310,7 @@ async function fetchScraper(
 }
 
 interface ScraperResult {
+  serverName?: string;
   sources: { url: string; quality: string; isM3U8: boolean }[];
   subtitles: { url: string; lang: string }[];
   headers: { Referer?: string };
