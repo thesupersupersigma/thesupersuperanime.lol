@@ -3,6 +3,14 @@ import { createHmac, createCipheriv, randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/core";
 import { getClientIp } from "@/lib/request-ip";
+import {
+  buildProviderQueue,
+  buildWatchCalls,
+  pendingProviders,
+  providerKey,
+  verifyEpisodeResponse,
+  type EpisodeRef,
+} from "./provider-pairing";
 
 interface NormalizedStream {
   provider: string;
@@ -181,41 +189,30 @@ async function fetchScraper(
 
   // Build the set of providers to query. Start with the primary winner so it goes first.
   // Then add all providers from /info mappings that we haven't tried yet.
-  const providerQueue: { provider: string }[] = [];
-  const seen = new Set<string>();
+  const providerQueue = buildProviderQueue(primaryEps, info);
 
-  if (primaryEps?.provider) {
-    const key = primaryEps.provider.toLowerCase();
-    seen.add(key);
-    providerQueue.push({ provider: primaryEps.provider });
-  }
-
-  if (info?.mappings) {
-    for (const m of info.mappings) {
-      const key = m.provider.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        providerQueue.push({ provider: m.provider });
-      }
-    }
-  }
-
-  console.log(`[source] providerQueue:`, providerQueue.map(p => p.provider));
+  console.log(`[source] providerQueue:`, providerQueue);
 
   if (providerQueue.length === 0) return [];
 
-  // For providers other than the primary, fetch their episode lists in parallel.
-  // The primary already has its episode list from the concurrent call above.
-  const episodesByProvider = new Map<string, { id: string; number: number }[]>();
+  const episodesByProvider = new Map<string, EpisodeRef[]>();
 
+  // The unqualified /episodes call above already answered for one provider —
+  // but only file it if the response actually names which one. A `provider:
+  // null` body can't be attributed to anybody, so its episode ids are unusable
+  // for a `/watch?provider=` call and must be dropped rather than guessed at.
   if (primaryEps?.provider && primaryEps.episodes?.length) {
-    episodesByProvider.set(primaryEps.provider.toLowerCase(), primaryEps.episodes);
+    episodesByProvider.set(providerKey(primaryEps.provider), primaryEps.episodes);
   }
 
-  const secondaryProviders = providerQueue.slice(1);
+  // Fetch episode lists for whatever is still missing. Keyed on what we
+  // actually hold, not on queue position — the old `slice(1)` silently dropped
+  // the top-ranked provider whenever the primary call failed or returned a null
+  // provider, since index 0 was then an /info mapping that had never been fetched.
+  const secondaryProviders = pendingProviders(providerQueue, episodesByProvider);
   if (secondaryProviders.length > 0) {
     const epsResults = await Promise.allSettled(
-      secondaryProviders.map(({ provider }) =>
+      secondaryProviders.map((provider) =>
         fetch(`${baseUrl}/episodes/${animeId}?provider=${encodeURIComponent(provider)}`, {
           signal: AbortSignal.timeout(20000),
         })
@@ -224,26 +221,23 @@ async function fetchScraper(
       )
     );
     for (const result of epsResults) {
-      if (result.status === "fulfilled" && result.value?.data?.episodes?.length) {
-        episodesByProvider.set(
-          result.value.provider.toLowerCase(),
-          result.value.data.episodes
-        );
-      }
+      if (result.status !== "fulfilled") continue;
+      const { provider, data } = result.value;
+
+      // Trust the provider the API says answered, never the one we asked for.
+      // An aggregator fallback body filed under the requested name is what
+      // produced AniNeko-shaped ids on ReAnime /watch calls -> intermittent 400s.
+      const verdict = verifyEpisodeResponse(provider, data);
+      if (!verdict.accepted) continue;
+
+      episodesByProvider.set(verdict.answered, verdict.episodes);
     }
   }
 
   console.log(`[source] episodesByProvider keys:`, [...episodesByProvider.keys()]);
 
   // For each provider that has episodes, find the requested episode and fire /watch in parallel.
-  const watchCalls: { provider: string; episodeId: string }[] = [];
-  for (const { provider } of providerQueue) {
-    const eps = episodesByProvider.get(provider.toLowerCase());
-    if (!eps) continue;
-    const ep = eps.find((e) => e.number === episodeNum);
-    if (!ep) continue;
-    watchCalls.push({ provider, episodeId: ep.id });
-  }
+  const watchCalls = buildWatchCalls(providerQueue, episodesByProvider, episodeNum);
 
   console.log(`[source] watchCalls:`, watchCalls.map(w => w.provider));
 
