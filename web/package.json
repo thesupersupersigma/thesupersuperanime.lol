@@ -7,7 +7,11 @@
     "build": "prisma generate && next build",
     "dev": "next dev",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.mts\"",
+    "test:db": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --test \"tests/**/*.test.mts\"",
+    "test:all": "npm run test && npm run test:db"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

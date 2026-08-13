@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { parseAniKaiExport, resolveMalIds } from '@/lib/importers/anikai'
-import { getCurrentUser, getSessionId } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
+import { ownedSessionId } from '@/lib/owner-session'
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized. Please log in again.' }, { status: 401 })
-
-    // Use a valid session ID from your auth helper to satisfy Prisma CUID requirements
-    const validSessionId = await getSessionId();
 
     const { content } = await req.json() as { content: string }
     
@@ -36,7 +34,7 @@ export async function POST(req: NextRequest) {
     await db.watchlist.createMany({
       data: validEntries.map(e => ({
         userId: user.id,
-        sessionId: validSessionId,
+        sessionId: ownedSessionId(user.id),
         animeId: e.anilistId,
         status: e.status || "Planning",
       })),
@@ -49,7 +47,7 @@ export async function POST(req: NextRequest) {
       await db.watchHistory.createMany({
         data: withProgress.map(e => ({
           userId: user.id,
-          sessionId: validSessionId,
+          sessionId: ownedSessionId(user.id),
           animeId: e.anilistId,
           episodeId: String(e.episodesWatched), 
           progress: 1, 

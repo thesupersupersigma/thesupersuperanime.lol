@@ -228,6 +228,11 @@ export async function destroyUserSession(): Promise<void> {
     await db.session.deleteMany({ where: { token } });
   }
   cookieStore.delete(USER_SESSION_COOKIE);
+  // Rotate the anonymous browser session too. It's a 1-year cookie that used to
+  // survive sign-out, so the next person to use this browser inherited the
+  // previous account's session id — which is how two accounts ended up sharing
+  // a (sessionId, episodeId) key. The next getSessionId() mints a fresh one.
+  cookieStore.delete(SESSION_COOKIE);
 }
 
 /**

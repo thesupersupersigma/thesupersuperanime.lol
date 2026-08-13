@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ownedSessionId } from "@/lib/owner-session";
 
 const ANILIST_URL = "https://graphql.anilist.co";
 
@@ -121,7 +122,7 @@ export async function importFromAniList(
         update: { status: siteStatus },
         create: {
           userId,
-          sessionId: userId,
+          sessionId: ownedSessionId(userId),
           animeId: entry.mediaId,
           status: siteStatus,
         },

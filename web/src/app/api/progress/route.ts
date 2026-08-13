@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/core";
 import { syncToAniList } from "@/lib/anilist-sync";
 import { checkAndGrantBadges, recordAiringWatch, updateWatchStreak } from "@/lib/badge-engine";
+import { ownedSessionId } from "@/lib/owner-session";
 
 export async function GET(req: NextRequest) {
   try {
@@ -124,7 +125,10 @@ export async function POST(req: NextRequest) {
           },
           create: {
             userId: user.id,
-            sessionId,
+            // Owner-scoped, NOT the browser session id: two accounts sharing one
+            // browser would otherwise collide on @@unique([sessionId, episodeId])
+            // and the create would P2002 forever. See lib/owner-session.ts.
+            sessionId: ownedSessionId(user.id),
             animeId: Number(animeId),
             episodeId: String(episodeId),
             progress: newProgress,

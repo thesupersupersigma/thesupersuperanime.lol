@@ -3,6 +3,7 @@ import { getSessionId, getCurrentUser, requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { syncToAniList } from "@/lib/anilist-sync";
 import { cacheGenresForAnime } from "@/lib/badge-engine";
+import { ownedSessionId } from "@/lib/owner-session";
 
 export async function GET() {
   try {
@@ -28,7 +29,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
     }
 
-    const sessionId = await getSessionId();
     const { animeId } = await req.json();
 
     if (!animeId) {
@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
     const entry = await db.watchlist.upsert({
       where: { userId_animeId: { userId: user.id, animeId: Number(animeId) } },
       update: {},
-      create: { userId: user.id, sessionId, animeId: Number(animeId) },
+      // Owner-scoped session id, not the browser's: @@unique([sessionId, animeId])
+      // would otherwise collide for a second account on the same browser and the
+      // create would P2002. See lib/owner-session.ts.
+      create: { userId: user.id, sessionId: ownedSessionId(user.id), animeId: Number(animeId) },
     });
 
     return NextResponse.json({ entry });
