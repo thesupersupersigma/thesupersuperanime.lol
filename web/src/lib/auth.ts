@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { db } from "./db";
+import { signSessionToken, splitSessionCookie, verifySessionCookie } from "./session-cookie";
 export { getUserAvatar, getUserDisplayName } from "./user-utils";
 
 /**
@@ -205,8 +206,13 @@ export async function createUserSession(userId: string): Promise<string> {
   const expiresAt = new Date(Date.now() + USER_SESSION_MAX_AGE * 1000);
   await db.session.create({ data: { token, userId, expiresAt } });
 
+  // The cookie carries `<token>.<HMAC>` so the Edge proxy can reject a forged
+  // value without a DB round-trip. The DB lookup below still decides whether
+  // the session is real — the signature only proves we minted it.
+  const signed = await signSessionToken(token);
+
   const cookieStore = await cookies();
-  cookieStore.set(USER_SESSION_COOKIE, token, {
+  cookieStore.set(USER_SESSION_COOKIE, signed, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -223,7 +229,11 @@ export async function createUserSession(userId: string): Promise<string> {
  */
 export async function destroyUserSession(): Promise<void> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(USER_SESSION_COOKIE)?.value;
+  const cookieValue = cookieStore.get(USER_SESSION_COOKIE)?.value;
+  // Delete by the token inside the signed cookie. Sign-out shouldn't depend on
+  // the signature verifying, so fall back to the raw split — a stale-secret
+  // cookie must still be able to clear its own row.
+  const token = cookieValue ? (splitSessionCookie(cookieValue)?.token ?? null) : null;
   if (token) {
     await db.session.deleteMany({ where: { token } });
   }
@@ -253,7 +263,10 @@ export async function destroyAllUserSessions(userId: string): Promise<void> {
  */
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(USER_SESSION_COOKIE)?.value;
+  // Reject anything not carrying a valid signature. Cookies minted before
+  // signing existed have no signature and are rejected too — those users sign
+  // in again, which is the correct trade for closing the middleware bypass.
+  const token = await verifySessionCookie(cookieStore.get(USER_SESSION_COOKIE)?.value);
   if (!token) return null;
 
   const session = await db.session.findUnique({

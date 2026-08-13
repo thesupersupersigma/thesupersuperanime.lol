@@ -14,6 +14,7 @@ import {
   type InfoResponse,
 } from "./provider-pairing";
 import { errorInfo, errorStack } from "@/lib/log-error";
+import { requireAuth } from "@/lib/auth";
 
 interface NormalizedStream {
   provider: string;
@@ -52,6 +53,18 @@ export async function POST(req: NextRequest) {
     const ep = Number(episodeNum);
     if (!Number.isInteger(ep)) {
       return NextResponse.json({ error: "Invalid episodeNum" }, { status: 400 });
+    }
+
+    // In-route auth. The middleware gates this path, but it could only check
+    // that a `user-session` cookie existed — this is the DB-backed check that
+    // actually resolves it, so a forged or expired cookie can't mint tokens.
+    // Mirrors the proxy's own policy: when MASTER_GATE or DISCORD_GATE is off,
+    // anonymous playback is intentionally allowed and this check is skipped.
+    if (process.env.DISCORD_GATE !== "off" && process.env.MASTER_GATE !== "off") {
+      const user = await requireAuth();
+      if (!user) {
+        return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      }
     }
 
     const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";

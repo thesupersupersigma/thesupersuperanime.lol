@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifySessionCookie } from "@/lib/session-cookie";
 
 /**
  * Constant-time string comparison usable on the Edge runtime (no Node crypto).
@@ -40,7 +41,9 @@ function withDiscovery(res: NextResponse, pathname: string): NextResponse {
   return res;
 }
 
-export function proxy(req: NextRequest) {
+// async because the session-cookie signature check uses Web Crypto, which is
+// promise-based. Next.js supports an async middleware/proxy export.
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── Static / Next internals ─────────────────────────────────────────────
@@ -151,9 +154,15 @@ export function proxy(req: NextRequest) {
       pathname.startsWith("/user/");
 
     if (!exemptFromDiscordGate) {
-      const userId = req.cookies.get("user-session")?.value;
+      // Verify the cookie's HMAC rather than merely observing that it exists.
+      // The old check was `req.cookies.get("user-session")?.value` + a truthiness
+      // test, so `document.cookie = "user-session=x"` walked straight through —
+      // and neither server-side backstop fires for an anonymous forgery.
+      // This proves the token was minted here; whether the session is real and
+      // unexpired is still decided by getCurrentUser()'s DB lookup in-route.
+      const sessionToken = await verifySessionCookie(req.cookies.get("user-session")?.value);
 
-      if (!userId) {
+      if (!sessionToken) {
         // No session — block unless MASTER_GATE=off allows anonymous browsing
         if (masterGateEnabled) {
           if (pathname.startsWith("/api/")) {
