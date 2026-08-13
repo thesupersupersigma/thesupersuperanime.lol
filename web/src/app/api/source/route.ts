@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, createCipheriv, randomBytes } from "crypto";
 import { db } from "@/lib/db";
-import { checkRateLimit } from "@/lib/core";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/request-ip";
 import {
   buildProviderQueue,
@@ -55,13 +55,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid episodeNum" }, { status: 400 });
     }
 
+    // Resolve the session once: it's both the auth check and the rate-limit key.
+    // Returns null immediately when there's no cookie, so anonymous requests
+    // don't pay for a DB round-trip.
+    const user = await requireAuth();
+
     // In-route auth. The middleware gates this path, but it could only check
     // that a `user-session` cookie existed — this is the DB-backed check that
     // actually resolves it, so a forged or expired cookie can't mint tokens.
     // Mirrors the proxy's own policy: when MASTER_GATE or DISCORD_GATE is off,
     // anonymous playback is intentionally allowed and this check is skipped.
     if (process.env.DISCORD_GATE !== "off" && process.env.MASTER_GATE !== "off") {
-      const user = await requireAuth();
       if (!user) {
         return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       }
@@ -70,7 +74,20 @@ export async function POST(req: NextRequest) {
     const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
     const ip = getClientIp(req);
 
-    if (!checkRateLimit(sessionId, 10, 60_000)) {
+    // Key on something the client cannot rotate. The old key was
+    // `session-id ?? site-auth ?? "anonymous"`:
+    //   - `session-id` is client-supplied and unsigned, so rotating it per
+    //     request gave a fresh bucket every time and the cap never fired;
+    //   - `site-auth` is the raw SITE_PASSWORD, identical for every visitor;
+    //   - `"anonymous"` is the *normal* first-visit case (the watch page fires
+    //     /api/progress and /api/source in the same tick, so the Set-Cookie
+    //     can't land first), which put every new visitor in ONE shared bucket
+    //     and 429'd the 11th of them.
+    // A verified user id can't be rotated without registering another account;
+    // otherwise fall back to the reverse-proxy-supplied IP.
+    const rateLimitKey = user ? `source:user:${user.id}` : `source:ip:${ip}`;
+    if (!checkRateLimit(rateLimitKey, 10, 60_000)) {
+      console.warn("[/api/source] rate limited", { key: rateLimitKey, animeId, episodeNum });
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 

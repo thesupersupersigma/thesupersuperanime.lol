@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionId, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { checkRateLimit } from "@/lib/core";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { syncToAniList } from "@/lib/anilist-sync";
 import { checkAndGrantBadges, recordAiringWatch, updateWatchStreak } from "@/lib/badge-engine";
 import { ownedSessionId } from "@/lib/owner-session";
