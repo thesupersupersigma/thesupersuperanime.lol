@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readCappedText } from "@/lib/read-capped";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: `Upstream ${res.status}` }, { status: 502 });
     }
 
-    const text = await res.text();
+    // Byte cap. This route is public, unauthenticated and unrated, and the
+    // allowlist constrains only the HOSTNAME — the path is entirely
+    // attacker-chosen. `await res.text()` with no cap meant any large file on
+    // an allowed CDN could be buffered into RAM (doubled by the UTF-8 decode),
+    // and a handful of concurrent requests could OOM the server. The 10s
+    // timeout bounds wall clock, not bytes.
+    const declared = Number(res.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > MAX_SUBTITLE_BYTES) {
+      console.warn("[subtitle-proxy] rejected oversized subtitle", {
+        url, declaredBytes: declared, limit: MAX_SUBTITLE_BYTES,
+      });
+      return NextResponse.json({ error: "Subtitle too large" }, { status: 413 });
+    }
+
+    // Content-Length is advisory (and absent on chunked responses), so also
+    // count bytes as they arrive and abort past the cap.
+    const text = await readCappedText(res.body, MAX_SUBTITLE_BYTES, (bytesRead) => {
+      console.warn("[subtitle-proxy] aborted oversized subtitle mid-stream", {
+        url, bytesRead, limit: MAX_SUBTITLE_BYTES,
+      });
+    });
+    if (text === null) {
+      return NextResponse.json({ error: "Subtitle too large" }, { status: 413 });
+    }
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "*";
 
     return new NextResponse(text, {
@@ -92,3 +116,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch subtitle" }, { status: 502 });
   }
 }
+
+/**
+ * Largest subtitle we'll relay. A dense feature-length VTT is well under
+ * 500 KB; 2 MB leaves generous headroom while keeping the buffer bounded.
+ */
+const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;

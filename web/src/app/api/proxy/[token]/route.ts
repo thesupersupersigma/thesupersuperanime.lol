@@ -5,6 +5,13 @@ import { createDecipheriv, createCipheriv, randomBytes, createHmac } from "crypt
 import { db } from "@/lib/db";
 import { isBlockedProxyTarget } from "@/lib/ssrf-guard";
 import { getClientIp } from "@/lib/request-ip";
+import { deriveSegmentTokenId } from "@/lib/segment-token";
+
+/**
+ * Upper bound on URI-bearing lines we will rewrite from one upstream playlist.
+ * Each one mints a SourceToken row, so this is the cap on DB writes per fetch.
+ */
+const MAX_PLAYLIST_URIS = 10_000;
 
 interface Params { params: Promise<{ token: string }>; }
 
@@ -125,6 +132,24 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       const rewrittenLines: string[] = [];
       const tokensToInsert: TokenInsertData[] = [];
 
+      // Bound the work a single upstream playlist can cause. Real media
+      // playlists are hundreds of URIs (a 2h movie at 2s segments is ~3600);
+      // anything past this is either malformed or hostile, and rewriting it
+      // would mint a matching number of DB rows.
+      const uriBearingLines = lines.filter(l => {
+        const t = l.trim();
+        return t.length > 0 && (!t.startsWith("#") || t.startsWith("#EXT-X-KEY:"));
+      }).length;
+      if (uriBearingLines > MAX_PLAYLIST_URIS) {
+        console.error("[proxy] playlist too large — refusing to rewrite", {
+          token: cleanToken.slice(0, 12),
+          uriBearingLines,
+          limit: MAX_PLAYLIST_URIS,
+          url: decryptedUrl,
+        });
+        return NextResponse.json({ error: "Playlist too large" }, { status: 502 });
+      }
+
       for (let line of lines) {
         const trimmed = line.trim();
         if (!trimmed) { rewrittenLines.push(line); continue; }
@@ -136,7 +161,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
             let keyUrl;
             try { keyUrl = new URL(originalUri, playlistRes.url).toString(); } catch { keyUrl = originalUri; }
             
-            const tData = buildTokenData(keyUrl, record, key, tokenSecret, cookies, storedReferer, ".key");
+            const tData = buildTokenData(keyUrl, cleanToken, record, key, tokenSecret, cookies, storedReferer, ".key");
             tokensToInsert.push(tData.dbData);
             line = line.replace(`URI="${originalUri}"`, `URI="${tData.serveToken}"`);
           }
@@ -149,12 +174,20 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         let chunkUrl;
         try { chunkUrl = new URL(trimmed, playlistRes.url).toString(); } catch { chunkUrl = trimmed; }
         
-        const tData = buildTokenData(chunkUrl, record, key, tokenSecret, cookies, storedReferer, ".ts");
+        const tData = buildTokenData(chunkUrl, cleanToken, record, key, tokenSecret, cookies, storedReferer, ".ts");
         tokensToInsert.push(tData.dbData);
         rewrittenLines.push(tData.serveToken);
       }
 
-      if (tokensToInsert.length > 0) await db.sourceToken.createMany({ data: tokensToInsert });
+      // skipDuplicates makes a replayed playlist a no-op instead of a fresh
+      // batch of rows: segment token ids are now derived from
+      // HMAC(parent token + segment URL), so the same playlist always produces
+      // the same primary keys. Previously each fetch minted randomBytes(24)
+      // ids that could never collide, so one token replayed for its 3h life
+      // wrote hundreds of rows every time.
+      if (tokensToInsert.length > 0) {
+        await db.sourceToken.createMany({ data: tokensToInsert, skipDuplicates: true });
+      }
 
       return new NextResponse(rewrittenLines.join("\n"), {
         status: 200,
@@ -263,7 +296,7 @@ async function followRedirectOnce(
 }
 
 function buildTokenData(
-  url: string, record: { sessionId: string; ip: string; expiresAt: Date }, key: Buffer, tokenSecret: string, cookies: string, referer: string, explicitExt?: string
+  url: string, parentToken: string, record: { sessionId: string; ip: string; expiresAt: Date }, key: Buffer, tokenSecret: string, cookies: string, referer: string, explicitExt?: string
 ): { serveToken: string, dbData: TokenInsertData } {
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
@@ -271,7 +304,8 @@ function buildTokenData(
   const encrypted = cipher.update(payload, "utf8", "hex") + cipher.final("hex");
   const encryptedUrl = iv.toString("hex") + ":" + encrypted;
 
-  const tokenId = randomBytes(24).toString("hex");
+  // Deterministic, not random -- see lib/segment-token.ts for why.
+  const tokenId = deriveSegmentTokenId(parentToken, url, tokenSecret);
   // Inherit the parent playlist token's expiry so a segment never expires mid-
   // episode while its playlist is still valid (the old fixed 15-min window
   // expired hundreds of segments out from under the player and stalled it).
