@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    // The suppression was hiding nothing: `tsc --noEmit` exits 0 and ci.yml
+    // already runs it on every push. The Dockerfile never typechecks, so with
+    // this off a Coolify deploy from an ungated branch could ship type errors
+    // that only surface at request time.
+    ignoreBuildErrors: false,
     tsconfigPath: './tsconfig.json'
   },
   output: "standalone",

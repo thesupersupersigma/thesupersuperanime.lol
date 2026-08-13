@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 .env.local
+# ...except the template. README.md tells operators to `cp .env.example
+# .env.local`, but the `.env*` pattern above meant it had never actually been
+# committed, so a fresh clone had no template to copy. It holds only empty
+# placeholders — no secrets.
+!.env.example
 
 # vercel
 .vercel
