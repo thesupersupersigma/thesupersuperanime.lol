@@ -14,6 +14,32 @@ function timingSafeEqualString(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
+/**
+ * RFC 8288 discovery Link header, surfaced on page + redirect responses (not
+ * JSON API responses). Set here rather than in next.config so it survives the
+ * auth-gate redirect an unauthenticated agent receives on "/" — which is what
+ * the isitagentready audit actually sees.
+ */
+const DISCOVERY_LINK = [
+  '</sitemap.xml>; rel="sitemap"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
+  '</llms.txt>; rel="service-doc"; type="text/plain"',
+  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+  '</.well-known/openapi.json>; rel="service-desc"; type="application/json"',
+  '</api/status>; rel="status"; type="application/json"',
+  '</.well-known/mcp/server-card.json>; rel="mcp-server-card"',
+  '</.well-known/agent-skills/index.json>; rel="agent-skills"',
+].join(", ");
+
+function withDiscovery(res: NextResponse, pathname: string): NextResponse {
+  // Decorate page/redirect responses only — leave JSON API responses clean.
+  if (!pathname.startsWith("/api/")) {
+    res.headers.append("Link", DISCOVERY_LINK);
+    if (!res.headers.has("Vary")) res.headers.set("Vary", "Accept");
+  }
+  return res;
+}
+
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -33,6 +59,28 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // ── Markdown for Agents (Accept-based content negotiation) ──────────────
+  // Agents that *explicitly* accept text/markdown get a markdown representation
+  // of the page, served by /api/md via an internal rewrite (same URL, no
+  // redirect). Browsers never send text/markdown, so they keep getting HTML.
+  // Runs before the auth gates so the public markdown overview stays reachable
+  // even while the HTML page sits behind the site-password / Discord gate.
+  const accept = req.headers.get("accept") || "";
+  if (
+    req.method === "GET" &&
+    accept.includes("text/markdown") &&
+    !pathname.startsWith("/api/")
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/api/md";
+    // The rewrite destination sees the *original* URL via req.nextUrl, so the
+    // page path is passed through a request header (a query param wouldn't
+    // survive the rewrite) that /api/md reads back.
+    const headers = new Headers(req.headers);
+    headers.set("x-md-path", pathname);
+    return NextResponse.rewrite(url, { request: { headers } });
+  }
+
   // ── Always public — no auth checks at all ──────────────────────────────
   if (
     pathname.startsWith("/api/proxy") ||
@@ -47,9 +95,10 @@ export function proxy(req: NextRequest) {
     pathname === "/api/status" ||
     pathname === "/api/webhooks/github" ||
     pathname === "/api/discord/interactions" ||
-    pathname === "/api/anilist/sync/auto"
+    pathname === "/api/anilist/sync/auto" ||
+    pathname === "/api/md"
   ) {
-    return NextResponse.next();
+    return withDiscovery(NextResponse.next(), pathname);
   }
 
   // ── Cron routes ─────────────────────────────────────────────────────────
@@ -75,7 +124,7 @@ export function proxy(req: NextRequest) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      return NextResponse.redirect(new URL("/login", req.url));
+      return withDiscovery(NextResponse.redirect(new URL("/login", req.url)), pathname);
     }
   }
 
@@ -110,7 +159,7 @@ export function proxy(req: NextRequest) {
           if (pathname.startsWith("/api/")) {
             return NextResponse.json({ error: "Authentication required" }, { status: 401 });
           }
-          return NextResponse.redirect(new URL("/account", req.url));
+          return withDiscovery(NextResponse.redirect(new URL("/account", req.url)), pathname);
         }
         // MASTER_GATE=off: anonymous user passes through without discord check
       }
@@ -119,7 +168,7 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return withDiscovery(NextResponse.next(), pathname);
 }
 
 export const config = {

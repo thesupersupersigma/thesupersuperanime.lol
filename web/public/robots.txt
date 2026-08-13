@@ -1,0 +1,16 @@
+# https://www.thesupersuperanime.lol/robots.txt
+#
+# Content preferences for AI & search — https://contentsignals.org/
+#   search   = use content for search indexing / results
+#   ai-input = use content to ground AI answers (RAG / live retrieval)
+#   ai-train = use content to train AI models
+# This site permits all three.
+
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /account/
+
+Sitemap: https://www.thesupersuperanime.lol/sitemap.xml

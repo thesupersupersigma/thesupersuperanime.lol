@@ -21,18 +21,14 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Agent-discovery Link headers now live in src/proxy.ts so they survive
+      // the auth-gate redirect an unauthenticated agent gets on "/". Here we
+      // only fix the content type of the extensionless api-catalog file.
       {
-        source: "/",
+        source: "/.well-known/api-catalog",
         headers: [
-          {
-            key: "Link",
-            value: [
-              '</sitemap.xml>; rel="sitemap"',
-              '</llms.txt>; rel="describedby"; type="text/plain"',
-              '</.well-known/mcp/server-card.json>; rel="mcp-server-card"',
-              '</.well-known/agent-skills/index.json>; rel="agent-skills"',
-            ].join(", "),
-          },
+          { key: "Content-Type", value: "application/linkset+json" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
         ],
       },
     ];

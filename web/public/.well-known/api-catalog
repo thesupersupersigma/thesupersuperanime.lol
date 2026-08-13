@@ -1,0 +1,35 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://www.thesupersuperanime.lol/api",
+      "service-doc": [
+        {
+          "href": "https://www.thesupersuperanime.lol/llms.txt",
+          "type": "text/plain",
+          "title": "Site & API overview for agents"
+        }
+      ],
+      "service-desc": [
+        {
+          "href": "https://www.thesupersuperanime.lol/.well-known/openapi.json",
+          "type": "application/json",
+          "title": "OpenAPI 3.1 description of the public read endpoints"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://www.thesupersuperanime.lol/api/status",
+          "type": "application/json",
+          "title": "Service status snapshot"
+        }
+      ],
+      "describedby": [
+        {
+          "href": "https://www.thesupersuperanime.lol/.well-known/mcp/server-card.json",
+          "type": "application/json",
+          "title": "MCP server card"
+        }
+      ]
+    }
+  ]
+}

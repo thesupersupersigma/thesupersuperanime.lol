@@ -1,0 +1,234 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "thesupersuperanime.lol public API",
+    "version": "1.0.0",
+    "description": "Public, read-only endpoints exposed by thesupersuperanime.lol. These require no authentication. Write endpoints and personalized/authenticated routes are intentionally omitted. Anime metadata is sourced from AniList; this API covers site-native data (status, announcements, changelog, chat, watch parties).",
+    "contact": { "url": "https://www.thesupersuperanime.lol" }
+  },
+  "servers": [{ "url": "https://www.thesupersuperanime.lol" }],
+  "paths": {
+    "/api/status": {
+      "get": {
+        "summary": "Service status snapshot",
+        "description": "Read-only uptime/health snapshot for infrastructure and stream providers, computed from persisted status checks (no live pings).",
+        "operationId": "getStatus",
+        "responses": {
+          "200": {
+            "description": "Status snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "services": { "type": "array", "items": { "type": "object" } },
+                    "overallStatus": { "type": "string", "enum": ["operational", "degraded", "outage"] },
+                    "lastUpdated": { "type": "string", "format": "date-time" },
+                    "incidents": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/announcement": {
+      "get": {
+        "summary": "Active site-wide announcement",
+        "description": "Returns the single currently-active announcement banner, or null when none is active.",
+        "operationId": "getAnnouncement",
+        "responses": {
+          "200": {
+            "description": "The active announcement, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "announcement": {
+                      "oneOf": [
+                        { "type": "null" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string" },
+                            "message": { "type": "string" },
+                            "type": { "type": "string" },
+                            "active": { "type": "boolean" },
+                            "createdAt": { "type": "string", "format": "date-time" }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/changelog": {
+      "get": {
+        "summary": "Recent changelog entries",
+        "description": "The 50 most recent changelog entries, newest first.",
+        "operationId": "getChangelog",
+        "responses": {
+          "200": {
+            "description": "Changelog entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "version": { "type": "string" },
+                          "title": { "type": "string" },
+                          "body": { "type": "string" },
+                          "major": { "type": "boolean" },
+                          "publishedAt": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/channels": {
+      "get": {
+        "summary": "List chat channels",
+        "description": "All chat channels ordered by position (default channels are seeded on first access).",
+        "operationId": "getChatChannels",
+        "responses": {
+          "200": {
+            "description": "Channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "description": { "type": ["string", "null"] },
+                          "position": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/online": {
+      "get": {
+        "summary": "Recently-active chat users",
+        "description": "Presence proxy: distinct users who have posted a chat message in the last 5 minutes (up to 50).",
+        "operationId": "getChatOnline",
+        "responses": {
+          "200": {
+            "description": "Online users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{roomId}": {
+      "get": {
+        "summary": "Recent messages in a chat room",
+        "description": "The 50 most recent non-deleted messages in chronological order. Valid roomId values: `global`, `anime-{animeId}` (numeric), or `channel-{channelId}`.",
+        "operationId": "getChatMessages",
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "description": "One of: global, anime-{animeId}, channel-{channelId}",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid room id" }
+        }
+      }
+    },
+    "/api/watch-party/{roomCode}": {
+      "get": {
+        "summary": "Watch-party room info",
+        "description": "Look up an active watch-party room by its 6-character code. Rate-limited per IP.",
+        "operationId": "getWatchParty",
+        "parameters": [
+          {
+            "name": "roomCode",
+            "in": "path",
+            "required": true,
+            "description": "6-character room code (case-insensitive)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roomCode": { "type": "string" },
+                    "animeId": { "type": "integer" },
+                    "episodeNum": { "type": "integer" },
+                    "hostId": { "type": "string" },
+                    "hostTimestamp": { "type": "number" },
+                    "isPlaying": { "type": "boolean" },
+                    "audioType": { "type": "string", "enum": ["sub", "dub"] }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Room not found or expired" },
+          "429": { "description": "Too many attempts" }
+        }
+      }
+    }
+  }
+}
