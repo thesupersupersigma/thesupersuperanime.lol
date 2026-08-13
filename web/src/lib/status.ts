@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { classifyPing, computeOverallStatus } from "@/lib/status-rules";
 
 // ── Shared status logic ───────────────────────────────────────────────────────
 // Two code paths:
@@ -8,9 +9,8 @@ import { db } from "@/lib/db";
 //                           Public reads: GET /api/status + the /status page, so
 //                           hammering them can't amplify load or pollute history.
 
-export type ServiceStatus = "operational" | "degraded" | "outage" | "unknown";
-export type OverallStatus = "operational" | "degraded" | "outage";
-export type ServiceGroup = "infrastructure" | "providers";
+export type { ServiceStatus, OverallStatus, ServiceGroup } from "@/lib/status-types";
+import type { ServiceStatus, OverallStatus, ServiceGroup } from "@/lib/status-types";
 
 export interface StatusService {
   id: string;
@@ -48,6 +48,8 @@ interface PingResult {
   success: boolean;
   latencyMs: number;
   error?: string;
+  /** Misconfiguration rather than an unhealthy upstream — reads "unknown", never opens an incident. */
+  configError?: boolean;
 }
 
 interface InfraDef {
@@ -85,10 +87,30 @@ async function pingDatabase(): Promise<PingResult> {
   }
 }
 
-// Anivexa API — any response to its health endpoint counts as healthy.
-async function pingAnivexa(): Promise<PingResult> {
+// Scraper API — any response to its health endpoint counts as healthy.
+//
+// This pings SCRAPER_API_URL: the service /api/source actually calls. It used
+// to ping `ANIVEXA_API_URL || "http://64.181.222.197:4000"` — a variable no
+// other code reads, defaulting to a hardcoded IP for a VM that no longer
+// exists. The two had ZERO overlap, so /status reported a permanent outage for
+// a service that isn't in the pipeline while a real scraper outage produced no
+// signal at all.
+//
+// There is deliberately no fallback host: an unset variable is a CONFIG error,
+// not an outage. Reporting it as an outage is what trained everyone to ignore
+// this row.
+async function pingScraper(): Promise<PingResult> {
   const start = Date.now();
-  const base = (process.env.ANIVEXA_API_URL || "http://64.181.222.197:4000").replace(/\/$/, "");
+  const raw = process.env.SCRAPER_API_URL;
+  if (!raw) {
+    return {
+      success: false,
+      latencyMs: 0,
+      error: "SCRAPER_API_URL is not configured",
+      configError: true,
+    };
+  }
+  const base = raw.replace(/\/$/, "");
   try {
     await fetch(`${base}/health`, { signal: AbortSignal.timeout(PING_TIMEOUT_MS) });
     return { success: true, latencyMs: Date.now() - start };
@@ -120,7 +142,7 @@ async function pingAnilist(): Promise<PingResult> {
 const INFRA: InfraDef[] = [
   { id: "site", name: "Site (VM)", ping: pingSite },
   { id: "database", name: "Neon Database", ping: pingDatabase },
-  { id: "anivexa", name: "Anivexa API", ping: pingAnivexa },
+  { id: "scraper", name: "Scraper API", ping: pingScraper },
   { id: "anilist", name: "AniList API", ping: pingAnilist },
 ];
 
@@ -150,6 +172,12 @@ interface Observation {
   latencyMs: number | null;
   lastChecked: Date;
   error?: string;
+  /**
+   * True when this reading shouldn't be written to history or counted toward
+   * overall status — a misconfigured service tells us nothing about uptime,
+   * and recording it as "down" corrupts the uptime % permanently.
+   */
+  skipPersist?: boolean;
 }
 
 /**
@@ -175,10 +203,11 @@ export async function runStatusChecks(): Promise<StatusResult> {
         ? settled.value
         : { success: false, latencyMs: 0, error: errMsg(settled.reason) };
 
-    let status: ServiceStatus;
-    if (!r.success) status = "outage";
-    else if (r.latencyMs > DEGRADED_LATENCY_MS) status = "degraded";
-    else status = "operational";
+    const status: ServiceStatus = classifyPing(r, DEGRADED_LATENCY_MS);
+
+    if (r.configError) {
+      console.error("[status] service is misconfigured", { service: def.id, error: r.error });
+    }
 
     observations.push({
       id: def.id,
@@ -188,6 +217,7 @@ export async function runStatusChecks(): Promise<StatusResult> {
       latencyMs: r.latencyMs,
       lastChecked: now,
       error: r.error,
+      skipPersist: r.configError === true,
     });
   });
 
@@ -203,15 +233,20 @@ export async function runStatusChecks(): Promise<StatusResult> {
     });
   }
 
-  // 2. Persist one StatusCheck row per service for this run.
-  await db.statusCheck.createMany({
-    data: observations.map((o) => ({
-      service: o.id,
-      success: isUp(o.status),
-      latencyMs: Math.round(o.latencyMs ?? 0),
-      checkedAt: now,
-    })),
-  });
+  // 2. Persist one StatusCheck row per service for this run. A misconfigured
+  //    service is skipped entirely: recording it as "down" would bake a config
+  //    mistake into the uptime percentage forever.
+  const persistable = observations.filter((o) => !o.skipPersist);
+  if (persistable.length > 0) {
+    await db.statusCheck.createMany({
+      data: persistable.map((o) => ({
+        service: o.id,
+        success: isUp(o.status),
+        latencyMs: Math.round(o.latencyMs ?? 0),
+        checkedAt: now,
+      })),
+    });
+  }
 
   // 3. Open / resolve incidents. An outage with no open incident opens one; an
   //    operational reading with an open incident auto-resolves it. (Degraded and
@@ -229,6 +264,7 @@ export async function runStatusChecks(): Promise<StatusResult> {
   let resolved = 0;
 
   for (const o of observations) {
+    if (o.skipPersist) continue; // config error != incident
     const open = openByService.get(o.id);
     if (o.status === "outage" && !open) {
       const created = await db.statusIncident.create({
@@ -287,13 +323,9 @@ export async function runStatusChecks(): Promise<StatusResult> {
     };
   });
 
-  const hasOutage = services.some((s) => s.status === "outage");
-  const hasDegraded = services.some((s) => s.status === "degraded");
-  const overallStatus: OverallStatus = hasOutage
-    ? "outage"
-    : hasDegraded
-      ? "degraded"
-      : "operational";
+  // Infrastructure only — see computeOverallStatus() for why the legacy
+  // provider group no longer votes.
+  const overallStatus: OverallStatus = computeOverallStatus(services);
 
   return {
     services,
@@ -407,13 +439,9 @@ export async function getStatusSnapshot(): Promise<StatusResult> {
     };
   });
 
-  const hasOutage = services.some((s) => s.status === "outage");
-  const hasDegraded = services.some((s) => s.status === "degraded");
-  const overallStatus: OverallStatus = hasOutage
-    ? "outage"
-    : hasDegraded
-      ? "degraded"
-      : "operational";
+  // Infrastructure only — see computeOverallStatus() for why the legacy
+  // provider group no longer votes.
+  const overallStatus: OverallStatus = computeOverallStatus(services);
 
   return {
     services,
