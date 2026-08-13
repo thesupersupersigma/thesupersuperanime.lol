@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { CHAT_USER_SELECT, isValidRoomId } from "@/lib/chat";
+import { errorInfo } from "@/lib/log-error";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +28,32 @@ export async function GET(
   activeConnections++;
 
   let closed = false;
+  const timers: ReturnType<typeof setInterval>[] = [];
+
   // Decrement at most once, whether we close via cancel() or an internal error.
   const release = () => {
     if (closed) return;
     closed = true;
     activeConnections--;
+  };
+
+  /**
+   * Stop polling AND end the stream. Previously the poll's catch only did
+   * `clearInterval(interval)`: the connection stayed open and the 25s keepalive
+   * kept firing, so EventSource never saw an error and never reconnected — the
+   * client sat on a healthy-looking socket that would never deliver another
+   * message. Ending the stream is what lets the browser reconnect.
+   */
+  const shutdown = (controller: ReadableStreamDefaultController, err?: unknown) => {
+    if (closed) return;
+    for (const t of timers) clearInterval(t);
+    release();
+    try {
+      if (err) controller.error(err);
+      else controller.close();
+    } catch {
+      // Already errored/closed by the runtime — nothing to do.
+    }
   };
 
   const stream = new ReadableStream({
@@ -43,44 +65,64 @@ export async function GET(
         } catch {}
       };
 
-      // Newest message timestamp we've already delivered. Initialized to now
-      // so the poll never re-sends the initial backlog below.
-      let lastSeenAt = new Date();
+      try {
+        // Newest message timestamp we've already delivered. Initialized to now
+        // so the poll never re-sends the initial backlog below.
+        let lastSeenAt = new Date();
 
-      // Send the last 50 messages immediately, in chronological order.
-      const recent = await db.chatMessage.findMany({
-        where: { roomId, deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-        include: { user: { select: CHAT_USER_SELECT } },
-      });
-      send({ type: "messages", messages: recent.reverse() });
+        // Send the last 50 messages immediately, in chronological order.
+        // This sat outside any try: a throw here errors the stream WITHOUT
+        // invoking cancel(), so release() never ran and the slot leaked. A few
+        // clients reconnecting through a DB blip could pin all 300 until redeploy.
+        const recent = await db.chatMessage.findMany({
+          where: { roomId, deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: { user: { select: CHAT_USER_SELECT } },
+        });
+        send({ type: "messages", messages: recent.reverse() });
 
-      // Poll for messages newer than lastSeenAt and push only the delta.
-      const interval = setInterval(async () => {
-        if (closed) { clearInterval(interval); return; }
-        try {
-          const fresh = await db.chatMessage.findMany({
-            where: { roomId, deletedAt: null, createdAt: { gt: lastSeenAt } },
-            orderBy: { createdAt: "asc" },
-            include: { user: { select: CHAT_USER_SELECT } },
-          });
-          if (fresh.length > 0) {
-            lastSeenAt = fresh[fresh.length - 1].createdAt;
-            send({ type: "messages", messages: fresh });
+        // Poll for messages newer than lastSeenAt and push only the delta.
+        const interval = setInterval(async () => {
+          if (closed) { clearInterval(interval); return; }
+          try {
+            const fresh = await db.chatMessage.findMany({
+              where: { roomId, deletedAt: null, createdAt: { gt: lastSeenAt } },
+              orderBy: { createdAt: "asc" },
+              include: { user: { select: CHAT_USER_SELECT } },
+            });
+            if (fresh.length > 0) {
+              lastSeenAt = fresh[fresh.length - 1].createdAt;
+              send({ type: "messages", messages: fresh });
+            }
+          } catch (err) {
+            console.error("[sse] poll failed, terminating stream", {
+              route: "/api/chat/[roomId]/stream",
+              roomId,
+              ...errorInfo(err),
+            });
+            shutdown(controller, err);
           }
-        } catch {
-          clearInterval(interval);
-        }
-      }, 1500);
+        }, 1500);
+        timers.push(interval);
 
-      // Keepalive ping every 25 seconds to prevent connection timeout.
-      const ping = setInterval(() => {
-        if (closed) { clearInterval(ping); return; }
-        send({ type: "ping" });
-      }, 25_000);
+        // Keepalive ping every 25 seconds to prevent connection timeout.
+        const ping = setInterval(() => {
+          if (closed) { clearInterval(ping); return; }
+          send({ type: "ping" });
+        }, 25_000);
+        timers.push(ping);
+      } catch (err) {
+        console.error("[sse/chat] start() failed, releasing slot", {
+          roomId,
+          active: activeConnections,
+          ...errorInfo(err),
+        });
+        shutdown(controller, err);
+      }
     },
     cancel() {
+      for (const t of timers) clearInterval(t);
       release();
     },
   });

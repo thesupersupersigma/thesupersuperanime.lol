@@ -8,6 +8,7 @@ import "@vidstack/react/player/styles/default/theme.css";
 import "@vidstack/react/player/styles/default/layouts/video.css";
 import { useRouter } from "next/navigation";
 import { WatchPartySync } from "@/components/player/watch-party-sync";
+import { errorInfo } from "@/lib/log-error";
 
 function secondsUntil(airingAt: number): number {
   return Math.max(0, airingAt - Date.now() / 1000);
@@ -229,18 +230,36 @@ export function AnimePlayer({
     if (ct < 1 || dur < 1) return;
     if (Math.abs(ct - lastSavedTimeRef.current) < 10 && ct !== dur) return;
     lastSavedTimeRef.current = ct;
+    const episodeId = `${animeId}-${episodeNum}`;
     try {
-      await fetch('/api/progress', {
+      const res = await fetch('/api/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           animeId:   Number(animeId),
-          episodeId: `${animeId}-${episodeNum}`,
+          episodeId,
           progress:  Math.floor(ct),
           duration:  Math.floor(dur),
         }),
       });
-    } catch {}
+      // The response was previously never inspected, so a 401 (session gone),
+      // a 429 (10 saves/min) or a 500 all looked like a successful save. That is
+      // what made the (sessionId, episodeId) collision invisible: resume,
+      // history, streaks and badges silently died with no client-side trace.
+      if (!res.ok) {
+        console.warn('[player] progress save rejected', {
+          status: res.status,
+          episodeId,
+          progress: Math.floor(ct),
+        });
+      }
+    } catch (err) {
+      console.error('[player] progress save failed', {
+        episodeId,
+        progress: Math.floor(ct),
+        ...errorInfo(err),
+      });
+    }
   }, [animeId, episodeNum]);
 
   const onCanPlay = () => {
@@ -429,7 +448,12 @@ export function AnimePlayer({
       const res = await fetch(
         `https://api.aniskip.com/v2/skip-times/${malId}/${episodeNum}?types[]=op&types[]=ed&episodeLength=${durationSecs.toFixed(3)}`
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        // Distinguishes "AniSkip is broken" from "this anime has no skip data",
+        // which were previously the same silent no-op.
+        console.warn('[aniskip] non-2xx', { malId, episodeNum, status: res.status });
+        return;
+      }
       const data = await res.json();
       if (!data.found) return;
       for (const result of data.results) {
@@ -440,8 +464,8 @@ export function AnimePlayer({
           setSkipOutro({ startTime: result.interval.startTime, endTime: result.interval.endTime });
         }
       }
-    } catch {
-      // AniSkip unavailable, skip silently
+    } catch (err) {
+      console.warn('[aniskip] request failed', { malId, episodeNum, ...errorInfo(err) });
     }
   }, [malId, episodeNum]);
 

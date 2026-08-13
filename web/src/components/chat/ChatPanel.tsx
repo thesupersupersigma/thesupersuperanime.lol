@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { getUserAvatar, getUserDisplayName } from "@/lib/user-utils";
+import { errorInfo } from "@/lib/log-error";
 
 interface ChatUser {
   id: string;
@@ -73,14 +74,29 @@ export function ChatPanel({
     let cancelled = false;
 
     fetch(`/api/chat/${roomId}`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        // A 500 used to collapse to null and render as "no messages yet" — an
+        // empty room and a broken backend looked identical.
+        if (!r.ok) {
+          console.error("[chat] backlog fetch failed", { roomId, status: r.status });
+          return null;
+        }
+        return r.json();
+      })
       .then((data) => {
         if (cancelled || !data?.messages) return;
         setMessages((prev) => mergeMessages(prev, data.messages));
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("[chat] backlog fetch failed", { roomId, ...errorInfo(err) });
+      });
 
     const es = new EventSource(`/api/chat/${roomId}/stream`);
+    // There was no onerror handler at all, so a stream that died server-side
+    // (see the SSE poll fix) was completely invisible on the client.
+    es.onerror = () => {
+      console.error("[chat] SSE error", { roomId, readyState: es.readyState });
+    };
     es.onmessage = (e) => {
       let data: { type?: string; messages?: ChatMessageData[] };
       try {
@@ -143,6 +159,8 @@ export function ChatPanel({
     });
     if (res.ok) {
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } else {
+      console.error("[chat] admin action failed", { op: "delete", roomId, messageId, status: res.status });
     }
   }
 
@@ -151,11 +169,16 @@ export function ChatPanel({
     if (answer === null) return;
     const durationMinutes = parseInt(answer, 10);
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return;
-    await fetch("/api/chat/timeout", {
+    const res = await fetch("/api/chat/timeout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, durationMinutes }),
     });
+    // The result was never read, so an admin believed a user was timed out even
+    // when the request 401'd or 403'd.
+    if (!res.ok) {
+      console.error("[chat] admin action failed", { op: "timeout", roomId, userId, status: res.status });
+    }
   }
 
   return (

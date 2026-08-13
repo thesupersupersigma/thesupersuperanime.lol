@@ -3,6 +3,8 @@
 // All anime metadata queries in one typed file
 // ─────────────────────────────────────────────
 
+import { errorInfo } from "@/lib/log-error";
+
 const ANILIST_URL = "https://graphql.anilist.co";
 
 // ── Types ──────────────────────────────────────
@@ -376,7 +378,12 @@ export async function getAnimeById(
     }>(query, { id }, "force-cache", 86400);
 
     return data.Media;
-  } catch {
+  } catch (err) {
+    // anilistFetch throws a rich "AniList API error {status}: {text}" after its
+    // 429 retries. Callers treat null as "anime not found" and filter it out of
+    // an allSettled, so without this line an AniList outage looks identical to
+    // a missing anime and nothing anywhere records it.
+    console.error("[anilist] getAnimeById failed", { animeId: id, ...errorInfo(err) });
     return null;
   }
 }

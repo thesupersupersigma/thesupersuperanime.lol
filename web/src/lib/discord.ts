@@ -42,7 +42,9 @@ async function postToChannel(webhookUrl: string, payload: object): Promise<void>
 async function postToDiscord(payload: object): Promise<void> {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) {
-    console.warn("[discord] DISCORD_WEBHOOK_URL not set — skipping alert");
+    // error, not warn: this early-return silently disables the entire provider
+    // health alerting path, and the variable is easy to miss when provisioning.
+    console.error("[discord] DISCORD_WEBHOOK_URL not set — provider alerts are disabled");
     return;
   }
   await postToChannel(webhookUrl, payload);

@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/core";
 import { syncToAniList } from "@/lib/anilist-sync";
 import { checkAndGrantBadges, recordAiringWatch, updateWatchStreak } from "@/lib/badge-engine";
 import { ownedSessionId } from "@/lib/owner-session";
+import { errorInfo } from "@/lib/log-error";
 
 export async function GET(req: NextRequest) {
   try {
@@ -50,9 +51,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Hoisted so the catch can name the row it was writing. Without these the
+  // 500 log said nothing about which user/episode failed.
+  let userIdForLog: string | null = null;
+  let episodeIdForLog: string | null = null;
+  let sessionIdForLog: string | null = null;
+
   try {
     const sessionId = await getSessionId();
     const user = await getCurrentUser();
+    sessionIdForLog = sessionId;
+    userIdForLog = user?.id ?? null;
 
     // Rate limit: max 10 progress saves per minute per session
     const rateLimitKey = user ? `progress:user:${user.id}` : `progress:session:${sessionId}`;
@@ -66,6 +75,7 @@ export async function POST(req: NextRequest) {
     if (!animeId || !episodeId) {
       return NextResponse.json({ error: "animeId and episodeId are required" }, { status: 400 });
     }
+    episodeIdForLog = String(episodeId);
 
     // --- Anti-cheat: fetch previous progress to validate the delta ---
     // progress is stored in seconds (the player sends Math.floor of currentTime),
@@ -178,7 +188,20 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ record, newBadges });
   } catch (error) {
-    console.error("Failed to save progress:", error);
+    // Include the Prisma error code: a P2002 here is a unique-constraint
+    // collision that will repeat on every retry (see lib/owner-session.ts), and
+    // it must never be indistinguishable from a transient network blip.
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : undefined;
+    console.error("[api/progress] upsert failed", {
+      userId: userIdForLog,
+      episodeId: episodeIdForLog,
+      sessionId: sessionIdForLog,
+      code,
+      ...errorInfo(error),
+    });
     return NextResponse.json({ error: "Failed to save progress" }, { status: 500 });
   }
 }

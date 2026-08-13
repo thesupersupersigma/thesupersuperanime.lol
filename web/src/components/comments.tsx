@@ -94,6 +94,14 @@ function CommentCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ commentId: comment.id }),
       });
+      if (!res.ok) {
+        // json() was parsed off a possibly non-OK response and `data.liked`
+        // (undefined) was passed straight into the toggle.
+        console.error("[comments] request failed", {
+          op: "like", animeId, commentId: comment.id, status: res.status,
+        });
+        return;
+      }
       const data = await res.json();
       onLikeToggled(comment.id, data.liked, isReply ? comment.id : undefined);
     } finally {
@@ -103,11 +111,19 @@ function CommentCard({
 
   async function handleDelete() {
     if (!confirm("Delete this comment?")) return;
-    await fetch("/api/comments", {
+    const res = await fetch("/api/comments", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ commentId: comment.id }),
     });
+    // onDeleted used to run unconditionally: a 403/500 still removed the row
+    // from the UI while it stayed in the DB, so it reappeared on refresh.
+    if (!res.ok) {
+      console.error("[comments] request failed", {
+        op: "delete", animeId, commentId: comment.id, status: res.status,
+      });
+      return;
+    }
     onDeleted(comment.id);
   }
 
@@ -131,6 +147,10 @@ function CommentCard({
         onReplyPosted(comment.id, data.comment);
         setReplyText("");
         setShowReplyBox(false);
+      } else {
+        console.error("[comments] request failed", {
+          op: "reply", animeId, commentId: comment.id, status: res.status,
+        });
       }
     } finally {
       setPosting(false);
@@ -320,6 +340,15 @@ export function Comments({ animeId, episodeId, currentUserId }: Props) {
   const loadComments = useCallback(async () => {
     try {
       const res = await fetch(`/api/comments?animeId=${animeId}${episodeId ? `&episodeId=${episodeId}` : ""}`);
+      if (!res.ok) {
+        // res.ok was never checked, so a 500 body rendered as an empty comment
+        // section — indistinguishable from "no comments yet".
+        const body = await res.text().catch(() => "");
+        console.error("[comments] request failed", {
+          op: "load", animeId, episodeId: episodeId ?? null, status: res.status, body: body.slice(0, 300),
+        });
+        return;
+      }
       const data = await res.json();
       setComments(data.comments ?? []);
     } finally {

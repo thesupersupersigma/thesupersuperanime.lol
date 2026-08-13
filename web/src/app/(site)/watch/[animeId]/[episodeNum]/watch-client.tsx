@@ -122,7 +122,16 @@ export default function WatchClient() {
           animeTitle: getDisplayTitle(anime.title),
         }),
       });
-      if (!sourceRes.ok) throw new Error("No playable streams found");
+      if (!sourceRes.ok) {
+        // The hardcoded message used to be thrown for ANY status, so a 429 or a
+        // 500 was displayed and logged as "No playable streams found" — the most
+        // misleading possible attribution, pointing debugging at the scraper.
+        const body = await sourceRes.text().catch(() => "");
+        console.error("[watch] source fetch failed", {
+          animeId, episodeNum, status: sourceRes.status, body: body.slice(0, 500),
+        });
+        throw new Error(`Stream request failed (HTTP ${sourceRes.status})`);
+      }
       const sourceData = await sourceRes.json();
       if (sourceData.servers && sourceData.servers.length > 0) {
         setServers(sourceData.servers);
@@ -194,7 +203,13 @@ export default function WatchClient() {
           }),
         });
 
-        if (!sourceRes.ok) throw new Error("No playable streams found");
+        if (!sourceRes.ok) {
+          const body = await sourceRes.text().catch(() => "");
+          console.error("[watch] source fetch failed", {
+            animeId, episodeNum, status: sourceRes.status, body: body.slice(0, 500),
+          });
+          throw new Error(`Stream request failed (HTTP ${sourceRes.status})`);
+        }
 
         const sourceData = await sourceRes.json();
 

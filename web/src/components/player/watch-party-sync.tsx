@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MediaPlayerInstance } from "@vidstack/react";
+import { errorInfo } from "@/lib/log-error";
 
 interface WatchPartySyncProps {
   roomCode: string;
@@ -36,8 +37,38 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
 
   // ── HOST: push position every 500ms (+ immediate push on play/pause) ───────
   const wasPlayingRef = useRef(false);
+  // Consecutive failed pushes. Both push sites previously ended `.catch(() => {})`
+  // and never checked res.ok, so a 403 (host mismatch) or a 404 (expired room)
+  // was discarded twice a second while the UI kept showing the green "Hosting"
+  // pill and guests quietly stopped receiving updates.
+  const syncFailuresRef = useRef(0);
   useEffect(() => {
     if (!isHost) return;
+
+    // Logs the FIRST failure of a run only — this fires 2x/second, so logging
+    // every tick would bury the signal it exists to surface.
+    const pushSync = (body: Record<string, unknown>) => {
+      fetch(`/api/watch-party/${roomCode}/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((res) => {
+          if (res.ok) {
+            syncFailuresRef.current = 0;
+            return;
+          }
+          if (syncFailuresRef.current++ === 0) {
+            console.error("[watch-party] host sync push failed", { roomCode, status: res.status, ...body });
+          }
+        })
+        .catch((err) => {
+          if (syncFailuresRef.current++ === 0) {
+            console.error("[watch-party] host sync push failed", { roomCode, ...errorInfo(err), ...body });
+          }
+        });
+    };
+
     const interval = setInterval(() => {
       const player = playerRef.current;
       if (!player) return;
@@ -47,20 +78,11 @@ export function WatchPartySync({ roomCode, isHost, playerRef, animeId, episodeNu
       // lag instead of waiting up to a full tick.
       if (isPlaying !== wasPlayingRef.current) {
         wasPlayingRef.current = isPlaying;
-        fetch(`/api/watch-party/${roomCode}/sync`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ timestamp: player.currentTime || 0, isPlaying, audioType: audioTypeRef.current }),
-        }).catch(() => {});
+        pushSync({ timestamp: player.currentTime || 0, isPlaying, audioType: audioTypeRef.current });
       }
 
       // Regular heartbeat push.
-      const timestamp = player.currentTime || 0;
-      fetch(`/api/watch-party/${roomCode}/sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timestamp, isPlaying, audioType: audioTypeRef.current }),
-      }).catch(() => {});
+      pushSync({ timestamp: player.currentTime || 0, isPlaying, audioType: audioTypeRef.current });
     }, 500);
     return () => clearInterval(interval);
   }, [isHost, roomCode, playerRef]);

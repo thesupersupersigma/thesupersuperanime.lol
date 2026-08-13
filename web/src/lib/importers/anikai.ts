@@ -1,3 +1,4 @@
+import { errorInfo } from '@/lib/log-error'
 export type ImportStatus = 'Planning' | 'Watching' | 'Completed' | 'Dropped' | 'Paused'
 
 export interface NormalizedEntry {
@@ -267,6 +268,15 @@ export async function resolveMalIds(entries: NormalizedEntry[]): Promise<Normali
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: MAL_TO_AL_QUERY, variables: { malId: entry.malId } }),
         })
+        // res.ok was never checked: a 429/5xx left `data` undefined, anilistId
+        // fell back to 0, and the filter below discarded the entry -- making a
+        // rate-limited batch indistinguishable from "no AniList match".
+        if (!res.ok) {
+          console.error('[import] MAL->AL resolve failed', {
+            malId: entry.malId, title: entry.title, status: res.status,
+          })
+          return { ...entry, anilistId: 0 }
+        }
         const { data } = await res.json()
         return {
           ...entry,
@@ -275,13 +285,29 @@ export async function resolveMalIds(entries: NormalizedEntry[]): Promise<Normali
         }
       })
     )
-    for (const r of resolved) {
-      if (r.status === 'fulfilled' && r.value.anilistId !== 0) {
-        results.push(r.value)
+    for (let i = 0; i < resolved.length; i++) {
+      const r = resolved[i]
+      if (r.status === 'rejected') {
+        // r.reason was never read.
+        console.error('[import] MAL->AL resolve failed', {
+          malId: chunk[i]?.malId, title: chunk[i]?.title, ...errorInfo(r.reason),
+        })
+        continue
       }
+      if (r.value.anilistId !== 0) results.push(r.value)
     }
     // Small pause between chunks to avoid rate limiting
     if (chunks.length > 1) await new Promise(r => setTimeout(r, 700))
+  }
+
+  if (results.length < entries.length) {
+    // The caller only ever saw the smaller count, with no signal that anything
+    // was dropped or why.
+    console.warn('[import] dropped entries during AniList resolution', {
+      requested: entries.length,
+      resolved: results.length,
+      dropped: entries.length - results.length,
+    })
   }
 
   return results

@@ -10,7 +10,10 @@ import {
   providerKey,
   verifyEpisodeResponse,
   type EpisodeRef,
+  type EpisodesResponse,
+  type InfoResponse,
 } from "./provider-pairing";
+import { errorInfo, errorStack } from "@/lib/log-error";
 
 interface NormalizedStream {
   provider: string;
@@ -66,12 +69,27 @@ export async function POST(req: NextRequest) {
       allStreams = await fetchScraper(id, ep);
       if (allStreams.length === 0) fallbackReason = "not_found";
     } catch (err) {
-      const name = err instanceof Error ? err.name : "";
-      fallbackReason = name === "TimeoutError" || name === "AbortError" ? "timeout" : "error";
+      const { errName, errMessage } = errorInfo(err);
+      fallbackReason = errName === "TimeoutError" || errName === "AbortError" ? "timeout" : "error";
+      // This catch used to read err.name and drop everything else, so a thrown
+      // config error, a 15s timeout and an empty provider list were identical
+      // in the logs — which is exactly why the last outage couldn't be traced.
+      console.error("[/api/source] fetchScraper threw", {
+        animeId: id,
+        episodeNum: ep,
+        fallbackReason,
+        errName,
+        errMessage,
+        stack: errorStack(err),
+      });
     }
 
     if (allStreams.length === 0) {
-      return NextResponse.json({ error: "No playable streams found" }, { status: 404 });
+      // fallbackReason distinguishes timeout / upstream error / genuinely no
+      // sources. The success path already returns it; the 404 used to drop it,
+      // leaving the client with one undiagnosable message for all three.
+      console.error("[/api/source] 404 no streams", { animeId: id, episodeNum: ep, fallbackReason });
+      return NextResponse.json({ error: "No playable streams found", fallbackReason }, { status: 404 });
     }
 
     // Group streams per provider + audio type + real server name, so each distinct server the
@@ -166,26 +184,85 @@ export async function POST(req: NextRequest) {
   }
 }
 
+interface ScraperCallContext {
+  animeId: number;
+  episodeNum: number;
+  endpoint: string;
+  provider?: string;
+}
+
+/**
+ * GET + parse JSON from the scraper, logging the HTTP status on a non-2xx.
+ *
+ * The old inline `r.ok ? r.json() : null` collapsed a 502, a 429 and an empty
+ * body into the same `null`, so the breadcrumbs downstream reported "no
+ * providers" when the truth was "upstream returned 502". Rejections are left to
+ * propagate so the caller's allSettled can log `.reason`.
+ */
+async function fetchScraperJson<T>(
+  url: string,
+  timeoutMs: number,
+  ctx: ScraperCallContext,
+): Promise<T | null> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  if (!res.ok) {
+    console.error("[source] upstream non-OK", { ...ctx, status: res.status, statusText: res.statusText });
+    return null;
+  }
+  return (await res.json()) as T;
+}
+
+/** Unwrap an allSettled result, logging the rejection reason instead of discarding it. */
+function settledValue<T>(result: PromiseSettledResult<T | null>, ctx: ScraperCallContext): T | null {
+  if (result.status === "fulfilled") return result.value;
+  console.error("[source] upstream fetch rejected", { ...ctx, ...errorInfo(result.reason) });
+  return null;
+}
+
 async function fetchScraper(
   animeId: number,
   episodeNum: number
 ): Promise<NormalizedStream[]> {
   const baseUrl = process.env.SCRAPER_API_URL;
-  if (!baseUrl) throw new Error("SCRAPER_API_URL is not set");
+  if (!baseUrl) {
+    // Without this line a missing env var is indistinguishable from "this
+    // episode has no sources" — the throw is caught upstream and rendered as a
+    // 404. A config error must never masquerade as absent content.
+    console.error("[/api/source] SCRAPER_API_URL is not set", { animeId, episodeNum });
+    throw new Error("SCRAPER_API_URL is not set");
+  }
+
+  const logCtx = { animeId, episodeNum };
 
   // Fire /info (provider list) and primary /episodes (best provider) concurrently.
   const [infoRes, primaryEpsRes] = await Promise.allSettled([
-    fetch(`${baseUrl}/info/${animeId}`, { signal: AbortSignal.timeout(15000) })
-      .then(r => r.ok ? r.json() : null) as Promise<{ mappings: { provider: string; id: string; title: string; score: number }[] } | null>,
-    fetch(`${baseUrl}/episodes/${animeId}`, { signal: AbortSignal.timeout(30000) })
-      .then(r => r.ok ? r.json() : null) as Promise<{ provider: string | null; episodes: { id: string; number: number }[] } | null>,
+    fetchScraperJson<InfoResponse>(`${baseUrl}/info/${animeId}`, 15000, { ...logCtx, endpoint: "/info" }),
+    fetchScraperJson<EpisodesResponse>(`${baseUrl}/episodes/${animeId}`, 30000, { ...logCtx, endpoint: "/episodes" }),
   ]);
 
-  const info = infoRes.status === "fulfilled" ? infoRes.value : null;
-  const primaryEps = primaryEpsRes.status === "fulfilled" ? primaryEpsRes.value : null;
+  const info = settledValue(infoRes, { ...logCtx, endpoint: "/info" });
+  const primaryEps = settledValue(primaryEpsRes, { ...logCtx, endpoint: "/episodes" });
 
   console.log(`[source] /info result:`, JSON.stringify(info?.mappings?.map(m => m.provider)));
   console.log(`[source] primary /episodes provider:`, primaryEps?.provider, `episodes:`, primaryEps?.episodes?.length ?? 0);
+
+  // The queue head is only usable when the primary call names a provider. When
+  // it fails, times out, or answers `provider: null`, the top-ranked /info
+  // mapping leads instead — previously it was then silently dropped (see 2b).
+  if (!primaryEps?.provider || !primaryEps.episodes?.length) {
+    console.warn("[api/source] primary /episodes empty", {
+      ...logCtx,
+      queueHead: info?.mappings?.[0]?.provider ?? null,
+      reason:
+        primaryEpsRes.status === "rejected"
+          ? "rejected"
+          : primaryEps === null
+            ? "non-2xx"
+            : !primaryEps.provider
+              ? "null-provider"
+              : "no-episodes",
+    });
+  }
 
   // Build the set of providers to query. Start with the primary winner so it goes first.
   // Then add all providers from /info mappings that we haven't tried yet.
@@ -213,22 +290,40 @@ async function fetchScraper(
   if (secondaryProviders.length > 0) {
     const epsResults = await Promise.allSettled(
       secondaryProviders.map((provider) =>
-        fetch(`${baseUrl}/episodes/${animeId}?provider=${encodeURIComponent(provider)}`, {
-          signal: AbortSignal.timeout(20000),
-        })
-          .then(r => r.ok ? r.json() : null)
-          .then(data => ({ provider, data }))
+        fetchScraperJson<EpisodesResponse>(
+          `${baseUrl}/episodes/${animeId}?provider=${encodeURIComponent(provider)}`,
+          20000,
+          { ...logCtx, endpoint: "/episodes", provider },
+        ).then(data => ({ provider, data }))
       )
     );
-    for (const result of epsResults) {
-      if (result.status !== "fulfilled") continue;
+    for (let i = 0; i < epsResults.length; i++) {
+      const result = epsResults[i];
+      if (result.status !== "fulfilled") {
+        console.error("[source] upstream fetch rejected", {
+          ...logCtx,
+          endpoint: "/episodes",
+          provider: secondaryProviders[i],
+          ...errorInfo(result.reason),
+        });
+        continue;
+      }
       const { provider, data } = result.value;
 
       // Trust the provider the API says answered, never the one we asked for.
       // An aggregator fallback body filed under the requested name is what
       // produced AniNeko-shaped ids on ReAnime /watch calls -> intermittent 400s.
       const verdict = verifyEpisodeResponse(provider, data);
-      if (!verdict.accepted) continue;
+      if (!verdict.accepted) {
+        if (verdict.reason === "mismatch") {
+          console.warn("[api/source] provider mismatch", {
+            ...logCtx,
+            requested: provider,
+            answered: verdict.answered,
+          });
+        }
+        continue;
+      }
 
       episodesByProvider.set(verdict.answered, verdict.episodes);
     }
@@ -245,18 +340,31 @@ async function fetchScraper(
 
   const watchResults = await Promise.allSettled(
     watchCalls.map(({ provider, episodeId }) =>
-      fetch(
+      fetchScraperJson<WatchResponse>(
         `${baseUrl}/watch?provider=${encodeURIComponent(provider)}&episodeId=${encodeURIComponent(episodeId)}`,
-        { signal: AbortSignal.timeout(15000) }
-      )
-        .then(r => r.ok ? r.json() : null)
-        .then(data => ({ provider, data }))
+        15000,
+        { ...logCtx, endpoint: "/watch", provider },
+      ).then(data => ({ provider, data }))
     )
   );
 
-  for (const result of watchResults) {
-    if (result.status === "rejected") console.log(`[source] watch FAILED:`, result.reason?.message ?? result.reason);
-    if (result.status === "fulfilled" && result.value?.data) console.log(`[source] watch OK:`, result.value.provider, `sub:`, !!result.value.data.sub, `dub:`, !!result.value.data.dub);
+  for (let i = 0; i < watchResults.length; i++) {
+    const result = watchResults[i];
+    if (result.status === "rejected") {
+      // Was console.log — a provider dropping out of the dropdown is a failure,
+      // and at info level it never showed up in a log search.
+      console.error("[source] upstream fetch rejected", {
+        ...logCtx,
+        endpoint: "/watch",
+        provider: watchCalls[i].provider,
+        episodeId: watchCalls[i].episodeId,
+        ...errorInfo(result.reason),
+      });
+      continue;
+    }
+    if (result.value?.data) {
+      console.log(`[source] watch OK:`, result.value.provider, `sub:`, !!result.value.data.sub, `dub:`, !!result.value.data.dub);
+    }
   }
 
   const allStreams: NormalizedStream[] = [];
@@ -264,7 +372,9 @@ async function fetchScraper(
   for (const result of watchResults) {
     if (result.status !== "fulfilled" || !result.value?.data) continue;
     const { provider, data } = result.value;
-    const providerKey = provider.toLowerCase();
+    // Local name, not the imported providerKey() helper — kept distinct so the
+    // two can't be confused at a glance.
+    const providerLower = providerKey(provider);
 
     for (const type of ["sub", "dub"] as const) {
       // RECONSUMET-TS now returns an ARRAY of results per type (one per real server the
@@ -285,7 +395,7 @@ async function fetchScraper(
 
         for (const source of watchResult.sources) {
           allStreams.push({
-            provider: providerKey,
+            provider: providerLower,
             type,
             serverName: (watchResult.serverName ?? "").trim(),
             url: source.url,
@@ -308,4 +418,10 @@ interface ScraperResult {
   sources: { url: string; quality: string; isM3U8: boolean }[];
   subtitles: { url: string; lang: string }[];
   headers: { Referer?: string };
+}
+
+/** GET /watch — one entry per audio type, each an array of per-server results. */
+interface WatchResponse {
+  sub?: ScraperResult[] | null;
+  dub?: ScraperResult[] | null;
 }
