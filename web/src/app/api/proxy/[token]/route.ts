@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { checkProxyTarget } from "@/lib/ssrf-guard";
 import { getClientIp } from "@/lib/request-ip";
 import { deriveSegmentTokenId } from "@/lib/segment-token";
+import { countRewritableUris, rewritePlaylist } from "@/lib/playlist-rewrite";
 
 /**
  * Upper bound on URI-bearing lines we will rewrite from one upstream playlist.
@@ -130,7 +131,6 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       }
 
       const playlist = await playlistRes.text();
-      const lines = playlist.split("\n");
       const rewrittenLines: string[] = [];
       const tokensToInsert: TokenInsertData[] = [];
 
@@ -138,10 +138,7 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       // playlists are hundreds of URIs (a 2h movie at 2s segments is ~3600);
       // anything past this is either malformed or hostile, and rewriting it
       // would mint a matching number of DB rows.
-      const uriBearingLines = lines.filter(l => {
-        const t = l.trim();
-        return t.length > 0 && (!t.startsWith("#") || t.startsWith("#EXT-X-KEY:"));
-      }).length;
+      const uriBearingLines = countRewritableUris(playlist);
       if (uriBearingLines > MAX_PLAYLIST_URIS) {
         console.error("[proxy] playlist too large — refusing to rewrite", {
           token: cleanToken.slice(0, 12),
@@ -152,34 +149,21 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
         return NextResponse.json({ error: "Playlist too large" }, { status: 502 });
       }
 
-      for (let line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) { rewrittenLines.push(line); continue; }
-
-        if (trimmed.startsWith("#EXT-X-KEY:") && trimmed.includes('URI="')) {
-          const match = trimmed.match(/URI="([^"]+)"/);
-          if (match) {
-            const originalUri = match[1];
-            let keyUrl;
-            try { keyUrl = new URL(originalUri, playlistRes.url).toString(); } catch { keyUrl = originalUri; }
-            
-            const tData = buildTokenData(keyUrl, cleanToken, record, key, tokenSecret, cookies, storedReferer, ".key");
-            tokensToInsert.push(tData.dbData);
-            line = line.replace(`URI="${originalUri}"`, `URI="${tData.serveToken}"`);
-          }
-          rewrittenLines.push(line);
-          continue;
-        }
-
-        if (trimmed.startsWith("#")) { rewrittenLines.push(line); continue; }
-
-        let chunkUrl;
-        try { chunkUrl = new URL(trimmed, playlistRes.url).toString(); } catch { chunkUrl = trimmed; }
-        
-        const tData = buildTokenData(chunkUrl, cleanToken, record, key, tokenSecret, cookies, storedReferer, ".ts");
-        tokensToInsert.push(tData.dbData);
-        rewrittenLines.push(tData.serveToken);
-      }
+      // Rewrites EVERY URI-bearing line, not just #EXT-X-KEY. #EXT-X-MAP
+      // (fMP4 init), #EXT-X-MEDIA (separate audio/dub renditions) and
+      // #EXT-X-SESSION-KEY used to pass through verbatim, so the browser hit
+      // the origin CDN directly: CORS-blocked or hotlink-403'd, with the real
+      // hostname exposed in the network tab. See lib/playlist-rewrite.ts.
+      const resolveUrl = (uri: string) => {
+        try { return new URL(uri, playlistRes.url).toString(); } catch { return uri; }
+      };
+      rewrittenLines.push(
+        ...rewritePlaylist(playlist, resolveUrl, (absoluteUrl, ext) => {
+          const tData = buildTokenData(absoluteUrl, cleanToken, record, key, tokenSecret, cookies, storedReferer, ext);
+          tokensToInsert.push(tData.dbData);
+          return tData.serveToken;
+        }),
+      );
 
       // skipDuplicates makes a replayed playlist a no-op instead of a fresh
       // batch of rows: segment token ids are now derived from
