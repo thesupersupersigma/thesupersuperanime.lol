@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
+    // NOT `?? site-auth`: that fallback wrote the raw SITE_PASSWORD into
+    // SourceToken.sessionId (a plain text column) for up to 3h per row, so a DB
+    // dump, a Prisma query log or the Neon console disclosed the gate password.
+    // src/proxy.ts now mints `session-id` on every request, so this resolves to
+    // a real per-browser id rather than falling through to "anonymous".
+    const sessionId = req.cookies.get("session-id")?.value ?? "anonymous";
     const ip = getClientIp(req);
 
     // Key on something the client cannot rotate. The old key was

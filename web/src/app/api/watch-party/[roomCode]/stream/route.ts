@@ -4,6 +4,18 @@ import { errorInfo } from "@/lib/log-error";
 
 export const dynamic = "force-dynamic";
 
+// Cap concurrent SSE connections, matching the chat and announcement streams.
+// This route had NO cap at all while polling Postgres every 500ms per
+// connection — twice the rate of either sibling — so K sockets against a live
+// room meant 2K queries/second, indefinitely, from a route that sits in the
+// proxy's always-public list. Enough of them exhaust the Prisma pool and the
+// Neon connection budget and stall every other DB-backed route site-wide.
+const MAX_CONNECTIONS = 300;
+let activeConnections = 0;
+
+/** Room codes are 6 chars of A-Z0-9 (generateRoomCode). Reject the rest before touching the DB. */
+const ROOM_CODE_RE = /^[A-Z0-9]{6}$/;
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> },
@@ -11,8 +23,25 @@ export async function GET(
   const { roomCode } = await params;
   const code = roomCode.toUpperCase();
 
+  if (!ROOM_CODE_RE.test(code)) {
+    return new Response("Invalid room code", { status: 400 });
+  }
+
+  if (activeConnections >= MAX_CONNECTIONS) {
+    return new Response("Too many connections", { status: 503 });
+  }
+  activeConnections++;
+
   let closed = false;
+  let released = false;
   const timers: ReturnType<typeof setInterval>[] = [];
+
+  // Decrement at most once, whether we end via shutdown() or cancel().
+  const release = () => {
+    if (released) return;
+    released = true;
+    activeConnections--;
+  };
 
   /**
    * Stop polling AND end the stream. The old poll catch only cleared the
@@ -24,6 +53,7 @@ export async function GET(
     if (closed) return;
     closed = true;
     for (const t of timers) clearInterval(t);
+    release();
     try {
       if (err) controller.error(err);
       else controller.close();
@@ -104,6 +134,7 @@ export async function GET(
     cancel() {
       closed = true;
       for (const t of timers) clearInterval(t);
+      release();
     },
   });
 

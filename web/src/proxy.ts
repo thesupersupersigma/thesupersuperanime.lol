@@ -42,6 +42,49 @@ function withDiscovery(res: NextResponse, pathname: string): NextResponse {
   return res;
 }
 
+
+/**
+ * Ensure every request carries a `session-id` before any route handler runs.
+ *
+ * /api/source mints video tokens bound to this value and /api/proxy checks it
+ * on redemption, but the cookie was created lazily by getSessionId() inside a
+ * route — and watch-client.tsx fires /api/progress and /api/source in the SAME
+ * tick, so the Set-Cookie from the first could not land before the second was
+ * already in flight. Every browser's FIRST playback token was therefore minted
+ * under the literal "anonymous", and the redemption check waives the session
+ * comparison for exactly that value, so those tokens were redeemable by anyone.
+ *
+ * Minting it here closes that window: the id exists on the very first request,
+ * so the mint and redeem sides agree on a real per-browser value.
+ *
+ * The cookie is set on the RESPONSE (for the browser) and injected into the
+ * forwarded REQUEST headers (so the handler running in this same request sees
+ * it, rather than only on the next one).
+ */
+function ensureSessionId(req: NextRequest): { cookie: string; forwarded: Headers } | null {
+  if (req.cookies.get("session-id")?.value) return null;
+  // crypto.randomUUID is available on the Edge runtime; generateId() in auth.ts
+  // is Math.random-based and Node-only.
+  const sessionId = `s${crypto.randomUUID().replace(/-/g, "")}`;
+  const forwarded = new Headers(req.headers);
+  const existingCookie = forwarded.get("cookie");
+  forwarded.set("cookie", existingCookie ? `${existingCookie}; session-id=${sessionId}` : `session-id=${sessionId}`);
+  return { cookie: sessionId, forwarded };
+}
+
+/** Attach a freshly minted session-id to an outgoing response. */
+function attachSessionId(res: NextResponse, minted: { cookie: string } | null): NextResponse {
+  if (!minted) return res;
+  res.cookies.set("session-id", minted.cookie, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  return res;
+}
+
 // async because the session-cookie signature check uses Web Crypto, which is
 // promise-based. Next.js supports an async middleware/proxy export.
 export async function proxy(req: NextRequest) {
@@ -61,6 +104,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Mint session-id before ANY gate or rewrite can return, so every handler
+  // reached below already sees it. Static assets above are skipped deliberately.
+  const minted = ensureSessionId(req);
+  const nextOptions = minted ? { request: { headers: minted.forwarded } } : undefined;
+
   // ── Markdown for Agents (Accept-based content negotiation) ──────────────
   // Agents that *explicitly* accept text/markdown get a markdown representation
   // of the page, served by /api/md via an internal rewrite (same URL, no
@@ -78,9 +126,9 @@ export async function proxy(req: NextRequest) {
     // The rewrite destination sees the *original* URL via req.nextUrl, so the
     // page path is passed through a request header (a query param wouldn't
     // survive the rewrite) that /api/md reads back.
-    const headers = new Headers(req.headers);
+    const headers = new Headers(minted ? minted.forwarded : req.headers);
     headers.set("x-md-path", pathname);
-    return NextResponse.rewrite(url, { request: { headers } });
+    return attachSessionId(NextResponse.rewrite(url, { request: { headers } }), minted);
   }
 
   // ── Always public — no auth checks at all ──────────────────────────────
@@ -100,7 +148,7 @@ export async function proxy(req: NextRequest) {
     pathname === "/api/anilist/sync/auto" ||
     pathname === "/api/md"
   ) {
-    return withDiscovery(NextResponse.next(), pathname);
+    return attachSessionId(withDiscovery(NextResponse.next(nextOptions), pathname), minted);
   }
 
   // ── Cron routes ─────────────────────────────────────────────────────────
@@ -110,7 +158,7 @@ export async function proxy(req: NextRequest) {
     if (!expectedToken || !timingSafeEqualString(authHeader, `Bearer ${expectedToken}`)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.next();
+    return NextResponse.next(nextOptions);
   }
 
   // ── Site-wide password lock ─────────────────────────────────────────────
@@ -126,7 +174,7 @@ export async function proxy(req: NextRequest) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      return withDiscovery(NextResponse.redirect(new URL("/login", req.url)), pathname);
+      return attachSessionId(withDiscovery(NextResponse.redirect(new URL("/login", req.url)), pathname), minted);
     }
   }
 
@@ -167,7 +215,7 @@ export async function proxy(req: NextRequest) {
           if (pathname.startsWith("/api/")) {
             return NextResponse.json({ error: "Authentication required" }, { status: 401 });
           }
-          return withDiscovery(NextResponse.redirect(new URL("/account", req.url)), pathname);
+          return attachSessionId(withDiscovery(NextResponse.redirect(new URL("/account", req.url)), pathname), minted);
         }
         // MASTER_GATE=off: anonymous user passes through without discord check
       }
@@ -176,7 +224,7 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  return withDiscovery(NextResponse.next(), pathname);
+  return attachSessionId(withDiscovery(NextResponse.next(nextOptions), pathname), minted);
 }
 
 export const config = {

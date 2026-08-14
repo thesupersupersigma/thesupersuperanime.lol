@@ -42,7 +42,12 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     const requestIp = getClientIp(req);
     if (record.ip !== requestIp && record.ip !== "unknown") return NextResponse.json({ error: "IP mismatch" }, { status: 403 });
 
-    const sessionId = req.cookies.get("session-id")?.value ?? req.cookies.get("site-auth")?.value ?? "anonymous";
+    // Must resolve identically to the mint side in /api/source. The `site-auth`
+    // fallback is gone (it leaked SITE_PASSWORD into the DB); `session-id` is
+    // now minted by src/proxy.ts on every request, so "anonymous" is
+    // effectively unreachable for browser traffic and the escape hatch below
+    // stops being load-bearing.
+    const sessionId = req.cookies.get("session-id")?.value ?? "anonymous";
     if (record.sessionId !== sessionId && record.sessionId !== "anonymous") return NextResponse.json({ error: "Session mismatch" }, { status: 403 });
 
     if (!record.isM3U8 && record.used) return NextResponse.json({ error: "Token already consumed" }, { status: 410 });
