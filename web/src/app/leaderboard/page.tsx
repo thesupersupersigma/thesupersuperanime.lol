@@ -15,7 +15,8 @@ export interface LeaderboardEntry {
   avatarPreset: number | null;
   episodesWatched: number;
   showsCompleted: number;
-  minutesWatched: number;
+  /** null for windowed timeframes: no per-window watch time is recorded. */
+  minutesWatched: number | null;
 }
 
 type Timeframe = "daily" | "weekly" | "monthly" | "alltime";
@@ -173,7 +174,7 @@ export default function LeaderboardPage() {
                 </div>
                 <div style={{ color: "#555", fontSize: "11px" }}>episodes</div>
                 <div style={{ color: "#a3a3a3", fontSize: "12px", marginTop: "8px" }}>
-                  {entry.minutesWatched} mins watched
+                  {entry.minutesWatched === null ? "—" : `${entry.minutesWatched} mins watched`}
                 </div>
               </>
             );

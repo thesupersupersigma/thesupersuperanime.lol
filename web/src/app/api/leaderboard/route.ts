@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
       avatarPreset: true,
       discordId: true,
       emailVerified: true,
+      profilePrivate: true,
     },
   });
 
@@ -90,6 +91,14 @@ export async function GET(req: NextRequest) {
     .filter(h => {
       if (!h.userId || !userMap.has(h.userId!)) return false;
       const u = userMap.get(h.userId!)!;
+      // profilePrivate was selected by nothing and filtered by nothing, so the
+      // board published episodesWatched / showsCompleted / minutesWatched under
+      // the user's name and avatar while /user/[username] rendered
+      // PrivateProfileView to hide exactly those numbers and the settings copy
+      // promised "only you can see your watch history, watchlist, and
+      // activity". Hidden (not merely unattributed) is the reading that matches
+      // the profile page.
+      if (u.profilePrivate) return false;
       return (
         !!(u.username || u.displayName || u.discordUsername) &&
         (u.discordId !== null || u.emailVerified === true)
@@ -106,7 +115,21 @@ export async function GET(req: NextRequest) {
         avatarPreset: user.avatarPreset,
         episodesWatched: h._count.episodeId,
         showsCompleted: completedMap.get(h.userId!) ?? 0,
-        minutesWatched: Math.floor((h._sum.watchedSeconds ?? 0) / 60),
+        // watchedSeconds is a LIFETIME running total (incremented per save), so
+        // summing it under a date filter attributed a user's entire history to
+        // the window: re-opening a fully-watched 24-minute episode for 30
+        // seconds added 24 minutes to "today". The window genuinely selects
+        // "episodes touched since startDate" -- that count is honest -- but
+        // there is no per-window watch time recorded anywhere, so rather than
+        // print a number that is simply wrong, windowed tabs report null and
+        // the UI shows "—".
+        //
+        // The real fix is an append-only event table (userId, episodeId,
+        // seconds, watchedAt) written on each save and aggregated here. That
+        // needs a schema change plus a hot-path write, and it cannot be
+        // backfilled -- the per-session deltas were never stored -- so it is
+        // deliberately left for its own pass.
+        minutesWatched: startDate ? null : Math.floor((h._sum.watchedSeconds ?? 0) / 60),
       };
     });
 

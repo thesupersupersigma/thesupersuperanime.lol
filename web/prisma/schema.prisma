@@ -46,6 +46,8 @@ model User {
   chatMessages        ChatMessage[]
   chatTimeout         ChatTimeout?
   sessions            Session[]
+  airingWatches       AiringWatch[]
+  watchStreak         WatchStreak?
 }
 
 model Session {
@@ -353,14 +355,25 @@ model GenreCache {
 model AiringWatch {
   id      String @id @default(cuid())
   userId  String
+  // Declared so Postgres actually has the FK. Without a relation there was no
+  // constraint and no onDelete, so `db.user.delete()` -- whose comment claims
+  // "Cascade deletes handle related records" -- left these rows behind pointing
+  // at a userId that no longer existed. badge-engine upserts one per watched
+  // airing anime, so any active user has them.
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   animeId Int
 
   @@unique([userId, animeId])
+  @@index([userId])
 }
 
 // Per-user daily watch streak tracking. Drives the streak badges.
 model WatchStreak {
   userId        String    @id
+  // Same gap as AiringWatch: no relation meant no FK and no cascade, so a
+  // deleted account's streak row survived indefinitely. This is a "delete my
+  // data" compliance gap as much as a correctness one.
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   currentStreak Int       @default(0)
   longestStreak Int       @default(0)
   lastWatchDate DateTime?

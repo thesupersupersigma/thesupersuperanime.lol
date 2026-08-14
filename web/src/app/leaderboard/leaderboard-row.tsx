@@ -57,7 +57,7 @@ export default function LeaderboardRow({ entry, isLast, rankNode }: Props) {
         {entry.showsCompleted}
       </div>
       <div style={{ color: "#a3a3a3", fontSize: "13px", textAlign: "right" }}>
-        {formatWatchTime(entry.minutesWatched)}
+        {entry.minutesWatched === null ? "—" : formatWatchTime(entry.minutesWatched)}
       </div>
     </>
   );

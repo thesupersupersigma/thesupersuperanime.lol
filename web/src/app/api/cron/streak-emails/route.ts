@@ -154,10 +154,32 @@ export async function GET(req: NextRequest) {
       if (latestAired <= 0) continue;
       if (entry.lastNotifiedEpisode != null && latestAired <= entry.lastNotifiedEpisode) continue;
 
+      // NULL means "we have never notified this row", NOT "this user has seen
+      // nothing". Nothing else in the codebase ever writes lastNotifiedEpisode
+      // (grep: this file is the only reader and the only writer) and the column
+      // has no default, so EVERY freshly-added Watching entry arrived here as
+      // NULL and fell straight through — the user got a "New Episode!" email
+      // for an episode that may have aired weeks before they added the show,
+      // and that first-time bump also re-added the anime to updatedAnimeIds,
+      // duplicating the PUBLIC #new-episodes post for an episode already
+      // announced. It repeated for every user who newly started the show.
+      //
+      // Treat the first sighting as a baseline: record where they are and send
+      // nothing. Genuine new episodes notify normally from the next run on.
+      const isBaseline = entry.lastNotifiedEpisode == null;
+
       await db.watchlist.update({
         where: { id: entry.id },
         data: { lastNotifiedEpisode: latestAired },
       });
+
+      if (isBaseline) {
+        console.log("[cron/streak-emails] baselined new watching entry", {
+          userId, animeId: entry.animeId, lastNotifiedEpisode: latestAired,
+        });
+        continue;
+      }
+
       updatedAnimeIds.add(entry.animeId);
 
       const user = watchingUserMap.get(userId);
