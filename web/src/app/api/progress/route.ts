@@ -180,18 +180,22 @@ export async function POST(req: NextRequest) {
       void updateWatchStreak(user.id);
     }
 
-    // Re-evaluate milestone badges off the back of this save and surface any
-    // newly earned ones so the client can toast them. Badge errors must never
-    // fail the progress save, so swallow them to an empty list.
-    let newBadges: string[] = [];
+    // Re-evaluate milestone badges off the back of this save — fire-and-forget,
+    // like recordAiringWatch/updateWatchStreak above. It was previously AWAITED
+    // on the response path, so every progress save (roughly one per 10s of
+    // playback per viewer) blocked on ~10 aggregates plus 2 queries per
+    // qualifying badge before returning.
+    //
+    // `newBadges` is kept in the response for shape compatibility but is now
+    // always empty: nothing reads it. Toasts come from BadgeToastProvider
+    // polling /api/badges/recent, which is where newly granted badges surface.
     if (user) {
-      newBadges = await checkAndGrantBadges(user.id).catch((err) => {
-        console.error(err);
-        return [];
+      void checkAndGrantBadges(user.id).catch((err) => {
+        console.error("[api/progress] badge evaluation failed", { userId: user.id, ...errorInfo(err) });
       });
     }
 
-    return NextResponse.json({ record, newBadges });
+    return NextResponse.json({ record, newBadges: [] });
   } catch (error) {
     // Include the Prisma error code: a P2002 here is a unique-constraint
     // collision that will repeat on every retry (see lib/owner-session.ts), and

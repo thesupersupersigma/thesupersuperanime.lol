@@ -180,13 +180,20 @@ export async function checkAndGrantBadges(userId: string): Promise<string[]> {
     db.commentLike.count({ where: { comment: { userId } } }),
     db.genreVote.count({ where: { userId } }),
     db.user.findUnique({ where: { id: userId }, select: { discordId: true, createdAt: true } }),
-    // Same aggregation the /api/leaderboard all-time tab uses, without the
-    // top-50 cap, so we can locate this user's rank in the full ordering.
+    // Ranking for the leaderboard badges. Capped at 10 because `rank` is ONLY
+    // read by the top-10 / top-3 / #1 checks below: anyone outside the top 10
+    // resolves to rank 0 ("unranked") either way, so the uncapped ordering
+    // bought nothing. Uncapped this was a full aggregation + sort over every
+    // row in WatchHistory, awaited on the /api/progress response path -- with
+    // the player saving every ~10s, 50 concurrent viewers meant roughly five
+    // full-table groupBys per second and progress-save latency that degraded
+    // for everyone as the table grew.
     db.watchHistory.groupBy({
       by: ["userId"],
       where: { userId: { not: null } },
       _count: { episodeId: true },
       orderBy: { _count: { episodeId: "desc" } },
+      take: 10,
     }),
     db.airingWatch.count({ where: { userId } }),
     db.watchStreak.findUnique({ where: { userId } }),

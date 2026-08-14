@@ -169,6 +169,10 @@ function releaseSlot(): void {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MAX_RETRIES = 3;
+/** Per-attempt network timeout. Every other outbound call in the app sets one (5-15s). */
+const ANILIST_ATTEMPT_TIMEOUT_MS = 10_000;
+/** Hard ceiling on how long one call may hold a concurrency slot, retries and backoff included. */
+const ANILIST_TOTAL_BUDGET_MS = 25_000;
 
 async function anilistFetch<T>(
   query: string,
@@ -188,11 +192,22 @@ async function anilistFetch<T>(
   };
 
   await acquireSlot();
+  const deadline = Date.now() + ANILIST_TOTAL_BUDGET_MS;
   try {
     let res!: Response;
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      res = await fetch(ANILIST_URL, fetchOptions);
+      // Per-attempt timeout. There was NO signal here at all, so the only
+      // backstop was undici's ~300s default -- while holding one of just
+      // MAX_CONCURRENT=5 process-wide slots. getAnimeById blocks the server
+      // render of the watch, anime and home pages, so five hung AniList
+      // connections turned one upstream incident into a site-wide five-minute
+      // hang with every queued caller waiting behind them on an unbounded
+      // queue that has no deadline of its own.
+      res = await fetch(ANILIST_URL, {
+        ...fetchOptions,
+        signal: AbortSignal.timeout(ANILIST_ATTEMPT_TIMEOUT_MS),
+      });
 
       // 429: don't fail immediately. Honor Retry-After if present, otherwise
       // back off exponentially (1s, 2s, 4s), then retry the same request.
@@ -202,6 +217,9 @@ async function anilistFetch<T>(
           Number.isFinite(retryAfter) && retryAfter > 0
             ? retryAfter * 1000
             : 1000 * 2 ** attempt;
+        // Don't start another attempt we can't finish inside the budget --
+        // the backoff sleeps hold the slot too.
+        if (Date.now() + waitMs >= deadline) break;
         await sleep(waitMs);
         continue;
       }
