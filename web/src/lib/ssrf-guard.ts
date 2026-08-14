@@ -1,131 +1,164 @@
-// Dependency-free SSRF guard for the video/segment proxy.
+// SSRF guard for the video/segment proxy.
 //
-// Goal: block requests aimed at internal/private/reserved network targets while
-// still allowing legit CDNs that serve from PUBLIC IP-literal hosts. So this is
-// deliberately NOT a host allowlist and it does NOT block public IPs — it only
-// rejects loopback/private/link-local/reserved ranges (plus `localhost`).
+// /api/proxy/[token] decrypts a stored URL and streams the body back. Those
+// URLs come from upstream HLS playlists, which are rewritten line by line
+// (route.ts tokenizes every non-comment line verbatim), so a hostile or
+// compromised CDN can put an arbitrary target in front of this fetch.
 //
-// IPv4 host literals reaching us via `new URL(...).hostname` are already
-// normalised to canonical dotted-decimal by the WHATWG URL parser (octal/hex/
-// integer forms collapse to a.b.c.d), so a simple dotted-quad parse is enough.
-// IPv6 literals arrive bracket-wrapped and hex-serialised; we expand them to 16
-// bytes and check the relevant prefixes, including IPv4-mapped forms.
+// Approach:
+//   1. http/https only.
+//   2. Literal-IP hosts are checked directly.
+//   3. HOSTNAMES ARE RESOLVED and every returned address is checked. This is
+//      the part that was missing: the old guard inspected only the literal
+//      hostname and fell through to `return false // allowed`, so
+//      `http://rebind.attacker.tld/` with an A record of 169.254.169.254
+//      sailed past, as did `localhost.` (trailing dot, matching neither the
+//      string compare nor either literal parser) and `host.docker.internal` —
+//      the very hostname this proxy's own comments cite as the thing it exists
+//      to hide.
+//   4. A name that resolves to BOTH a public and a private address is blocked;
+//      it must not slip through on the public one.
+//
+// Ranges are expressed once and loaded into net.BlockList, which does the
+// bit-masking. This is a strict widening of the old hand-rolled checks: it adds
+// IETF protocol assignments, TEST-NET-1/2/3, benchmarking, multicast, reserved,
+// NAT64, documentation and discard-only ranges that were previously allowed.
+//
+// RESIDUAL RISK, documented rather than silently ignored: DNS rebinding
+// (TOCTOU). The address resolved here and the address the subsequent fetch
+// connects to are two independent lookups, so a hostile resolver can answer
+// public here and private there. Closing that needs connection-level IP pinning
+// via a custom undici dispatcher, which would mean re-plumbing the streaming
+// path — deliberately out of scope for this pass. The literal-IP, redirect and
+// plain DNS-to-private vectors are closed.
 
-function parseIPv4(s: string): number[] | null {
-  const m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!m) return null;
-  const parts = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
-  for (const p of parts) if (p > 255) return null;
-  return parts;
+import net from "node:net";
+import dns from "node:dns/promises";
+
+/** `dns.lookup(host, { all: true })`-compatible resolver. Injectable for tests. */
+export type LookupFn = (
+  hostname: string,
+  options: { all: true; verbatim?: boolean },
+) => Promise<{ address: string; family: number }[]>;
+
+const blocklist = new net.BlockList();
+// -- IPv4 --
+blocklist.addSubnet("0.0.0.0", 8, "ipv4"); // "this host" / 0.0.0.0
+blocklist.addSubnet("10.0.0.0", 8, "ipv4"); // RFC1918 private
+blocklist.addSubnet("100.64.0.0", 10, "ipv4"); // CGNAT / shared
+blocklist.addSubnet("127.0.0.0", 8, "ipv4"); // loopback
+blocklist.addSubnet("169.254.0.0", 16, "ipv4"); // link-local — CLOUD INSTANCE METADATA
+blocklist.addSubnet("172.16.0.0", 12, "ipv4"); // RFC1918 private
+blocklist.addSubnet("192.0.0.0", 24, "ipv4"); // IETF protocol assignments
+blocklist.addSubnet("192.0.2.0", 24, "ipv4"); // TEST-NET-1
+blocklist.addSubnet("192.168.0.0", 16, "ipv4"); // RFC1918 private
+blocklist.addSubnet("198.18.0.0", 15, "ipv4"); // benchmarking
+blocklist.addSubnet("198.51.100.0", 24, "ipv4"); // TEST-NET-2
+blocklist.addSubnet("203.0.113.0", 24, "ipv4"); // TEST-NET-3
+blocklist.addSubnet("224.0.0.0", 4, "ipv4"); // multicast
+blocklist.addSubnet("240.0.0.0", 4, "ipv4"); // reserved (incl. 255.255.255.255)
+// -- IPv6 --
+blocklist.addAddress("::1", "ipv6"); // loopback
+blocklist.addAddress("::", "ipv6"); // unspecified
+blocklist.addSubnet("fc00::", 7, "ipv6"); // unique-local (incl. AWS fd00:ec2::254 IMDS)
+blocklist.addSubnet("fe80::", 10, "ipv6"); // link-local
+blocklist.addSubnet("64:ff9b::", 96, "ipv6"); // NAT64 (embeds a v4 address)
+blocklist.addSubnet("2001:db8::", 32, "ipv6"); // documentation
+blocklist.addSubnet("100::", 64, "ipv6"); // discard-only
+//
+// DO NOT add ::ffff:0:0/96 here. net.BlockList normalises IPv4 into its
+// IPv4-mapped form internally, so that subnet matches EVERY IPv4 address and
+// silently blocks all public traffic. check() already resolves an IPv4-mapped
+// literal — dotted (::ffff:169.254.169.254) or hex (::ffff:a9fe:a9fe) — against
+// the IPv4 rules above, so mapped-address evasion is covered without it.
+
+/**
+ * True when `ip` (a literal IPv4/IPv6 string) is in a blocked range.
+ * Anything that doesn't parse as an IP is treated as blocked.
+ */
+export function isBlockedIp(ip: string): boolean {
+  const family = net.isIP(ip);
+  if (family === 4) return blocklist.check(ip, "ipv4");
+  if (family === 6) return blocklist.check(ip, "ipv6");
+  return true;
 }
 
-function ipv4Blocked(a: number, b: number, c: number, d: number): boolean {
-  if (a === 127) return true; // 127.0.0.0/8  loopback
-  if (a === 10) return true; // 10.0.0.0/8   private
-  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 private
-  if (a === 192 && b === 168) return true; // 192.168.0.0/16 private
-  if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local (incl. 169.254.169.254 metadata)
-  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT/shared
-  if (a === 0) return true; // 0.0.0.0/8    "this" network / reserved
-  void c;
-  void d;
-  return false;
-}
-
-// Expand an IPv6 literal (no surrounding brackets) to its 16 bytes, or null if
-// it isn't a parseable IPv6 address. Handles `::` compression and a trailing
-// embedded IPv4 (e.g. `::ffff:1.2.3.4`).
-function parseIPv6ToBytes(addr: string): number[] | null {
-  if (!addr.includes(":")) return null;
-
-  // Drop any zone id (`fe80::1%eth0`).
-  const zoneIdx = addr.indexOf("%");
-  if (zoneIdx !== -1) addr = addr.slice(0, zoneIdx);
-
-  // Fold a trailing embedded IPv4 into two hex hextets.
-  if (addr.includes(".")) {
-    const lc = addr.lastIndexOf(":");
-    if (lc === -1) return null;
-    const v4 = parseIPv4(addr.slice(lc + 1));
-    if (!v4) return null;
-    const h1 = ((v4[0] << 8) | v4[1]).toString(16);
-    const h2 = ((v4[2] << 8) | v4[3]).toString(16);
-    addr = addr.slice(0, lc + 1) + h1 + ":" + h2;
-  }
-
-  const halves = addr.split("::");
-  if (halves.length > 2) return null;
-
-  const head = halves[0].length ? halves[0].split(":") : [];
-  const tail = halves.length === 2 ? (halves[1].length ? halves[1].split(":") : []) : null;
-
-  let groups: string[];
-  if (tail === null) {
-    if (head.length !== 8) return null;
-    groups = head;
-  } else {
-    const missing = 8 - head.length - tail.length;
-    if (missing < 1) return null;
-    groups = [...head, ...Array(missing).fill("0"), ...tail];
-  }
-
-  const bytes: number[] = [];
-  for (const g of groups) {
-    if (!/^[0-9a-f]{1,4}$/i.test(g)) return null;
-    const val = parseInt(g, 16);
-    bytes.push((val >> 8) & 0xff, val & 0xff);
-  }
-  return bytes.length === 16 ? bytes : null;
-}
-
-function ipv6Blocked(b: number[]): boolean {
-  const allZero = b.every((x) => x === 0);
-  if (allZero) return true; // ::  unspecified
-  if (b.slice(0, 15).every((x) => x === 0) && b[15] === 1) return true; // ::1 loopback
-  if ((b[0] & 0xfe) === 0xfc) return true; // fc00::/7  unique-local
-  if (b[0] === 0xfe && (b[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
-
-  // IPv4-mapped (::ffff:a.b.c.d) and IPv4-compatible (::a.b.c.d) forms: check the
-  // embedded IPv4 against the v4 rules so a mapped private address can't slip by.
-  const v4mapped = b.slice(0, 10).every((x) => x === 0) && b[10] === 0xff && b[11] === 0xff;
-  const v4compat = b.slice(0, 12).every((x) => x === 0) && !(b[12] === 0 && b[13] === 0 && b[14] === 0);
-  if (v4mapped || v4compat) return ipv4Blocked(b[12], b[13], b[14], b[15]);
-
-  return false;
+export interface ProxyTargetVerdict {
+  blocked: boolean;
+  /** Why it was blocked — for the log line, never surfaced to the client. */
+  reason?: string;
+  /** Vetted addresses, when allowed. */
+  addresses?: string[];
 }
 
 /**
- * Returns true when `rawUrl` should be BLOCKED from being proxied: it's
- * unparseable, not http(s), or points at an internal/private/reserved target.
- * Public hostnames and public IP literals return false (allowed).
+ * Decide whether `rawUrl` may be fetched server-side.
+ *
+ * `lookup` is injectable (same contract as `dns.lookup(host, { all: true })`)
+ * so the resolver-dependent branches — a name resolving to a private address,
+ * or to a public AND a private one — are testable without real DNS.
  */
-export function isBlockedProxyTarget(rawUrl: string): boolean {
+export async function checkProxyTarget(
+  rawUrl: string,
+  { lookup = dns.lookup as unknown as LookupFn }: { lookup?: LookupFn } = {},
+): Promise<ProxyTargetVerdict> {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
-    return true;
+    return { blocked: true, reason: "malformed url" };
   }
 
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return true;
-
-  const host = parsed.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost")) return true;
-
-  // IPv6 literals arrive bracket-wrapped (e.g. `[::1]`).
-  if (host.startsWith("[") && host.endsWith("]")) {
-    const v6 = parseIPv6ToBytes(host.slice(1, -1));
-    if (v6) return ipv6Blocked(v6);
-    return false;
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { blocked: true, reason: `scheme ${parsed.protocol} not allowed` };
   }
 
-  const v4 = parseIPv4(host);
-  if (v4) return ipv4Blocked(v4[0], v4[1], v4[2], v4[3]);
+  // IPv6 literals arrive bracket-wrapped from the URL parser.
+  const host = parsed.hostname.replace(/^\[|\]$/g, "");
+  if (!host) return { blocked: true, reason: "empty host" };
 
-  // Non-bracketed but still possibly an IPv6 literal in some edge serialisations.
-  const v6 = parseIPv6ToBytes(host);
-  if (v6) return ipv6Blocked(v6);
+  // Literal IP host — no DNS needed. The WHATWG parser has already normalised
+  // octal/hex/integer IPv4 forms to dotted decimal by this point.
+  if (net.isIP(host)) {
+    if (isBlockedIp(host)) {
+      return { blocked: true, reason: `host ${host} is in a blocked range` };
+    }
+    return { blocked: false, addresses: [host] };
+  }
 
-  // Public hostname or public IP literal — allowed.
-  return false;
+  let addrs: { address: string; family: number }[];
+  try {
+    addrs = await lookup(host, { all: true, verbatim: true });
+  } catch {
+    // Fail closed: an unresolvable host isn't fetchable anyway, and treating a
+    // resolver error as "allowed" would reopen the hole this closes.
+    return { blocked: true, reason: `could not resolve host ${host}` };
+  }
+
+  if (!addrs || addrs.length === 0) {
+    return { blocked: true, reason: `host ${host} resolved to no addresses` };
+  }
+
+  for (const { address } of addrs) {
+    if (isBlockedIp(address)) {
+      return { blocked: true, reason: `host ${host} resolves to ${address}, which is blocked` };
+    }
+  }
+
+  return { blocked: false, addresses: addrs.map((a) => a.address) };
+}
+
+/**
+ * Boolean form of {@link checkProxyTarget} — true means BLOCKED.
+ *
+ * NOTE: this is now async. It used to be synchronous; a caller that forgets to
+ * await gets a Promise, which is always truthy, so the request is blocked
+ * rather than allowed. That fails closed, but it will look like broken
+ * playback — await it.
+ */
+export async function isBlockedProxyTarget(
+  rawUrl: string,
+  opts?: { lookup?: LookupFn },
+): Promise<boolean> {
+  return (await checkProxyTarget(rawUrl, opts)).blocked;
 }

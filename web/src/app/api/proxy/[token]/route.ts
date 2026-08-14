@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createDecipheriv, createCipheriv, randomBytes, createHmac } from "crypto";
 import { db } from "@/lib/db";
-import { isBlockedProxyTarget } from "@/lib/ssrf-guard";
+import { checkProxyTarget } from "@/lib/ssrf-guard";
 import { getClientIp } from "@/lib/request-ip";
 import { deriveSegmentTokenId } from "@/lib/segment-token";
 
@@ -87,7 +87,9 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
     // Block SSRF to internal/private/reserved targets. This single gate covers
     // both the playlist fetch and every segment fetch, since each rewritten
     // segment re-enters this handler and is re-checked here before any fetch.
-    if (isBlockedProxyTarget(decryptedUrl)) {
+    const targetVerdict = await checkProxyTarget(decryptedUrl);
+    if (targetVerdict.blocked) {
+      console.warn("[proxy] blocked target", { reason: targetVerdict.reason, url: decryptedUrl });
       return NextResponse.json({ error: "Blocked target" }, { status: 403 });
     }
 
@@ -288,7 +290,11 @@ async function followRedirectOnce(
     return null;
   }
 
-  if (isBlockedProxyTarget(nextUrl)) return null;
+  const verdict = await checkProxyTarget(nextUrl);
+  if (verdict.blocked) {
+    console.warn("[proxy] blocked redirect target", { reason: verdict.reason, url: nextUrl });
+    return null;
+  }
 
   const res = await fetch(nextUrl, { headers, redirect: "manual", signal });
   if (res.status >= 300 && res.status < 400) return null; // only one hop allowed
