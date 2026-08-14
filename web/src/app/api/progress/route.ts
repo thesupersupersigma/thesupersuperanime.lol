@@ -6,6 +6,7 @@ import { syncToAniList } from "@/lib/anilist-sync";
 import { checkAndGrantBadges, recordAiringWatch, updateWatchStreak } from "@/lib/badge-engine";
 import { ownedSessionId } from "@/lib/owner-session";
 import { errorInfo } from "@/lib/log-error";
+import { parseProgressInput } from "@/lib/progress-input";
 
 export async function GET(req: NextRequest) {
   try {
@@ -69,29 +70,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
-    const body = await req.json();
-    const { animeId, episodeId, progress, duration } = body;
+    const body = await req.json().catch(() => null);
 
-    if (!animeId || !episodeId) {
-      return NextResponse.json({ error: "animeId and episodeId are required" }, { status: 400 });
+    // episodeId used to be accepted verbatim as an upsert key on a text column
+    // with no length cap, so any distinct string minted a leaderboard-counting
+    // row. It must now be `<animeId>-<episodeNum>` and agree with animeId.
+    const parsed = parseProgressInput(body);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    episodeIdForLog = String(episodeId);
+    const { animeId, episodeId, progress, duration } = parsed.value;
+    episodeIdForLog = episodeId;
 
     // --- Anti-cheat: fetch previous progress to validate the delta ---
     // progress is stored in seconds (the player sends Math.floor of currentTime),
     // so the delta is already in seconds — no conversion needed.
     const existing = user
       ? await db.watchHistory.findUnique({
-          where: { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } },
+          where: { userId_episodeId: { userId: user.id, episodeId } },
           select: { progress: true },
         })
       : await db.watchHistory.findUnique({
-          where: { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
+          where: { sessionId_episodeId: { sessionId, episodeId } },
           select: { progress: true },
         });
 
     const prevProgress = existing?.progress ?? 0;
-    const newProgress = progress ?? 0;
+    const newProgress = progress;
     const deltaSeconds = newProgress - prevProgress;
 
     // Valid: forward playback between 1 s and 60 s (normal save interval).
@@ -105,8 +110,8 @@ export async function POST(req: NextRequest) {
       const currentWatchedSeconds = existing
         ? await db.watchHistory.findUnique({
             where: user
-              ? { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } }
-              : { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
+              ? { userId_episodeId: { userId: user.id, episodeId } }
+              : { sessionId_episodeId: { sessionId, episodeId } },
             select: { watchedSeconds: true },
           }).then(r => r?.watchedSeconds ?? 0)
         : 0;
@@ -121,16 +126,16 @@ export async function POST(req: NextRequest) {
       // sessionId_episodeId index conflicts with the create side of the upsert below.
       // Delete it first so the upsert can proceed without a P2002 error.
       await db.watchHistory.deleteMany({
-        where: { sessionId, episodeId: String(episodeId), userId: null },
+        where: { sessionId, episodeId, userId: null },
       });
     }
 
     const record = user
       ? await db.watchHistory.upsert({
-          where: { userId_episodeId: { userId: user.id, episodeId: String(episodeId) } },
+          where: { userId_episodeId: { userId: user.id, episodeId } },
           update: {
             progress: newProgress,
-            duration: duration ?? 0,
+            duration,
             watchedSeconds: { increment: watchedSecondsIncrement },
           },
           create: {
@@ -139,39 +144,39 @@ export async function POST(req: NextRequest) {
             // browser would otherwise collide on @@unique([sessionId, episodeId])
             // and the create would P2002 forever. See lib/owner-session.ts.
             sessionId: ownedSessionId(user.id),
-            animeId: Number(animeId),
-            episodeId: String(episodeId),
+            animeId,
+            episodeId,
             progress: newProgress,
-            duration: duration ?? 0,
+            duration,
             watchedSeconds: 0,
           },
         })
       : await db.watchHistory.upsert({
-          where: { sessionId_episodeId: { sessionId, episodeId: String(episodeId) } },
+          where: { sessionId_episodeId: { sessionId, episodeId } },
           update: {
             progress: newProgress,
-            duration: duration ?? 0,
+            duration,
             watchedSeconds: { increment: watchedSecondsIncrement },
           },
           create: {
             sessionId,
-            animeId: Number(animeId),
-            episodeId: String(episodeId),
+            animeId,
+            episodeId,
             progress: newProgress,
-            duration: duration ?? 0,
+            duration,
             watchedSeconds: 0,
           },
         });
 
     if (user && user.anilistToken && duration && duration > 0 && newProgress >= duration * 0.9) {
-      void syncToAniList(user.id, Number(animeId), "Completed");
+      void syncToAniList(user.id, animeId, "Completed");
     }
 
     // Fire-and-forget: record airing-watch + roll the daily streak before
     // re-evaluating badges. These write the AiringWatch/WatchStreak rows that
     // checkAndGrantBadges reads, and must never block or fail the save.
     if (user) {
-      void recordAiringWatch(user.id, Number(animeId));
+      void recordAiringWatch(user.id, animeId);
       void updateWatchStreak(user.id);
     }
 

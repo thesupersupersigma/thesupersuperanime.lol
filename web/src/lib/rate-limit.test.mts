@@ -77,3 +77,48 @@ test("maxRequests of 1 works", () => {
   assert.equal(checkRateLimit("one", 1, 60_000, T0), true);
   assert.equal(checkRateLimit("one", 1, 60_000, T0), false);
 });
+
+// ── record: false (auth actions count only FAILED attempts) ─────────────────
+
+test("record:false reports allowed/blocked without consuming budget", () => {
+  for (let i = 0; i < 50; i++) {
+    assert.equal(checkRateLimit("peek", 5, 60_000, T0, { record: false }), true);
+  }
+  // Nothing was consumed, so 5 real attempts still fit.
+  for (let i = 0; i < 5; i++) assert.equal(checkRateLimit("peek", 5, 60_000, T0), true);
+  assert.equal(checkRateLimit("peek", 5, 60_000, T0), false);
+});
+
+test("record:false still reports a key that is already over the limit", () => {
+  for (let i = 0; i < 5; i++) checkRateLimit("hot", 5, 60_000, T0);
+  assert.equal(checkRateLimit("hot", 5, 60_000, T0, { record: false }), false);
+});
+
+test("record:false does not create a bucket for an unseen key", () => {
+  // Otherwise every successful login would leak a Map entry per IP.
+  const before = trackedKeyCount();
+  for (let i = 0; i < 100; i++) {
+    checkRateLimit(`fresh-${i}`, 5, 60_000, T0, { record: false });
+  }
+  assert.equal(trackedKeyCount(), before, "peeking must not allocate");
+});
+
+test("REGRESSION GUARD: counting only failures means a correct password is never throttled", () => {
+  // M12: the old limiter ran BEFORE the password check and counted every
+  // attempt, so 5 requests locked a known email out for 15 minutes even with
+  // the right password. Modelled here: N successful sign-ins (peek only) stay
+  // allowed no matter how many.
+  for (let i = 0; i < 100; i++) {
+    assert.equal(checkRateLimit("signin:me@example.com:1.2.3.4", 5, 900_000, T0, { record: false }), true);
+  }
+});
+
+test("REGRESSION GUARD: an attacker's failures don't lock a victim on another IP", () => {
+  // The key includes the IP, so filling the attacker's bucket leaves the
+  // victim's (email, their-own-IP) bucket untouched.
+  const attacker = "signin:victim@example.com:203.0.113.9";
+  const victim = "signin:victim@example.com:198.51.100.7";
+  for (let i = 0; i < 10; i++) checkRateLimit(attacker, 5, 900_000, T0);
+  assert.equal(checkRateLimit(attacker, 5, 900_000, T0, { record: false }), false, "attacker is throttled");
+  assert.equal(checkRateLimit(victim, 5, 900_000, T0, { record: false }), true, "victim is unaffected");
+});

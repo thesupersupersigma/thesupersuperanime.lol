@@ -54,6 +54,7 @@ export function checkRateLimit(
   maxRequests = 10,
   windowMs = 60_000,
   now: number = Date.now(),
+  { record = true }: { record?: boolean } = {},
 ): boolean {
   if (now >= nextSweepAt) sweep(now);
 
@@ -69,6 +70,17 @@ export function checkRateLimit(
     // Keep the pruned list so the window keeps sliding while blocked.
     buckets.set(key, { hits, windowMs });
     return false;
+  }
+
+  // `record: false` asks "would this be allowed?" without consuming budget.
+  // Used by the auth actions, which count only FAILED attempts so a legitimate
+  // user with the correct password is never throttled — and, for sign-in,
+  // so an attacker can't burn a victim's budget with wrong passwords.
+  if (!record) {
+    // Don't materialise a bucket for a key that has no recorded attempts, or
+    // every successful login would leak a Map entry.
+    if (hits.length > 0) buckets.set(key, { hits, windowMs });
+    return true;
   }
 
   hits.push(now);

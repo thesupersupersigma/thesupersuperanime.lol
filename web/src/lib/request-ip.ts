@@ -19,9 +19,18 @@ const IPV6_RE = /^[0-9a-fA-F:]+(:(\d{1,3}\.){3}\d{1,3})?$/;
  * binding to garbage.
  */
 export function getClientIp(req: NextRequest): string {
+  return getClientIpFromHeaders(req.headers);
+}
+
+/**
+ * Same extraction from a bare `Headers`, for server actions — which get headers
+ * via `next/headers` and have no NextRequest. Server actions were each rolling
+ * their own inline `x-forwarded-for.split(",")[0]` with no shape validation.
+ */
+export function getClientIpFromHeaders(headers: Headers): string {
   const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip")?.trim() ??
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    headers.get("x-real-ip")?.trim() ??
     "";
   if (!ip) return "unknown";
   if (IPV4_RE.test(ip)) return ip;

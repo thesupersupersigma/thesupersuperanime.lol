@@ -8,6 +8,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getClientIpFromHeaders } from "@/lib/request-ip";
 
 // ── In-memory rate limiting for auth actions ────────────────────────────────
 // Same idea as the comments-route limiter: per-key attempt timestamps, pruned
@@ -96,7 +98,7 @@ export async function signUpAction(formData: FormData) {
   if (!email || !password || password.length < 6) {
     return { error: "Invalid email or password too short (min 6 chars)." };
   }
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIpFromHeaders(await headers());
   if (isRateLimited(`signup:${ip}`, 5, 60 * 60 * 1000)) {
     return { error: "Too many signups from this network. Try again later." };
   }
@@ -190,13 +192,26 @@ export async function signInAction(formData: FormData) {
   const email = formData.get("email")?.toString().toLowerCase().trim(); 
   const password = formData.get("password")?.toString(); 
   if (!email || !password) return { error: "Email and password required." };
-  if (isRateLimited(`signin:${email}`, 5, 15 * 60 * 1000)) {
+  // Keyed on (email, IP) rather than email alone, and only FAILED attempts are
+  // counted. The old `signin:${email}` bucket counted every attempt and ran
+  // before the password check, so anyone who knew a victim's address could lock
+  // them out of their own account for 15 minutes at a time by sending 5
+  // requests -- correct password included. A per-IP bucket sits alongside it so
+  // one host still can't spray many addresses.
+  const ip = getClientIpFromHeaders(await headers());
+  const pairKey = `signin:${email}:${ip}`;
+  const ipKey = `signin-ip:${ip}`;
+  const overPair = !checkRateLimit(pairKey, 5, 15 * 60 * 1000, Date.now(), { record: false });
+  const overIp = !checkRateLimit(ipKey, 30, 15 * 60 * 1000, Date.now(), { record: false });
+  if (overPair || overIp) {
     return { error: "Too many attempts. Try again in a few minutes." };
   }
   try {
     const user = await db.user.findUnique({ where: { email } });
-    if (!user || !verifyPassword(password, user.passwordHash)) { 
-      return { error: "Invalid email or password." }; 
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      checkRateLimit(pairKey, 5, 15 * 60 * 1000);
+      checkRateLimit(ipKey, 30, 15 * 60 * 1000);
+      return { error: "Invalid email or password." };
     } 
     await createUserSession(user.id);
     grantAdminBadges(user.id).catch(console.error);
