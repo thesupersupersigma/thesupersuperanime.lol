@@ -9,6 +9,11 @@ import { EpisodeSidebar } from "@/components/watch/episode-sidebar";
 import { WatchInfo } from "@/components/watch/watch-info";
 import { Comments } from "@/components/comments";
 import { PromoBanner } from "@/components/PromoBanner";
+import { evaluateRefetch } from "@/lib/refetch-guard";
+
+/** Consecutive dead-token refetches allowed inside REFETCH_WINDOW_MS. */
+const MAX_CONSECUTIVE_REFETCHES = 3;
+const REFETCH_WINDOW_MS = 60_000;
 
 export default function WatchClient() {
   const params = useParams();
@@ -29,6 +34,11 @@ export default function WatchClient() {
   const [resumeTime, setResumeTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Playback failures are NOT page-load failures. `error` blanks the whole page
+  // (see the `if (error || !anime)` branch), which used to unmount the server
+  // switcher the message tells the user to use. This one renders as a banner
+  // above the player and leaves the page — and the switcher — mounted.
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
 
   // ── WATCH PARTY ─────────────────────────────────────────────────────────
@@ -97,9 +107,15 @@ export default function WatchClient() {
     }
   }
 
-  // Timestamp of the last dead-token source refetch — guards against a
-  // persistently dead source hammering /api/source in a loop.
+  // Dead-token refetch guard. A pure time throttle was not enough: hls.js
+  // exhausts its own retries in ~6-10s, longer than the old 5s window, so the
+  // cycle "fatal error -> refetch -> fresh tokens -> same dead upstream ->
+  // fatal error" never tripped it. Each iteration costs a full /api/source
+  // (up to ~65s of upstream timeout budget) plus DB inserts, and it only
+  // stopped when the rate limiter 429'd — at which point the user couldn't
+  // load ANY episode for a minute.
   const lastRefetchRef = useRef(0);
+  const refetchAttemptsRef = useRef(0);
 
   // Re-fetch sources after a fatal playback error (expired/dead proxy token).
   // Passed to AnimePlayer as onSourceFailure; a fresh /api/source response
@@ -107,11 +123,28 @@ export default function WatchClient() {
   const refetchSources = useCallback(async () => {
     if (!anime) return;
     const now = Date.now();
-    if (now - lastRefetchRef.current < 5000) {
-      setError("Stream unavailable — try another server");
+
+    // Count CONSECUTIVE attempts inside the window rather than just spacing
+    // them out. A stream that dies again within a minute of being refreshed
+    // won't be fixed by another refresh; a token that expires hours into a
+    // session legitimately needs one, which is why the counter resets once the
+    // window lapses (and on every successful load below).
+    const decision = evaluateRefetch(
+      { lastAt: lastRefetchRef.current, attempts: refetchAttemptsRef.current },
+      now,
+      { windowMs: REFETCH_WINDOW_MS, maxAttempts: MAX_CONSECUTIVE_REFETCHES },
+    );
+    lastRefetchRef.current = decision.next.lastAt;
+    refetchAttemptsRef.current = decision.next.attempts;
+
+    if (!decision.allow) {
+      console.warn("[watch] giving up on source refetch", {
+        animeId, episodeNum, attempts: refetchAttemptsRef.current,
+      });
+      setPlaybackError("Stream keeps dropping — try another server, or reload the page.");
       return;
     }
-    lastRefetchRef.current = now;
+
     try {
       const sourceRes = await fetch("/api/source", {
         method: "POST",
@@ -137,12 +170,18 @@ export default function WatchClient() {
         setServers(sourceData.servers);
         setMirrorUsed(sourceData.mirrorUsed);
         setFallbackReason(sourceData.fallbackReason);
+        // Fresh sources arrived — stop counting toward the give-up threshold.
+        refetchAttemptsRef.current = 0;
+        setPlaybackError(null);
       } else {
         throw new Error("No servers available for this episode.");
       }
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
+      // Deliberately NOT setError: that unmounts the player, the server
+      // dropdown and the episode sidebar, leaving a bare "try another server"
+      // message with no server switcher on screen.
+      setPlaybackError(err instanceof Error ? err.message : String(err));
     }
   }, [anime, animeId, episodeNum]);
 
@@ -287,7 +326,9 @@ export default function WatchClient() {
     );
   }
 
-  if (error || !anime) {
+  // Only a genuine load failure blanks the page. A playback failure keeps the
+  // page mounted and shows a banner above the player (see playbackError below).
+  if (!anime) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a] text-white">
         <div className="text-center">
@@ -311,6 +352,30 @@ export default function WatchClient() {
 
         {/* Main Player Area */}
         <div className="flex-1 min-w-0 flex flex-col">
+          {/* Covers `error` too: loadData() sets it AFTER setAnime(), so an
+              initial source failure leaves the page renderable — it must still
+              surface the message somewhere now that it no longer blanks the page. */}
+          {(playbackError ?? error) && (
+            <div
+              role="alert"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                background: "#2a1416", border: "1px solid #5b2126", color: "#f3c3c6",
+                borderRadius: 8, padding: "10px 14px", marginBottom: 10, fontSize: 14,
+              }}
+            >
+              <span>{playbackError ?? error}</span>
+              <button
+                onClick={() => { setPlaybackError(null); setError(null); }}
+                style={{
+                  background: "transparent", border: "1px solid #5b2126", color: "#f3c3c6",
+                  borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 13, flexShrink: 0,
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           <div className="w-full bg-black md:rounded-lg shadow-xl" style={{ border: "1px solid #2a2a2a" }}>
             <AnimePlayer
               servers={servers}

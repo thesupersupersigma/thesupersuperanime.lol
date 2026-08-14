@@ -380,6 +380,20 @@ export function AnimePlayer({
   // Fatal playback error — hls.js has exhausted all retries. Show the error UI
   // and let the user decide whether to retry or switch servers manually.
   const onPlaybackError = useCallback(() => {
+    // Stash the live position FIRST. This is the same thing a server/audio
+    // switch does, and skipping it here is why recovering from a dead or
+    // expired token restarted the episode from zero: startPositionRef is
+    // seeded once from `resumeTime` at mount and only ever advanced by
+    // stashSwitchPosition(), so the srcUrl-change effect applied a stale 0 (or
+    // jumped backwards to wherever the session started). The DB already has
+    // the position — progress saves every ~10s — so losing it here was pure
+    // avoidable damage on the one path that exists to make failures invisible.
+    const player = playerRef.current;
+    if (player) {
+      startPositionRef.current = player.currentTime;
+      // Also flags the auto-resume, which otherwise didn't fire on this path.
+      pendingSwitchRef.current = true;
+    }
     if (onSourceFailure) onSourceFailure();
     else setPlayerError("Stream unavailable — try another server");
   }, [onSourceFailure]);
