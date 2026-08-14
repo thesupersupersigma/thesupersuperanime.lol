@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * Discord invite. Prefer a permanent (non-vanity) invite code here — a vanity
+ * slug is only held while the server keeps Boost Level 3.
+ */
+const DISCORD_INVITE_URL =
+  process.env.NEXT_PUBLIC_DISCORD_INVITE_URL || "https://discord.gg/thesupersuperanime";
+
 import { useEffect, useState, startTransition } from "react";
 
 const DISMISS_KEY = "promoBannerDismissed";
@@ -69,7 +76,11 @@ export function PromoBanner() {
         setTimeout(() => setCopied(false), 1500);
         break;
       case "discord":
-        window.open("https://discord.gg/thesupersuperanime", "_blank");
+        // Vanity slug, sourced from env. A vanity URL requires Boost Level 3:
+        // if boosts lapse Discord RELEASES the slug and anyone can claim it, at
+        // which point this button sends users to a stranger's server. The guild
+        // id is already env-sourced; this was the one literal.
+        window.open(DISCORD_INVITE_URL, "_blank");
         break;
       case "issues":
         window.location.href = "/issues";

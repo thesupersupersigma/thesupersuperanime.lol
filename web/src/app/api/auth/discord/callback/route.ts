@@ -3,6 +3,19 @@ import { db } from "@/lib/db";
 import { grantBadge } from "@/lib/badge-engine";
 import { getCurrentUser } from "@/lib/auth";
 
+/**
+ * Default avatar index for a user with no custom avatar.
+ * Post-discriminator formula: (snowflake >> 22) % 6.
+ */
+function defaultAvatarIndex(userId: string): number {
+  try {
+    // BigInt(...) rather than 22n/6n literals — tsconfig targets ES2017.
+    return Number((BigInt(userId) >> BigInt(22)) % BigInt(6));
+  } catch {
+    return 0;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
@@ -72,7 +85,7 @@ export async function GET(req: NextRequest) {
     const accessToken = tokenData.access_token;
 
     // 2. Fetch Discord user info
-    const userRes = await fetch("https://discord.com/api/users/@me", {
+    const userRes = await fetch("https://discord.com/api/v10/users/@me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -83,7 +96,11 @@ export async function GET(req: NextRequest) {
     const discordUser = await userRes.json();
     const avatarUrl = discordUser.avatar
       ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
-      : `https://cdn.discordapp.com/embed/avatars/${parseInt(discordUser.discriminator || "0") % 5}.png`;
+      // Discord retired discriminators in 2023, so `discriminator` is "0" for
+      // every modern account and the old `% 5` always resolved to index 0 —
+      // every avatarless user got the same default. The current formula shards
+      // on the snowflake instead.
+      : `https://cdn.discordapp.com/embed/avatars/${defaultAvatarIndex(discordUser.id)}.png`;
 
     // 3. Save Discord info to user
     await db.user.update({
@@ -101,7 +118,7 @@ export async function GET(req: NextRequest) {
 
     // 4. Auto-join user to Discord server
     try {
-      await fetch(`https://discord.com/api/guilds/${guildId}/members/${discordUser.id}`, {
+      await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordUser.id}`, {
         method: "PUT",
         headers: {
           Authorization: `Bot ${botToken}`,

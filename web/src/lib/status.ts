@@ -36,7 +36,11 @@ const HISTORY_LIMIT = 90;
 const DEGRADED_LATENCY_MS = 2000; // a successful-but-slow ping is "degraded"
 const DB_MAX_MS = 3000; // db.user.count() must finish under this to count as up
 const PING_TIMEOUT_MS = 5000;
-const SITE_URL = "https://www.thesupersuperanime.lol";
+// Where the "site" health check points. MUST be this instance, not a literal:
+// hardcoded, a rebuilt VM or a staging host health-checks PRODUCTION and can
+// never detect its own outage. NEXT_PUBLIC_SITE_URL is the deployment's own
+// origin; the literal remains only as a last-resort fallback.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.thesupersuperanime.lol";
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : "Unknown error";

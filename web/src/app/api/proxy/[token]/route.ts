@@ -7,6 +7,7 @@ import { checkProxyTarget } from "@/lib/ssrf-guard";
 import { getClientIp } from "@/lib/request-ip";
 import { deriveSegmentTokenId } from "@/lib/segment-token";
 import { countRewritableUris, rewritePlaylist } from "@/lib/playlist-rewrite";
+import { normaliseReferer, toOrigin } from "@/lib/referer";
 
 /**
  * Upper bound on URI-bearing lines we will rewrite from one upstream playlist.
@@ -99,18 +100,26 @@ async function handleRequest(req: NextRequest, params: { token: string }, isHead
       return NextResponse.json({ error: "Blocked target" }, { status: 403 });
     }
 
-    let referer = storedReferer
-      ? (storedReferer.endsWith("/") ? storedReferer : storedReferer + "/")
-      : "https://megaplay.buzz/";
+    // The scraper's own Referer is authoritative when it supplied one. The old
+    // code computed it and then UNCONDITIONALLY overwrote it whenever the
+    // decrypted URL merely CONTAINED "kwik"/"owocdn"/"uwu.m3u8" anywhere —
+    // path and query included, so any URL with those substrings anywhere was
+    // hijacked — or the hostname ended in ".top", a general-purpose TLD.
+    // The override now only fills a gap, and matches on the registrable host.
+    const referer = normaliseReferer(storedReferer, targetUrl);
 
-    if (decryptedUrl.includes("kwik") || decryptedUrl.includes("owocdn") || decryptedUrl.includes("uwu.m3u8") || targetUrl.hostname.endsWith(".top")) {
-      referer = "https://kwik.cx/";
-    }
+    // `new URL(...).origin` rather than `referer.replace(/\/$/,"")`: that
+    // stripped only a trailing slash and KEPT the path, so a stored referer of
+    // https://megaplay.buzz/stream/s-2/141234/sub produced an "Origin" header
+    // carrying a path — not a valid origin serialisation, and rejected by any
+    // WAF that actually parses it. This only ever broke for sources that DO
+    // supply their own referer, i.e. the ones most likely to enforce it.
+    const origin = toOrigin(referer);
 
     const fetchHeaders: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Referer": referer,
-      "Origin": referer.replace(/\/$/, ""), 
+      "Origin": origin,
       ...(cookies ? { Cookie: cookies } : {}),
     };
 
