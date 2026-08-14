@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionCookie } from "@/lib/session-cookie";
+import { isStaticAssetPath } from "@/lib/static-assets";
 
 /**
  * Constant-time string comparison usable on the Edge runtime (no Node crypto).
@@ -47,17 +48,15 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ── Static / Next internals ─────────────────────────────────────────────
+  // isStaticAssetPath matches real asset paths, NOT any route path that happens
+  // to end in an image extension — the old suffix test let `GET /watch/21/1.png`
+  // render the full watch page to an unauthenticated visitor, skipping both
+  // gates. See src/lib/static-assets.ts.
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/.well-known") ||
+    isStaticAssetPath(pathname) ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
-    pathname === "/llms.txt" ||
-    pathname.endsWith(".svg") ||
-    pathname.endsWith(".png") ||
-    pathname.endsWith(".jpg") ||
-    pathname.endsWith(".ico")
+    pathname === "/llms.txt"
   ) {
     return NextResponse.next();
   }
