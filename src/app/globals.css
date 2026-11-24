@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+/* Tokens from design/mockups/README.md. Monochrome only: colour comes from the anime artwork. */
+@theme {
+  --color-*: initial;
+  --color-bg: #0e0e0e;
+  --color-surface-1: #151515;
+  --color-surface-2: #1c1c1c;
+  --color-surface-3: #232323;
+  --color-line-1: #1f1f1f;
+  --color-line-2: #262626;
+  --color-line-3: #333333;
+  --color-fg: #f5f5f5;
+  --color-fg-2: #c9c9c9;
+  --color-fg-3: #b5b5b5;
+  --color-muted: #9a9a9a;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-black: #000;
+
+  --font-display: var(--font-syne), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+
+  --shadow-pop: 0 24px 48px rgb(0 0 0 / 0.6);
+  --shadow-toast: 0 18px 40px rgb(0 0 0 / 0.5);
+
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+  --duration-fast: 150ms;
+  --duration-hover: 200ms;
+  --duration-slow: 300ms;
+  --duration-enter: 420ms;
+
+  --animate-rise: rise var(--duration-enter) var(--ease-spring) both;
+  --animate-pop: pop 200ms ease-out both;
+  --animate-shimmer: shimmer 1.2s linear infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -600px 0;
+    }
+    100% {
+      background-position: 600px 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100dvh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-fg);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-fg);
+    color: var(--color-bg);
+  }
+  button {
+    cursor: pointer;
+  }
+}
+
+/* Kill every animation/transition under reduced motion (OS or user override), except where the user forced full. */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="full"]) *,
+  html:not([data-motion="full"]) *::before,
+  html:not([data-motion="full"]) *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, #191919 0%, #262626 50%, #191919 100%);
+  background-size: 1200px 100%;
+  animation: var(--animate-shimmer);
+}
