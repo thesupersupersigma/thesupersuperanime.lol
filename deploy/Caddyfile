@@ -1,0 +1,9 @@
+# Used by `docker compose --profile caddy up -d`. Caddy gets Let's Encrypt certificates for both names by itself:
+# their DNS must point at this machine and ports 80 + 443 must reach it.
+{$SITE_DOMAIN} {
+	reverse_proxy site:3000
+}
+
+{$RELAY_DOMAIN} {
+	reverse_proxy relay:8081
+}

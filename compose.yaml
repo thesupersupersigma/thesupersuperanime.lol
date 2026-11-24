@@ -1,0 +1,96 @@
+# The whole stack: the site + one Postgres (two databases) + RECONSUMET.TS API and relay. Guide: docs/self-hosting.md
+#   cp .env.example .env     # set the four REQUIRED values
+#   docker compose up -d     # → http://localhost:3000
+#   docker compose --profile caddy up -d   # + Caddy with automatic HTTPS (SITE_DOMAIN, RELAY_DOMAIN in .env)
+#   docker compose --profile mail up -d    # + Mailpit, a fake inbox for testing emails (http://localhost:8025)
+name: anime
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: anime
+      POSTGRES_DB: site
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sh:/docker-entrypoint-initdb.d/10-reconsumet.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anime -d site"]
+      interval: 5s
+      retries: 20
+
+  api:
+    image: ghcr.io/thesupersupersigma/reconsumet-api:${RECONSUMET_VERSION:-0.4.2}
+    restart: unless-stopped
+    # more RECONSUMET.TS settings (rate limits, AniList cap…) go in reconsumet.env; see its docs/self-hosting.md
+    env_file: [{ path: reconsumet.env, required: false }]
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://anime:${POSTGRES_PASSWORD}@postgres:5432/reconsumet
+      RELAY_SECRET: ${RELAY_SECRET:?set RELAY_SECRET in .env}
+      API_BOOTSTRAP_KEY: ${RECONSUMET_API_KEY:?set RECONSUMET_API_KEY in .env}
+      API_BOOTSTRAP_KEY_NAME: site
+      RELAY_PUBLIC_URL: ${RELAY_PUBLIC_URL:-http://localhost:8081}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+    # not published: only the site talks to the API, over the compose network
+
+  relay:
+    image: ghcr.io/thesupersupersigma/reconsumet-relay:${RECONSUMET_VERSION:-0.4.2}
+    restart: unless-stopped
+    env_file: [{ path: reconsumet.env, required: false }]
+    environment:
+      PORT: 8081
+      RELAY_SECRET: ${RELAY_SECRET}
+      RELAY_ALLOWED_ORIGINS: ${SITE_URL:-http://localhost:3000}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${RELAY_PORT:-8081}:8081" # viewers' browsers fetch video from here
+
+  site:
+    image: ghcr.io/thesupersupersigma/thesupersuperanime:${SITE_VERSION:-0.5.0}
+    build: .
+    restart: unless-stopped
+    env_file: [{ path: .env, required: false }]
+    environment:
+      DATABASE_URL: postgres://anime:${POSTGRES_PASSWORD}@postgres:5432/site
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      RECONSUMET_API_URL: http://api:8080
+      RECONSUMET_API_KEY: ${RECONSUMET_API_KEY}
+    depends_on:
+      postgres: { condition: service_healthy }
+      api: { condition: service_healthy }
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${SITE_PORT:-3000}:3000"
+
+  caddy:
+    image: caddy:2
+    profiles: [caddy]
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-}
+      RELAY_DOMAIN: ${RELAY_DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [site, relay]
+
+  mailpit:
+    image: axllent/mailpit:v1.34
+    profiles: [mail]
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${MAILPIT_PORT:-8025}:8025"
+
+volumes:
+  pgdata:
+  caddy-data:
+  caddy-config:

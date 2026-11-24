@@ -1,0 +1,14 @@
+**/node_modules
+.next
+.git
+design
+prompts
+docs
+e2e
+test-results
+playwright-report
+src/generated
+.env
+.env.*
+!.env.example
+**/*.log

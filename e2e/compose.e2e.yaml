@@ -1,0 +1,14 @@
+# End-to-end test stack = compose.yaml + this file + the mail profile:
+#   docker compose -f compose.yaml -f e2e/compose.e2e.yaml --profile mail up -d --build
+# Adds: Postgres published on localhost for the database assertions, and settings the tests rely on.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${E2E_PG_PORT:-15432}:5432"
+  site:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: E2E <noreply@example.com>
+      # trust X-Forwarded-For from anyone so each test step can be "a new visitor" (rate limits); never in production
+      TRUSTED_PROXIES: 0.0.0.0/0,::/0
