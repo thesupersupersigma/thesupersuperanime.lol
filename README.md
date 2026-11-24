@@ -6,6 +6,8 @@
 
 # thesupersuperanime.lol
 
+[![Discord](https://img.shields.io/badge/discord-join-5865F2)](https://discord.gg/trvtVNWzaf)
+
 A full-featured anime streaming site built solo — AniList metadata, custom HLS proxy, leaderboards, badges, watch parties, sitewide chat, and more.
 
 **[thesupersuperanime.lol](https://thesupersuperanime.lol)** · **[Status](https://thesupersuperanime.lol/status)** · **[Updates](https://thesupersuperanime.lol/updates)**
