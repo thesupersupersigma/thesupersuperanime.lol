@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Watch page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Syne:wght@600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0E0E}
+a{color:#F5F5F5;text-decoration:none}a:hover{color:#ffffff}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+button,select{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid #F5F5F5;outline-offset:2px}
+.btn{transition:transform .15s ease,background-color .2s ease,opacity .2s ease,border-color .2s ease}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:scale(.96)}
+.ghost:hover{background:#232323}
+.row{transition:background-color .15s ease}.row:hover{background:#1C1C1C}
+.pbtn{transition:background-color .15s ease}.pbtn:hover{background:rgba(255,255,255,0.12)}
+.spoiler{filter:blur(6px);transition:filter .25s ease;cursor:pointer}
+.layout{transition:all .3s ease}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}.pop{animation:pop .22s ease-out both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}.fade{animation:fadeIn .3s ease both}
+@keyframes ring{from{stroke-dashoffset:0}to{stroke-dashoffset:113}}
+.nomo *{animation:none !important;transition:none !important}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="{{rootClass}}" style="background: #0E0E0E; color: #F5F5F5; font-family: Inter, system-ui, sans-serif; font-size: 14px; min-height: 100%">
+
+<header style="position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #1F1F1F; background: rgba(14,14,14,0.86); backdrop-filter: blur(12px)">
+<div style="max-width: 1600px; margin: 0 auto; padding: 12px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<a href="Main.dc.html" style="font-family: Syne, sans-serif; font-weight: 800; font-size: 21px; letter-spacing: -0.02em">thesupersuper<span style="color: #8F8F8F">anime</span></a>
+<nav aria-label="Breadcrumb" style="display: flex; gap: 8px; align-items: center; font-size: 13px; color: #9A9A9A; min-width: 0">
+<a href="Main.dc.html" style="color: #B5B5B5">Home</a><span aria-hidden="true">/</span><a href="Anime.dc.html" style="color: #B5B5B5">Frieren: Beyond Journey's End</a><span aria-hidden="true">/</span><span style="color: #F5F5F5">Episode {{ep}}</span>
+</nav>
+<form role="search" style="flex: 1 1 240px; max-width: 420px; margin-left: auto; position: relative; display: flex; align-items: center">
+<label for="q" class="sr">Search anime</label>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9A9A" stroke-width="2" stroke-linecap="round" style="position: absolute; left: 14px"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<input id="q" type="search" placeholder="Search anime" style="width: 100%; box-sizing: border-box; height: 44px; padding: 0 14px 0 42px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; font: inherit">
+</form>
+<a href="#account" aria-label="Your account" class="btn" style="width: 44px; height: 44px; border-radius: 12px; background: #F5F5F5; color: #0E0E0E; display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: Syne, sans-serif">S</a>
+</div>
+</header>
+
+<sc-if value="{{lightsOff}}" hint-placeholder-val="{{ false }}">
+<button type="button" class="fade" aria-label="Turn the lights back on" onClick="{{toggleLights}}" style="position: fixed; inset: 0; z-index: 25; border: 0; background: rgba(0,0,0,0.9); cursor: pointer"></button>
+</sc-if>
+
+<main class="layout" style="max-width: 1600px; margin: 0 auto; padding: 22px 32px 0; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div class="layout" style="flex: {{leftFlex}}; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+<section aria-label="Video player" style="position: relative; z-index: 30; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000000; box-shadow: {{playerShadow}}">
+<div aria-hidden="true" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #2A2A2A; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase">Video · EP {{ep}} · {{audioLabel}} · {{serverName}} · {{speedLabel}}</div>
+<div style="position: absolute; left: 50%; bottom: 28%; transform: translateX(-50%); text-align: center; font-size: {{subSize}}; font-weight: 600; padding: {{subPad}}; background: {{subBg}}; border-radius: 6px; text-shadow: 0 2px 4px #000000, 0 0 2px #000000; white-space: nowrap">[Styled subtitle line drawn by JASSUB]</div>
+
+<sc-if value="{{showResume}}" hint-placeholder-val="{{ false }}">
+<div class="pop" role="dialog" aria-label="Resume" style="position: absolute; left: 20px; top: 20px; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 14px; background: rgba(21,21,21,0.92); border: 1px solid #333333">
+<span style="font-size: 13px">Resume from <strong>07:42</strong>?</span>
+<button type="button" onClick="{{resume}}" class="btn" style="height: 36px; padding: 0 12px; border: 0; border-radius: 9px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">Resume</button>
+<button type="button" onClick="{{startOver}}" class="btn ghost" style="height: 36px; padding: 0 12px; border: 1px solid #3A3A3A; border-radius: 9px; background: transparent; color: #F5F5F5; font-weight: 600">Start over</button>
+</div>
+</sc-if>
+
+<sc-if value="{{showSkip}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{skip}}" class="btn pop" style="position: absolute; right: 20px; bottom: 86px; height: 44px; padding: 0 18px; border-radius: 11px; border: 1px solid #F5F5F5; background: rgba(14,14,14,0.75); color: #F5F5F5; font-weight: 700; display: inline-flex; align-items: center; gap: 8px">{{skipLabel}}<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l7 7-7 7"></path><path d="M13 5l7 7-7 7"></path></svg></button>
+</sc-if>
+
+<sc-if value="{{showUpNext}}" hint-placeholder-val="{{ false }}">
+<div class="pop" role="status" style="position: absolute; right: 20px; bottom: 86px; width: 300px; padding: 14px; border-radius: 16px; background: rgba(21,21,21,0.95); border: 1px solid #333333; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 12px; align-items: center">
+<span style="position: relative; width: 44px; height: 44px; flex: none">
+<svg aria-hidden="true" width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" fill="none" stroke="#333333" stroke-width="3"></circle><circle cx="22" cy="22" r="18" fill="none" stroke="#F5F5F5" stroke-width="3" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="{{ringOffset}}" transform="rotate(-90 22 22)"></circle></svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: Syne, sans-serif; font-weight: 800">{{upNextIn}}</span>
+</span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.08em">Up next</span><span style="font-weight: 600">Episode {{nextEpNum}}</span></span>
+</div>
+<div style="display: flex; gap: 8px"><button type="button" onClick="{{nextEp}}" class="btn" style="flex: 1; height: 38px; border: 0; border-radius: 10px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">Play now</button><button type="button" onClick="{{cancelNext}}" class="btn ghost" style="flex: 1; height: 38px; border: 1px solid #3A3A3A; border-radius: 10px; background: transparent; color: #F5F5F5; font-weight: 600">Cancel</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{showSettings}}" hint-placeholder-val="{{ false }}">
+<div class="pop" role="dialog" aria-label="Player settings" style="position: absolute; right: 16px; bottom: 74px; width: 290px; padding: 14px; border-radius: 16px; background: rgba(21,21,21,0.96); border: 1px solid #333333; display: flex; flex-direction: column; gap: 12px; font-size: 13px">
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 11px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.08em">Speed</span>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px"><sc-for list="{{speeds}}" as="s" hint-placeholder-count="6"><button type="button" aria-pressed="{{s.on}}" onClick="{{s.pick}}" class="btn" style="height: 34px; border: 0; border-radius: 8px; font-size: 12px; font-weight: 700; background: {{s.bg}}; color: {{s.fg}}">{{s.label}}</button></sc-for></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 11px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.08em">Quality</span>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px"><sc-for list="{{qualities}}" as="s" hint-placeholder-count="4"><button type="button" aria-pressed="{{s.on}}" onClick="{{s.pick}}" class="btn" style="height: 34px; border: 0; border-radius: 8px; font-size: 12px; font-weight: 700; background: {{s.bg}}; color: {{s.fg}}">{{s.label}}</button></sc-for></div></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 11px; color: #9A9A9A; text-transform: uppercase; letter-spacing: 0.08em">Subtitle size</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px"><sc-for list="{{subSizes}}" as="s" hint-placeholder-count="3"><button type="button" aria-pressed="{{s.on}}" onClick="{{s.pick}}" class="btn" style="height: 34px; border: 0; border-radius: 8px; font-size: 12px; font-weight: 700; background: {{s.bg}}; color: {{s.fg}}">{{s.label}}</button></sc-for></div></div>
+<button type="button" role="switch" aria-checked="{{subBoxOn}}" onClick="{{toggleSubBox}}" style="display: flex; justify-content: space-between; align-items: center; height: 36px; border: 0; background: transparent; color: #F5F5F5; padding: 0; font-size: 13px">Subtitle background<span aria-hidden="true" style="width: 34px; height: 20px; border-radius: 999px; background: {{subBoxTrack}}; position: relative"><span style="position: absolute; top: 3px; left: {{subBoxKnob}}; width: 14px; height: 14px; border-radius: 999px; background: {{subBoxDot}}; transition: left .2s ease"></span></span></button>
+</div>
+</sc-if>
+
+<sc-if value="{{showKeys}}" hint-placeholder-val="{{ false }}">
+<div class="pop" role="dialog" aria-label="Keyboard shortcuts" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 380px; padding: 18px; border-radius: 16px; background: rgba(21,21,21,0.97); border: 1px solid #333333; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: Syne, sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 4px">Keyboard shortcuts</span>
+<sc-for list="{{keys}}" as="k" hint-placeholder-count="8"><div style="display: flex; justify-content: space-between; font-size: 13px; color: #C9C9C9"><span>{{k.what}}</span><span style="display: flex; gap: 4px"><sc-for list="{{k.keys}}" as="kk" hint-placeholder-count="1"><kbd style="min-width: 22px; text-align: center; padding: 2px 6px; border-radius: 6px; border: 1px solid #3A3A3A; background: #0E0E0E; color: #F5F5F5; font-family: Inter, sans-serif; font-size: 12px">{{kk}}</kbd></sc-for></span></div></sc-for>
+<button type="button" onClick="{{toggleKeys}}" class="btn" style="margin-top: 6px; height: 38px; border: 0; border-radius: 10px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">Got it</button>
+</div>
+</sc-if>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px 10px; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.88) 100%); display: flex; flex-direction: column; gap: 8px">
+<div style="position: relative; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.2)">
+<div style="position: absolute; left: 0; top: 0; height: 5px; width: 62%; border-radius: 3px; background: rgba(255,255,255,0.28)"></div>
+<div style="position: absolute; left: 0; top: 0; height: 5px; width: {{progress}}; border-radius: 3px; background: #F5F5F5"></div>
+<div title="Intro" style="position: absolute; left: 4.2%; top: -3px; height: 11px; width: 6.3%; border-radius: 2px; border: 1px dashed rgba(245,245,245,0.6); box-sizing: border-box"></div>
+<div title="Outro" style="position: absolute; left: 93.7%; top: -3px; height: 11px; width: 5.6%; border-radius: 2px; border: 1px dashed rgba(245,245,245,0.6); box-sizing: border-box"></div>
+<div style="position: absolute; left: {{progress}}; top: -4px; width: 13px; height: 13px; margin-left: -6px; border-radius: 999px; background: #ffffff"></div>
+</div>
+<div style="display: flex; align-items: center; gap: 2px">
+<button type="button" aria-label="{{playLabel}}" onClick="{{togglePlay}}" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="{{playIcon}}"></path></svg></button>
+<button type="button" aria-label="Back 10 seconds" onClick="{{back10}}" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 103-6.7"></path><path d="M3 4v5h5"></path></svg></button>
+<button type="button" aria-label="Forward 10 seconds" onClick="{{fwd10}}" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"></path><path d="M21 4v5h-5"></path></svg></button>
+<button type="button" aria-label="Next episode" onClick="{{nextEp}}" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5l10 7-10 7z"></path><rect x="16" y="5" width="3" height="14" rx="1"></rect></svg></button>
+<button type="button" aria-label="Volume" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"></path><path d="M17 9a4 4 0 010 6"></path></svg></button>
+<span style="font-size: 13px; color: #D9D9D9; font-variant-numeric: tabular-nums; margin-left: 6px">{{timeLabel}} / 23:40</span>
+<span style="flex: 1"></span>
+<button type="button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" onClick="{{toggleKeys}}" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; font-weight: 800; font-size: 15px">?</button>
+<button type="button" aria-label="Subtitles" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 13h3M13 13h4M7 16h6"></path></svg></button>
+<button type="button" aria-label="Settings" aria-expanded="{{settingsOpen}}" onClick="{{toggleSettings}}" class="pbtn" style="height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({{gearRot}}); transition: transform .3s ease"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.3 3h-4l-.4 2.4a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.4h4l.4-2.4a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"></path></svg>{{qualityLabel}}</button>
+<button type="button" aria-label="Picture in picture" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><rect x="12" y="12" width="7" height="5" rx="1"></rect></svg></button>
+<button type="button" aria-label="Fullscreen" class="pbtn" style="width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+</div>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px; border-radius: 14px; background: #151515; border: 1px solid #1F1F1F">
+<sc-for list="{{bar}}" as="b" hint-placeholder-count="5">
+<button type="button" role="switch" aria-checked="{{b.on}}" onClick="{{b.flip}}" class="btn ghost" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: {{b.fg}}; font-size: 13px; font-weight: 600">
+<span aria-hidden="true" style="width: 30px; height: 18px; border-radius: 999px; background: {{b.track}}; position: relative; display: inline-block"><span style="position: absolute; top: 3px; left: {{b.knob}}; width: 12px; height: 12px; border-radius: 999px; background: {{b.dot}}; transition: left .2s ease"></span></span>{{b.label}}</button>
+</sc-for>
+<span style="flex: 1"></span>
+<button type="button" onClick="{{prevEp}}" class="btn ghost" style="height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #F5F5F5; font-weight: 600">← Prev</button>
+<button type="button" onClick="{{nextEp}}" class="btn" style="height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">Next →</button>
+</div>
+
+<section aria-label="Servers" style="display: flex; flex-wrap: wrap; border-radius: 16px; overflow: hidden; border: 1px solid #1F1F1F">
+<div style="flex: 1 1 260px; padding: 18px; background: #F5F5F5; color: #0E0E0E; display: flex; flex-direction: column; justify-content: center; gap: 6px">
+<span style="font-size: 13px">You're watching</span>
+<span style="font-family: Syne, sans-serif; font-weight: 800; font-size: 20px">Episode {{ep}}</span>
+<span style="font-size: 12px; color: #444444; line-height: 1.5">If a server doesn't load, pick another. You'll keep your place.</span>
+</div>
+<div style="flex: 999 1 420px; padding: 16px 18px; background: #151515; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{serverRows}}" as="r" hint-placeholder-count="2">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<span style="width: 54px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: #B5B5B5">{{r.label}}</span>
+<sc-for list="{{r.servers}}" as="s" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{s.on}}" onClick="{{s.pick}}" class="btn" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{s.border}}; background: {{s.bg}}; color: {{s.fg}}; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; gap: 8px">{{s.name}}<span style="font-weight: 500; opacity: 0.7">{{s.note}}</span></button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h1 style="margin: 0; font-family: Syne, sans-serif; font-weight: 800; font-size: 26px; letter-spacing: -0.02em">Episode {{ep}} · {{epTitle}}</h1>
+<a href="Anime.dc.html" style="color: #B5B5B5; font-size: 14px">Frieren: Beyond Journey's End</a>
+</div>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{markWatched}}" class="btn ghost" style="height: 42px; padding: 0 14px; border-radius: 11px; border: 1px solid #262626; background: #151515; color: #F5F5F5; font-weight: 600">✓ Mark watched</button>
+<button type="button" onClick="{{report}}" class="btn ghost" style="height: 42px; padding: 0 14px; border-radius: 11px; border: 1px solid #262626; background: #151515; color: #F5F5F5; font-weight: 600">Report a problem</button>
+</div>
+</div>
+
+<section aria-labelledby="cm" style="display: flex; flex-direction: column; gap: 14px; margin-top: 8px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<h2 id="cm" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 20px">Episode {{ep}} comments</h2>
+<div role="tablist" aria-label="Sort comments" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #151515; border: 1px solid #1F1F1F">
+<sc-for list="{{csorts}}" as="c" hint-placeholder-count="2"><button type="button" role="tab" aria-selected="{{c.on}}" onClick="{{c.pick}}" class="btn" style="height: 34px; padding: 0 12px; border: 0; border-radius: 8px; font-size: 12px; font-weight: 600; background: {{c.bg}}; color: {{c.fg}}">{{c.label}}</button></sc-for>
+</div>
+</div>
+<form style="display: flex; gap: 10px; align-items: flex-start">
+<label for="c" class="sr">Write a comment</label>
+<textarea id="c" rows="2" placeholder="What did you think of this episode? Wrap spoilers in ||double bars||." style="flex: 1; box-sizing: border-box; padding: 12px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; font: inherit; resize: vertical"></textarea>
+<button type="submit" class="btn" style="height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">Post</button>
+</form>
+<sc-for list="{{comments}}" as="c" hint-placeholder-count="3">
+<div style="display: flex; gap: 12px; padding: 14px; border-radius: 12px; background: #151515; border: 1px solid #1F1F1F">
+<span style="width: 36px; height: 36px; border-radius: 999px; background: #262626; flex: none"></span>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span style="font-size: 13px"><strong>{{c.user}}</strong> <span style="color: #9A9A9A">· {{c.when}}</span></span>
+<span style="color: #C9C9C9; line-height: 1.5">{{c.text}}</span>
+<sc-if value="{{c.hasSpoiler}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{c.reveal}}" aria-label="{{c.spoilerLabel}}" style="align-self: flex-start; border: 0; padding: 4px 8px; border-radius: 6px; background: #1C1C1C; color: #C9C9C9; font-size: 13px; text-align: left; filter: {{c.blur}}; transition: filter .25s ease">[Spoiler text — tap to reveal]</button></sc-if>
+<span style="font-size: 12px; color: #9A9A9A">♥ {{c.likes}} · Reply</span>
+</div>
+</div>
+</sc-for>
+</section>
+</div>
+
+<aside class="layout" style="flex: {{rightFlex}}; max-width: {{rightMax}}; display: flex; flex-direction: column; gap: 18px">
+<section aria-labelledby="eps" style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #1F1F1F">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h2 id="eps" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 18px">Episodes</h2>
+<div role="radiogroup" aria-label="View" style="display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: #0E0E0E">
+<sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{v.on}}" aria-label="{{v.label}}" title="{{v.label}}" onClick="{{v.pick}}" class="btn" style="width: 36px; height: 32px; border: 0; border-radius: 7px; background: {{v.bg}}; color: {{v.fg}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="{{v.icon}}"></path></svg></button></sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 8px; align-items: center">
+<label for="es" class="sr">Find an episode</label>
+<input id="es" type="text" placeholder="Find episode #" style="flex: 1; height: 40px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px solid #262626; background: #0E0E0E; color: #F5F5F5; font: inherit; font-size: 13px">
+<span style="font-size: 12px; color: #9A9A9A; white-space: nowrap">{{watchedCount}}/28 watched</span>
+</div>
+</div>
+<sc-if value="{{listView}}" hint-placeholder-val="{{ true }}">
+<ol style="margin: 0; padding: 6px; list-style: none; display: flex; flex-direction: column; gap: 2px; max-height: 640px; overflow-y: auto">
+<sc-for list="{{episodes}}" as="e" hint-placeholder-count="12">
+<li><button type="button" class="row" aria-current="{{e.current}}" onClick="{{e.pick}}" style="width: 100%; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: 10px; background: {{e.bg}}; color: #F5F5F5; text-align: left">
+<span style="width: 30px; font-family: Syne, sans-serif; font-weight: 700; font-size: 14px; color: {{e.numColor}}; font-variant-numeric: tabular-nums">{{e.n}}</span>
+<span style="flex: 1; min-width: 0; font-size: 13px; color: {{e.titleColor}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{e.title}}</span>
+<span style="font-size: 11px; color: #9A9A9A">{{e.mark}}</span>
+</button></li>
+</sc-for>
+</ol>
+</sc-if>
+<sc-if value="{{gridView}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{episodes}}" as="e" hint-placeholder-count="28"><button type="button" aria-current="{{e.current}}" onClick="{{e.pick}}" title="{{e.title}}" class="btn" style="height: 44px; border-radius: 9px; border: 1px solid {{e.cellBorder}}; background: {{e.cellBg}}; color: {{e.cellFg}}; font-weight: 700; font-size: 13px">{{e.n}}</button></sc-for>
+</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="ab" style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 14px">
+<span style="width: 72px; height: 100px; border-radius: 10px; background: #262626; flex: none"></span>
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h2 id="ab" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 16px; line-height: 1.2">Frieren: Beyond Journey's End</h2>
+<span style="display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px"><span style="padding: 1px 6px; border-radius: 5px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">CC 28</span><span style="padding: 0 6px; border-radius: 5px; border: 1px solid #F5F5F5; font-weight: 700">DUB 28</span><span style="color: #9A9A9A">TV · 24m</span></span>
+<span style="font-size: 12px; color: #B5B5B5; line-height: 1.5">An elf mage outlives her hero party and sets out to understand the friends she barely knew.</span>
+</div>
+</div>
+<a href="Anime.dc.html" class="btn ghost" style="height: 40px; border-radius: 10px; border: 1px solid #333333; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px">View details</a>
+</section>
+
+<section aria-labelledby="wp" style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 id="wp" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 16px">Watch together</h2>
+<p style="margin: 0; color: #B5B5B5; font-size: 13px; line-height: 1.5">Start a room and share the link. Play, pause and seeking stay in sync for everyone.</p>
+<button type="button" onClick="{{party}}" class="btn" style="height: 42px; border-radius: 11px; border: 0; background: #F5F5F5; color: #0E0E0E; font-weight: 700">Start a watch party</button>
+</section>
+</aside>
+</main>
+
+<sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+<div role="status" class="pop" style="position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 40; padding: 12px 18px; border-radius: 14px; background: #F5F5F5; color: #0E0E0E; font-weight: 600; box-shadow: 0 18px 40px rgba(0,0,0,0.5)">{{toastText}}</div>
+</sc-if>
+<div style="height: 72px"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"motion":{"editor":"boolean","default":true,"section":"Preview"},"$preview":{"width":1440,"height":2200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { ep: 5, t: 1385, playing: true, audio: 0, server: 0, autoPlay: true, autoNext: true, autoSkip: false, theater: false, lights: false, resume: true, upCancelled: false, settings: false, keys: false, speed: 2, quality: 0, subSize: 1, subBox: false, view: 0, csort: 0, revealed: {}, toast: '' };
+  }
+  componentDidMount() {
+    this.tick = setInterval(() => {
+      const s = this.state;
+      if (!s.playing || s.settings || s.keys) return;
+      const spd = [0.5, 0.75, 1, 1.25, 1.5, 2][s.speed];
+      let t = s.t + spd;
+      if (s.autoSkip && t > 60 && t < 150) t = 150;
+      if (t >= 1420) {
+        if (s.autoNext && !s.upCancelled && s.ep < 28) { this.setState({ ep: s.ep + 1, t: 0, resume: false, upCancelled: false }); this.toast('Now playing episode ' + (s.ep + 1)); return; }
+        t = 1420; this.setState({ t, playing: false }); return;
+      }
+      this.setState({ t });
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.tick); clearTimeout(this.toastT); }
+  toast(x) { clearTimeout(this.toastT); this.setState({ toast: x }); this.toastT = setTimeout(() => this.setState({ toast: '' }), 3000); }
+  renderVals() {
+    const motion = this.props.motion ?? true;
+    const s = this.state;
+    const mmss = (v) => { v = Math.max(0, Math.floor(v)); return String(Math.floor(v / 60)).padStart(2, '0') + ':' + String(v % 60).padStart(2, '0'); };
+    const inIntro = s.t >= 60 && s.t < 150, inOutro = s.t >= 1330 && s.t < 1410, upNext = s.autoNext && !s.upCancelled && s.t >= 1410 && s.ep < 28;
+    const left = Math.max(0, Math.ceil(1420 - s.t));
+    const toggle = (key, label) => ({ label, on: s[key] ? 'true' : 'false', fg: s[key] ? '#F5F5F5' : '#B5B5B5', track: s[key] ? '#F5F5F5' : '#333333', knob: s[key] ? '15px' : '3px', dot: s[key] ? '#0E0E0E' : '#F5F5F5', flip: () => this.setState({ [key]: !s[key], ...(key === 'autoNext' ? { upCancelled: false } : {}) }) });
+    const pill = (arr, cur, key) => arr.map((label, k) => ({ label, on: k === cur ? 'true' : 'false', bg: k === cur ? '#F5F5F5' : '#232323', fg: k === cur ? '#0E0E0E' : '#F5F5F5', pick: () => this.setState({ [key]: k }) }));
+    const srv = [['HD-2', 'Re:Anime'], ['HD-1', 'Re:Anime'], ['Zone', 'AniZone']];
+    const serverRows = ['SUB', 'DUB'].map((label, a) => ({ label, servers: srv.map(([name, note], k) => { const on = s.audio === a && s.server === k; return { name, note, on: on ? 'true' : 'false', bg: on ? '#F5F5F5' : '#0E0E0E', fg: on ? '#0E0E0E' : '#F5F5F5', border: on ? '#F5F5F5' : '#2A2A2A', pick: () => { this.setState({ audio: a, server: k }); this.toast('Switched to ' + label + ' · ' + name + ' — kept your place at ' + mmss(s.t)); } }; }) }));
+    const episodes = Array.from({ length: 28 }, (_, k) => {
+      const n = k + 1, cur = n === s.ep, watched = n < s.ep;
+      return { n, title: n === 1 ? "The Journey's End" : 'Episode ' + n, current: cur ? 'true' : 'false', bg: cur ? '#1C1C1C' : 'transparent', numColor: cur ? '#F5F5F5' : watched ? '#5A5A5A' : '#D9D9D9', titleColor: watched ? '#8A8A8A' : '#F5F5F5', mark: cur ? 'Playing' : watched ? '✓' : (n === 28 ? 'Final' : ''),
+        cellBg: cur ? '#F5F5F5' : watched ? '#1C1C1C' : '#0E0E0E', cellFg: cur ? '#0E0E0E' : watched ? '#5A5A5A' : '#F5F5F5', cellBorder: cur ? '#F5F5F5' : '#262626',
+        pick: () => this.setState({ ep: n, t: 0, resume: false, upCancelled: false }) };
+    });
+    const views = [{ label: 'List view', icon: 'M4 6h16M4 12h16M4 18h16' }, { label: 'Number grid', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' }].map((v, k) => ({ ...v, on: k === s.view ? 'true' : 'false', bg: k === s.view ? '#2A2A2A' : 'transparent', fg: k === s.view ? '#F5F5F5' : '#9A9A9A', pick: () => this.setState({ view: k }) }));
+    const comments = [
+      { user: '[username]', when: '5h ago', text: '[episode comment — sample]', likes: 31, spoiler: false },
+      { user: '[username]', when: '1d ago', text: '[episode comment — sample]', likes: 12, spoiler: true },
+      { user: '[username]', when: '2d ago', text: '[episode comment — sample]', likes: 4, spoiler: false }
+    ];
+    const csorted = s.csort === 1 ? [...comments].sort((a, b) => b.likes - a.likes) : comments;
+    return {
+      rootClass: motion ? '' : 'nomo',
+      ep: s.ep, epTitle: s.ep === 1 ? "The Journey's End" : '[Episode title]', nextEpNum: s.ep + 1,
+      audioLabel: s.audio === 0 ? 'SUB' : 'DUB', serverName: srv[s.server][0], speedLabel: ['0.5×', '0.75×', '1×', '1.25×', '1.5×', '2×'][s.speed],
+      progress: (s.t / 1420 * 100).toFixed(2) + '%', timeLabel: mmss(s.t),
+      playLabel: s.playing ? 'Pause' : 'Play', playIcon: s.playing ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M7 4l13 8-13 8z',
+      togglePlay: () => this.setState({ playing: !s.playing }),
+      back10: () => this.setState({ t: Math.max(0, s.t - 10) }), fwd10: () => this.setState({ t: Math.min(1419, s.t + 10) }),
+      showResume: s.resume && s.ep === 5,
+      resume: () => this.setState({ resume: false, t: 462 }), startOver: () => this.setState({ resume: false, t: 0 }),
+      showSkip: (inIntro || inOutro) && !upNext, skipLabel: inIntro ? 'Skip intro' : 'Skip outro', skip: () => this.setState({ t: inIntro ? 150 : 1410 }),
+      showUpNext: upNext, upNextIn: left, ringOffset: String(Math.round(113 * (1 - left / 10))), cancelNext: () => this.setState({ upCancelled: true }),
+      showSettings: s.settings, settingsOpen: s.settings ? 'true' : 'false', gearRot: s.settings ? '60deg' : '0deg', toggleSettings: () => this.setState({ settings: !s.settings, keys: false }),
+      speeds: pill(['0.5', '0.75', '1', '1.25', '1.5', '2'], s.speed, 'speed'), qualities: pill(['Auto', '1080', '720', '480'], s.quality, 'quality'), subSizes: pill(['Small', 'Medium', 'Large'], s.subSize, 'subSize'),
+      qualityLabel: ['Auto', '1080p', '720p', '480p'][s.quality],
+      subSize: ['18px', '22px', '28px'][s.subSize], subBg: s.subBox ? 'rgba(0,0,0,0.6)' : 'transparent', subPad: s.subBox ? '2px 10px' : '0',
+      subBoxOn: s.subBox ? 'true' : 'false', subBoxTrack: s.subBox ? '#F5F5F5' : '#333333', subBoxKnob: s.subBox ? '17px' : '3px', subBoxDot: s.subBox ? '#0E0E0E' : '#F5F5F5', toggleSubBox: () => this.setState({ subBox: !s.subBox }),
+      showKeys: s.keys, toggleKeys: () => this.setState({ keys: !s.keys, settings: false }),
+      keys: [['Play / pause', ['Space', 'K']], ['Back / forward 10s', ['J', 'L']], ['Fullscreen', ['F']], ['Mute', ['M']], ['Captions on/off', ['C']], ['Next episode', ['N']], ['Speed', ['<', '>']], ['Skip intro', ['S']]].map(([what, keys]) => ({ what, keys })),
+      bar: [toggle('autoPlay', 'Auto play'), toggle('autoNext', 'Auto next'), toggle('autoSkip', 'Auto skip intro'), toggle('theater', 'Theater'), toggle('lights', 'Lights off')],
+      lightsOff: s.lights, toggleLights: () => this.setState({ lights: false }), playerShadow: s.lights ? '0 0 0 1px #333333, 0 30px 120px rgba(245,245,245,0.08)' : 'none',
+      leftFlex: s.theater ? '1 1 100%' : '999 1 720px', rightFlex: s.theater ? '1 1 100%' : '1 1 340px', rightMax: s.theater ? 'none' : '440px',
+      serverRows, episodes, views, listView: s.view === 0, gridView: s.view === 1, watchedCount: s.ep - 1,
+      prevEp: () => this.setState({ ep: Math.max(1, s.ep - 1), t: 0, upCancelled: false }),
+      nextEp: () => { if (s.ep < 28) { this.setState({ ep: s.ep + 1, t: 0, upCancelled: false }); this.toast('Now playing episode ' + (s.ep + 1)); } },
+      markWatched: () => this.toast('Episode ' + s.ep + ' marked as watched'),
+      report: () => this.toast('Thanks — we’ll check this source'),
+      party: () => this.toast('Room created — link copied'),
+      csorts: ['Newest', 'Top'].map((label, k) => ({ label, on: k === s.csort ? 'true' : 'false', bg: k === s.csort ? '#F5F5F5' : 'transparent', fg: k === s.csort ? '#0E0E0E' : '#B5B5B5', pick: () => this.setState({ csort: k }) })),
+      comments: csorted.map((c, k) => { const open = !!s.revealed[c.when]; return { ...c, hasSpoiler: c.spoiler, blur: open ? 'none' : 'blur(6px)', spoilerLabel: open ? 'Spoiler shown' : 'Show spoiler', reveal: () => this.setState({ revealed: { ...s.revealed, [c.when]: true } }) }; }),
+      toast: !!s.toast, toastText: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

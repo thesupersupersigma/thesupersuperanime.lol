@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home</title>
+<script src="./support.js"></script>
+<script src="/_blob/a4377a07b3876b1352202200239915e6"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Syne:wght@600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0E0E}
+a{color:#F5F5F5;text-decoration:none}a:hover{color:#ffffff}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid #F5F5F5;outline-offset:2px}
+.lift{transition:transform .2s ease,background-color .2s ease,border-color .2s ease}
+.lift:hover{transform:translateY(-3px);border-color:#3A3A3A}
+.card .poster{transition:transform .25s ease,filter .25s ease}
+.card:hover .poster{transform:scale(1.03);filter:brightness(1.15)}
+.btn{transition:transform .15s ease,background-color .2s ease,opacity .2s ease}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.ghost:hover{background:#232323}
+.cw .x{opacity:0;transition:opacity .15s ease}.cw:hover .x,.cw:focus-within .x{opacity:1}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+.rise{animation:rise .42s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes swapA{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes swapB{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+.swapA{animation:swapA .55s ease both}.swapB{animation:swapB .55s ease both}
+@keyframes shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
+.skel{background:linear-gradient(90deg,#191919 0%,#262626 50%,#191919 100%);background-size:1200px 100%;animation:shimmer 1.2s linear infinite}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+.pop{animation:pop .2s ease-out both}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}.live{animation:pulse 1.6s ease-in-out infinite}
+@keyframes fill{from{width:0}to{width:100%}}.autofill{animation:fill 8s linear both}
+.hscroll{scrollbar-width:none;scroll-behavior:smooth}.hscroll::-webkit-scrollbar{display:none}
+.nomo *{animation:none !important;transition:none !important}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="{{rootClass}}" style="background: #0E0E0E; color: #F5F5F5; font-family: Inter, system-ui, sans-serif; font-size: 14px; min-height: 100%; position: relative">
+
+<header style="position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #1F1F1F; background: rgba(14,14,14,0.86); backdrop-filter: blur(12px)">
+<div style="max-width: 1400px; margin: 0 auto; padding: 12px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<a href="Main.dc.html" style="font-family: Syne, sans-serif; font-weight: 800; font-size: 21px; letter-spacing: -0.02em">thesupersuper<span style="color: #8F8F8F">anime</span></a>
+<nav aria-label="Main" style="display: flex; flex-wrap: wrap; gap: 2px">
+<a href="Main.dc.html" style="padding: 9px 12px; border-radius: 8px; background: #1C1C1C; font-weight: 600">Home</a>
+<a href="#browse" class="ghost" style="padding: 9px 12px; border-radius: 8px; color: #B5B5B5">Browse</a>
+<a href="Schedule.dc.html" class="ghost" style="padding: 9px 12px; border-radius: 8px; color: #B5B5B5">Schedule</a>
+<a href="#community" class="ghost" style="padding: 9px 12px; border-radius: 8px; color: #B5B5B5">Community</a>
+</nav>
+<div style="flex: 1 1 280px; max-width: 520px; position: relative">
+<form role="search" style="position: relative; display: flex; align-items: center">
+<label for="q" class="sr">Search anime</label>
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9A9A" stroke-width="2" stroke-linecap="round" style="position: absolute; left: 14px"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<input id="q" type="search" autocomplete="off" onFocus="{{openSearch}}" onBlur="{{closeSearch}}" placeholder="Search anime, studios, characters" style="width: 100%; box-sizing: border-box; height: 44px; padding: 0 70px 0 42px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; font: inherit">
+<span style="position: absolute; right: 12px; font-size: 12px; color: #B5B5B5; border: 1px solid #333333; border-radius: 6px; padding: 2px 6px">Ctrl K</span>
+</form>
+<sc-if value="{{searchOpen}}" hint-placeholder-val="{{ false }}">
+<div class="pop" role="listbox" aria-label="Suggestions" style="position: absolute; left: 0; right: 0; top: 52px; border-radius: 14px; background: #151515; border: 1px solid #2A2A2A; box-shadow: 0 24px 48px rgba(0,0,0,0.6); padding: 8px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 11px; color: #9A9A9A; padding: 6px 8px; text-transform: uppercase; letter-spacing: 0.08em">Top results</span>
+<sc-for list="{{suggest}}" as="s" hint-placeholder-count="4">
+<a href="Anime.dc.html" class="ghost" style="display: flex; gap: 12px; align-items: center; padding: 8px; border-radius: 10px">
+<span style="width: 34px; height: 46px; border-radius: 6px; background: {{s.tone}}; flex: none"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-weight: 600; font-size: 13px">{{s.title}}</span><span style="font-size: 12px; color: #9A9A9A">{{s.meta}}</span></span>
+</a>
+</sc-for>
+<div style="display: flex; gap: 14px; padding: 8px; border-top: 1px solid #222222; margin-top: 4px; font-size: 11px; color: #9A9A9A"><span>↑ ↓ move</span><span>Enter open</span><span>Esc close</span><span style="margin-left: auto">Recent: frieren, gachiakuta</span></div>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; margin-left: auto">
+<a href="Anime.dc.html" aria-label="Random anime" title="Random anime" class="btn" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #262626; background: #151515; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg></a>
+<button type="button" aria-label="Notifications, 3 new" class="btn" style="position: relative; width: 44px; height: 44px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8"></path><path d="M10 21h4"></path></svg><span aria-hidden="true" style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 999px; background: #F5F5F5; border: 2px solid #151515"></span></button>
+<a href="#account" aria-label="Your account" class="btn" style="width: 44px; height: 44px; border-radius: 12px; background: #F5F5F5; color: #0E0E0E; display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: Syne, sans-serif">S</a>
+</div>
+</div>
+</header>
+
+<main style="max-width: 1400px; margin: 0 auto; padding: 24px 32px 0; display: flex; flex-direction: column; gap: 44px">
+
+<section aria-roledescription="carousel" aria-label="Spotlight" style="position: relative; border-radius: 22px; overflow: hidden; background: #181818; min-height: 470px; display: flex; border: 1px solid #1F1F1F">
+<div aria-hidden="true" class="{{swapClass}}" style="position: absolute; inset: 0 0 0 38%; background: {{spot.tone}}; display: flex; align-items: flex-start; justify-content: flex-end; padding: 22px 26px; color: #5A5A5A; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase">Key visual</div>
+<div aria-hidden="true" style="position: absolute; inset: 0; background: linear-gradient(90deg, #0E0E0E 0%, rgba(14,14,14,0.9) 34%, rgba(14,14,14,0.25) 70%, rgba(14,14,14,0) 100%)"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; opacity: 0.55; pointer-events: none">
+<dc-import name="Waves" height="{{ 170 }}" motion="{{motion}}" hint-size="100%,170px"></dc-import>
+</div>
+<div class="{{swapClass}}" style="position: relative; display: flex; flex-direction: column; justify-content: flex-end; gap: 16px; padding: 44px; max-width: 640px">
+<span style="font-family: Syne, sans-serif; font-weight: 700; font-size: 14px; color: #B5B5B5">#{{spot.rank}} Spotlight</span>
+<h1 style="margin: 0; font-family: Syne, sans-serif; font-weight: 800; font-size: 52px; line-height: 1.02; letter-spacing: -0.03em">{{spot.title}}</h1>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: #C9C9C9">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: #F5F5F5; color: #0E0E0E; font-weight: 700"><span class="live" aria-hidden="true" style="width: 7px; height: 7px; border-radius: 999px; background: #0E0E0E"></span>EP {{spot.next}} in {{spotCountdown}}</span>
+<span style="padding: 4px 9px; border-radius: 7px; border: 1px solid #333333">{{spot.format}}</span>
+<span style="padding: 4px 9px; border-radius: 7px; border: 1px solid #333333">24m</span>
+<span style="padding: 4px 9px; border-radius: 7px; border: 1px solid #333333">{{spot.studio}}</span>
+<span style="padding: 4px 9px; border-radius: 7px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">CC {{spot.sub}}</span>
+<span style="padding: 4px 9px; border-radius: 7px; border: 1px solid #F5F5F5; font-weight: 700">DUB {{spot.dub}}</span>
+</div>
+<p style="margin: 0; color: #C9C9C9; line-height: 1.6; font-size: 15px">{{spot.blurb}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px">
+<a href="Watch.dc.html" class="btn" style="display: inline-flex; align-items: center; gap: 9px; height: 50px; padding: 0 24px; border-radius: 13px; background: #F5F5F5; color: #0E0E0E; font-weight: 700"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"></path></svg>Watch now</a>
+<a href="Anime.dc.html" class="btn ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 50px; padding: 0 20px; border-radius: 13px; border: 1px solid #3A3A3A; background: rgba(21,21,21,0.7); font-weight: 600">Details<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></a>
+<button type="button" onClick="{{addSpot}}" class="btn ghost" aria-label="{{spotListLabel}}" title="{{spotListLabel}}" style="width: 50px; height: 50px; border-radius: 13px; border: 1px solid #3A3A3A; background: rgba(21,21,21,0.7); color: #F5F5F5; display: inline-flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="{{spotListIcon}}"></path></svg></button>
+</div>
+</div>
+<div style="position: absolute; right: 24px; bottom: 24px; display: flex; align-items: center; gap: 10px">
+<div style="display: flex; gap: 6px" aria-hidden="true">
+<sc-for list="{{dots}}" as="d" hint-placeholder-count="4"><span style="display: block; position: relative; overflow: hidden; height: 4px; border-radius: 2px; width: {{d.w}}; background: #3A3A3A"><sc-if value="{{d.on}}" hint-placeholder-val="{{ false }}"><span class="{{d.fillClass}}" style="position: absolute; left: 0; top: 0; bottom: 0; background: #F5F5F5"></span></sc-if></span></sc-for>
+</div>
+<button type="button" aria-label="Previous" onClick="{{prevSpot}}" class="btn" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #3A3A3A; background: rgba(14,14,14,0.75); color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button type="button" aria-label="Next" onClick="{{nextSpot}}" class="btn" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #3A3A3A; background: rgba(14,14,14,0.75); color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+</section>
+
+<sc-if value="{{hasContinue}}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="cw" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+<h2 id="cw" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 24px">Continue watching</h2>
+<a href="#history" style="color: #B5B5B5; font-size: 13px">Watch history</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px">
+<sc-for list="{{continueList}}" as="c" hint-placeholder-count="4">
+<div class="cw card rise" style="position: relative; animation-delay: {{c.delay}}">
+<a href="Watch.dc.html" style="display: flex; flex-direction: column; gap: 10px">
+<span class="poster" style="position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 12px; background: {{c.tone}}; overflow: hidden">
+<span style="position: absolute; left: 10px; top: 10px; font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 6px; background: rgba(14,14,14,0.85)">EP {{c.ep}}</span>
+<span style="position: absolute; right: 10px; bottom: 12px; font-size: 11px; color: #D9D9D9">{{c.left}} left</span>
+<span style="position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,0.15)"><span style="display: block; height: 4px; width: {{c.pct}}; background: #F5F5F5"></span></span>
+</span>
+<span style="font-weight: 600; line-height: 1.35">{{c.title}}</span>
+</a>
+<button type="button" class="x btn" aria-label="Remove from continue watching" onClick="{{c.remove}}" style="position: absolute; right: 8px; top: 8px; width: 32px; height: 32px; border-radius: 999px; border: 0; background: rgba(14,14,14,0.85); color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+</sc-for>
+</div>
+</section>
+</sc-if>
+
+<section aria-labelledby="tr" style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<h2 id="tr" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 24px">Trending</h2>
+<div style="display: flex; gap: 8px">
+<button type="button" aria-label="Scroll trending left" onClick="{{trendLeft}}" class="btn ghost" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button type="button" aria-label="Scroll trending right" onClick="{{trendRight}}" class="btn ghost" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+</div>
+<div ref="{{setTrend}}" class="hscroll" style="display: flex; gap: 18px; overflow-x: auto; padding: 4px 2px 8px">
+<sc-for list="{{trending}}" as="t" hint-placeholder-count="8">
+<a href="Anime.dc.html" class="card" style="flex: none; display: flex; align-items: flex-end; gap: 6px">
+<span style="display: flex; flex-direction: column; align-items: center; gap: 10px; width: 46px">
+<span style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 600; color: #B5B5B5; max-height: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">{{t.title}}</span>
+<span style="font-family: Syne, sans-serif; font-weight: 800; font-size: 34px; line-height: 1; color: transparent; -webkit-text-stroke: 1.2px #F5F5F5">{{t.rank}}</span>
+</span>
+<span class="poster" style="display: block; width: 150px; aspect-ratio: 2 / 3; border-radius: 12px; background: {{t.tone}}"></span>
+</a>
+</sc-for>
+</div>
+</section>
+
+<section aria-label="Charts" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px">
+<sc-for list="{{charts}}" as="col" hint-placeholder-count="4">
+<div style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0 0 2px; font-family: Syne, sans-serif; font-weight: 700; font-size: 17px">{{col.title}}</h2>
+<sc-for list="{{col.items}}" as="it" hint-placeholder-count="5">
+<a href="Anime.dc.html" class="card" style="display: flex; gap: 12px; align-items: center">
+<span class="poster" style="width: 46px; height: 62px; border-radius: 8px; flex: none; background: {{it.tone}}"></span>
+<span style="display: flex; flex-direction: column; gap: 5px; min-width: 0">
+<span style="font-weight: 600; font-size: 13px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{it.title}}</span>
+<span style="display: flex; gap: 5px; font-size: 11px; color: #9A9A9A; align-items: center"><span style="padding: 1px 5px; border-radius: 4px; background: #F5F5F5; color: #0E0E0E; font-weight: 700">CC {{it.sub}}</span><span style="padding: 0 5px; border-radius: 4px; border: 1px solid #5A5A5A; font-weight: 700; color: #D9D9D9">DUB {{it.dub}}</span>· {{it.format}}</span>
+</span>
+</a>
+</sc-for>
+<a href="#more" style="font-size: 13px; color: #B5B5B5; margin-top: 2px">View more →</a>
+</div>
+</sc-for>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
+
+<div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<h2 style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 24px">Latest episodes</h2>
+<div role="tablist" aria-label="Sort" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #151515; border: 1px solid #1F1F1F">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" class="btn" style="height: 36px; padding: 0 14px; border: 0; border-radius: 9px; font-size: 13px; font-weight: 600; background: {{t.bg}}; color: {{t.fg}}">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+<div class="hscroll" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px">
+<sc-for list="{{genres}}" as="g" hint-placeholder-count="10"><a href="#genre" class="ghost" style="flex: none; padding: 8px 14px; border-radius: 999px; border: 1px solid #262626; color: #C9C9C9; font-size: 13px; background: #151515">{{g}}</a></sc-for>
+</div>
+<sc-if value="{{loading}}" hint-placeholder-val="{{ false }}">
+<div aria-busy="true" aria-label="Loading" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 16px">
+<sc-for list="{{skeletons}}" as="k" hint-placeholder-count="12">
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="skel" style="display: block; aspect-ratio: 2 / 3; border-radius: 12px"></span><span class="skel" style="display: block; height: 12px; border-radius: 4px; width: 85%"></span><span class="skel" style="display: block; height: 10px; border-radius: 4px; width: 50%"></span></div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{notLoading}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px 16px">
+<sc-for list="{{grid}}" as="a" hint-placeholder-count="12">
+<div class="card rise" onMouseEnter="{{a.enter}}" onMouseLeave="{{a.leave}}" style="position: relative; animation-delay: {{a.delay}}; z-index: {{a.z}}">
+<a href="Anime.dc.html" style="display: flex; flex-direction: column; gap: 8px">
+<span class="poster" style="position: relative; display: block; aspect-ratio: 2 / 3; border-radius: 12px; background: {{a.tone}}">
+<span style="position: absolute; left: 8px; bottom: 8px; display: flex; gap: 4px">
+<span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: #F5F5F5; color: #0E0E0E">CC {{a.sub}}</span>
+<sc-if value="{{a.hasDub}}" hint-placeholder-val="{{ true }}"><span style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; border: 1px solid #F5F5F5; background: rgba(14,14,14,0.75)">DUB {{a.dub}}</span></sc-if>
+</span>
+<span style="position: absolute; right: 8px; top: 8px; font-size: 11px; color: #D9D9D9; background: rgba(14,14,14,0.85); padding: 2px 6px; border-radius: 5px">{{a.when}}</span>
+</span>
+<span style="font-weight: 600; font-size: 13px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{a.title}}</span>
+<span style="font-size: 12px; color: #9A9A9A">{{a.meta}}</span>
+</a>
+<sc-if value="{{a.hovered}}" hint-placeholder-val="{{ false }}">
+<div class="pop" style="position: absolute; top: 10px; {{a.side}}: calc(100% + 10px); width: 280px; padding: 16px; border-radius: 14px; background: #1A1A1A; border: 1px solid #2E2E2E; box-shadow: 0 24px 48px rgba(0,0,0,0.65); display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: Syne, sans-serif; font-weight: 700; font-size: 16px; line-height: 1.2">{{a.title}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: #C9C9C9"><span style="padding: 2px 7px; border-radius: 5px; border: 1px solid #333333">TV</span><span style="padding: 2px 7px; border-radius: 5px; border: 1px solid #333333">12 eps</span><span style="padding: 2px 7px; border-radius: 5px; border: 1px solid #333333">Airing</span></span>
+<span style="font-size: 13px; color: #B5B5B5; line-height: 1.5">[Short synopsis shown on hover — two or three lines from AniList.]</span>
+<span style="font-size: 12px; color: #9A9A9A">Genres: [Action, Fantasy]</span>
+<span style="display: flex; gap: 8px"><a href="Watch.dc.html" class="btn" style="flex: 1; height: 40px; border-radius: 10px; background: #F5F5F5; color: #0E0E0E; font-weight: 700; display: flex; align-items: center; justify-content: center">Watch now</a><button type="button" aria-label="Add to list" onClick="{{a.add}}" class="btn" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #3A3A3A; background: #151515; color: #F5F5F5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button></span>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<button type="button" onClick="{{loadMore}}" class="btn ghost" style="align-self: center; height: 44px; padding: 0 22px; border-radius: 12px; border: 1px solid #262626; background: #151515; color: #F5F5F5; font-weight: 600">Load more</button>
+</div>
+
+<aside style="flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: 20px">
+<section aria-labelledby="top" style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h2 id="top" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 18px">Top 10</h2>
+<div role="tablist" aria-label="Period" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #0E0E0E">
+<sc-for list="{{periods}}" as="p" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{p.on}}" onClick="{{p.pick}}" class="btn" style="height: 32px; padding: 0 10px; border: 0; border-radius: 8px; font-size: 12px; font-weight: 600; background: {{p.bg}}; color: {{p.fg}}">{{p.label}}</button></sc-for>
+</div>
+</div>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{top}}" as="r" hint-placeholder-count="10">
+<li class="rise" style="animation-delay: {{r.delay}}"><a href="Anime.dc.html" class="card" style="display: flex; align-items: center; gap: 12px">
+<span style="width: 30px; text-align: center; font-family: Syne, sans-serif; font-weight: 800; font-size: 22px; color: {{r.rankColor}}; -webkit-text-stroke: {{r.stroke}}">{{r.rank}}</span>
+<span class="poster" style="width: 44px; height: 60px; border-radius: 8px; flex: none; background: {{r.tone}}"></span>
+<span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><span style="font-weight: 600; font-size: 13px; line-height: 1.3">{{r.title}}</span><span style="font-size: 11px; color: #9A9A9A">CC {{r.sub}} · DUB {{r.dub}} · {{r.format}}</span></span>
+</a></li>
+</sc-for>
+</ol>
+</section>
+
+<section aria-labelledby="gen" style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+<h2 id="gen" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 18px">Genres</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{genreCloud}}" as="g" hint-placeholder-count="16"><a href="#genre" class="ghost" style="padding: 7px 11px; border-radius: 8px; background: #1C1C1C; font-size: 12px; font-weight: {{g.w}}; color: {{g.c}}">{{g.name}}</a></sc-for>
+</div>
+</section>
+
+<section aria-labelledby="sch" style="border-radius: 16px; background: #151515; border: 1px solid #1F1F1F; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h2 id="sch" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 18px">Airing today</h2>
+<a href="Schedule.dc.html" style="font-size: 13px; color: #B5B5B5">Full schedule →</a>
+</div>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<sc-for list="{{today}}" as="s" hint-placeholder-count="6">
+<li style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #1F1F1F; opacity: {{s.op}}">
+<span style="width: 44px; font-size: 12px; color: #B5B5B5; font-variant-numeric: tabular-nums">{{s.time}}</span>
+<span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{s.title}}</span>
+<span style="font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 6px; background: {{s.bg}}; color: {{s.fg}}">{{s.tag}}</span>
+</li>
+</sc-for>
+</ul>
+</section>
+</aside>
+</div>
+
+<section aria-labelledby="up" style="display: flex; flex-direction: column; gap: 14px">
+<h2 id="up" style="margin: 0; font-family: Syne, sans-serif; font-weight: 700; font-size: 24px">Coming next season</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px">
+<sc-for list="{{upcoming}}" as="u" hint-placeholder-count="4">
+<div class="lift" style="display: flex; gap: 14px; padding: 12px; border-radius: 14px; background: #151515; border: 1px solid #1F1F1F; align-items: center">
+<span style="width: 64px; height: 90px; border-radius: 8px; flex: none; background: {{u.tone}}"></span>
+<span style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0"><a href="Anime.dc.html" style="font-weight: 600; line-height: 1.3">{{u.title}}</a><span style="font-size: 12px; color: #9A9A9A">{{u.meta}}</span></span>
+<button type="button" onClick="{{u.toggle}}" aria-pressed="{{u.on}}" aria-label="{{u.label}}" title="{{u.label}}" class="btn" style="width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid {{u.border}}; background: {{u.bg}}; color: {{u.fg}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8"></path><path d="M10 21h4"></path></svg></button>
+</div>
+</sc-for>
+</div>
+</section>
+</main>
+
+<footer style="margin-top: 72px; border-top: 1px solid #1F1F1F">
+<div style="max-width: 1400px; margin: 0 auto; padding: 32px 32px 44px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-family: Syne, sans-serif; font-weight: 800; font-size: 20px">thesupersuper<span style="color: #8F8F8F">anime</span></span>
+</div>
+<nav aria-label="Footer" style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px">
+<a href="#status" style="color: #B5B5B5">Status</a><a href="#updates" style="color: #B5B5B5">Updates</a><a href="#discord" style="color: #B5B5B5">Discord</a><a href="#github" style="color: #B5B5B5">GitHub</a><a href="#selfhost" style="color: #B5B5B5">Host your own</a><a href="#privacy" style="color: #B5B5B5">Privacy</a>
+</nav>
+</div>
+</footer>
+
+<sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+<div role="status" class="pop" style="position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 18px; border-radius: 14px; background: #F5F5F5; color: #0E0E0E; font-weight: 600; box-shadow: 0 18px 40px rgba(0,0,0,0.5)">
+<span>{{toastText}}</span>
+<button type="button" onClick="{{undo}}" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #0E0E0E; background: transparent; color: #0E0E0E; font-weight: 700">Undo</button>
+</div>
+</sc-if>
+<a href="#" aria-label="Back to top" class="btn" style="position: fixed; right: 24px; bottom: 24px; z-index: 30; width: 48px; height: 48px; border-radius: 14px; background: #1C1C1C; border: 1px solid #333333; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"></path></svg></a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"motion":{"editor":"boolean","default":true,"section":"Preview"},"$preview":{"width":1440,"height":3200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { spot: 0, tab: 0, loading: false, period: 1, hover: -1, searchOpen: false, toast: '', now: Date.now(), removed: {}, reminders: { 1: true }, spotAdded: {}, swap: 0 };
+    this.t0 = Date.now();
+  }
+  componentDidMount() {
+    this.tick = setInterval(() => {
+      const motion = this.props.motion ?? true;
+      const n = Date.now();
+      const next = { now: n };
+      if (motion && n - (this.lastSwap || this.t0) > 8000) { this.lastSwap = n; next.spot = (this.state.spot + 1) % 4; next.swap = this.state.swap + 1; }
+      this.setState(next);
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.tick); clearTimeout(this.toastT); clearTimeout(this.loadT); clearTimeout(this.blurT); }
+  fmt(ms) {
+    if (ms < 0) ms = 0;
+    const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    const p = (v) => String(v).padStart(2, '0');
+    return (d ? d + 'd ' : '') + p(h) + 'h ' + p(m) + 'm ' + p(x) + 's';
+  }
+  showToast(text) { clearTimeout(this.toastT); this.setState({ toast: text }); this.toastT = setTimeout(() => this.setState({ toast: '' }), 3200); }
+  renderVals() {
+    const motion = this.props.motion ?? true;
+    const st = this.state;
+    const tones = ['#232323', '#2B2B2B', '#1F1F1F', '#303030', '#262626', '#2E2E2E', '#212121', '#292929'];
+    const elapsed = st.now - this.t0;
+    const spots = [
+      { title: "Frieren: Beyond Journey's End Season 2", format: 'TV', studio: 'Madhouse', next: 9, offset: 225000000, rank: 1, sub: 8, dub: 6, tone: '#262626', blurb: 'The elf mage Frieren keeps walking north with Fern and Stark, collecting spells and the memories of a hero party only she will outlive.' },
+      { title: 'Witch Hat Atelier', format: 'TV', studio: 'Bug Films', next: 7, offset: 353000000, rank: 2, sub: 6, dub: 4, tone: '#2B2B2B', blurb: 'A girl who was told she could never use magic learns it is drawn, not born, and that drawing it is forbidden for people like her.' },
+      { title: 'Gachiakuta', format: 'TV', studio: 'Bones Film', next: 12, offset: 86000000, rank: 3, sub: 11, dub: 9, tone: '#303030', blurb: 'Thrown into the abyss with the rest of the city’s trash, a boy from the slums learns to fight with the things people threw away.' },
+      { title: 'Dandadan 3rd Season', format: 'TV', studio: 'Science SARU', next: 5, offset: 590000000, rank: 4, sub: 4, dub: 2, tone: '#232323', blurb: 'Ghosts, aliens and one very stubborn friendship. The occult chaos picks up exactly where the last cliffhanger left it.' }
+    ];
+    const i = st.spot;
+    const go = (d) => () => { this.lastSwap = Date.now(); this.setState({ spot: (i + d + spots.length) % spots.length, swap: st.swap + 1 }); };
+    const dots = spots.map((_, k) => ({ w: k === i ? '34px' : '8px', on: k === i, fillClass: motion ? 'autofill' : '' }));
+    const added = !!st.spotAdded[i];
+    const tabNames = ['Newest', 'Popular', 'Top rated'];
+    const tabs = tabNames.map((label, k) => ({ label, on: k === st.tab ? 'true' : 'false', bg: k === st.tab ? '#2A2A2A' : 'transparent', fg: k === st.tab ? '#F5F5F5' : '#B5B5B5', pick: () => { if (k === st.tab) return; clearTimeout(this.loadT); this.setState({ tab: k, loading: true, hover: -1 }); this.loadT = setTimeout(() => this.setState({ loading: false }), 650); } }));
+    const periods = ['Today', 'Week', 'Month'].map((label, k) => ({ label, on: k === st.period ? 'true' : 'false', bg: k === st.period ? '#F5F5F5' : 'transparent', fg: k === st.period ? '#0E0E0E' : '#B5B5B5', pick: () => this.setState({ period: k }) }));
+    const pool = ['Nia Liston: The Merciless Maiden', 'The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life', 'Super Psychic Policeman Chojo', 'Chitose Is in the Ramune Bottle', 'The Cold Sato-san Is Only Sweet to Me', 'Suikoden', 'Gachiakuta', 'Witch Hat Atelier', 'One Piece', 'Black Clover Season 2', 'Overgeared', 'Dandadan 3rd Season'];
+    const order = st.tab === 0 ? pool : st.tab === 1 ? [...pool].reverse() : pool.slice(6).concat(pool.slice(0, 6));
+    const grid = order.map((title, k) => ({
+      title, tone: tones[(k + st.tab) % tones.length], sub: 9 - (k % 4), dub: 6 - (k % 4), hasDub: k % 3 !== 1,
+      when: ['12m ago', '1h ago', '3h ago', '5h ago'][k % 4], meta: title === 'One Piece' ? 'TV · 1999' : 'TV · 2026',
+      delay: (motion ? k * 45 : 0) + 'ms', hovered: st.hover === k, z: st.hover === k ? 10 : 1, side: (k % 5) >= 3 ? 'right' : 'left',
+      enter: () => this.setState({ hover: k }), leave: () => this.setState({ hover: -1 }),
+      add: () => this.showToast('Added “' + title + '” to Plan to watch')
+    }));
+    const topPools = [
+      ['One Piece', 'Gachiakuta', "Frieren: Beyond Journey's End Season 2", 'Witch Hat Atelier', 'Dandadan 3rd Season', 'Overgeared', 'Black Clover Season 2', 'Suikoden', 'Nia Liston: The Merciless Maiden', 'Super Psychic Policeman Chojo'],
+      ["Frieren: Beyond Journey's End Season 2", 'One Piece', 'Gachiakuta', 'Dandadan 3rd Season', 'Witch Hat Atelier', 'Black Clover Season 2', 'Overgeared', 'Nia Liston: The Merciless Maiden', 'Suikoden', 'Chitose Is in the Ramune Bottle'],
+      ['One Piece', "Frieren: Beyond Journey's End Season 2", 'Dandadan 3rd Season', 'Gachiakuta', 'Black Clover Season 2', 'Witch Hat Atelier', 'Overgeared', 'Suikoden', 'The Cold Sato-san Is Only Sweet to Me', 'Super Psychic Policeman Chojo']
+    ];
+    const top = topPools[st.period].map((title, k) => ({ title, rank: String(k + 1).padStart(2, '0'), rankColor: k < 3 ? '#F5F5F5' : 'transparent', stroke: k < 3 ? '0' : '1px #6E6E6E', tone: tones[(k + 2) % tones.length], sub: 12 - k, dub: 9 - (k % 5), format: 'TV', delay: (motion ? k * 35 : 0) + 'ms' }));
+    const sch = [['06:00', 'Suikoden', 'EP 8'], ['07:30', 'The Cold Sato-san Is Only Sweet to Me', 'EP 8'], ['09:00', 'Super Psychic Policeman Chojo', 'EP 8'], ['12:00', 'One Piece', 'EP 1161'], ['13:15', 'Nia Liston: The Merciless Maiden', null], ['16:30', 'Witch Hat Atelier', 'EP 7']];
+    const today = sch.map(([time, title, ep], k) => {
+      const aired = k < 4, next = k === 4;
+      return { time, title, tag: next ? 'in ' + this.fmt(2000000 - elapsed).replace(/^0?0h /, '') : ep, bg: next ? '#F5F5F5' : '#232323', fg: next ? '#0E0E0E' : '#C9C9C9', op: aired ? '0.55' : '1' };
+    });
+    const continueRaw = [
+      { title: "Frieren: Beyond Journey's End", ep: 5, left: '14:32', pct: '40%' },
+      { title: 'Gachiakuta', ep: 11, left: '3:05', pct: '86%' },
+      { title: 'Witch Hat Atelier', ep: 2, left: '20:10', pct: '15%' },
+      { title: 'One Piece', ep: 1150, left: '9:48', pct: '58%' }
+    ];
+    const continueList = continueRaw.map((c, k) => ({ ...c, tone: tones[k * 2 % tones.length], delay: (motion ? k * 60 : 0) + 'ms', remove: () => { this.setState({ removed: { ...st.removed, [k]: true } }); this.showToast('Removed “' + c.title + '” from Continue watching'); } })).filter((_, k) => !st.removed[k]);
+    const chartCols = [
+      ['Top airing', ['One Piece', 'Gachiakuta', 'Witch Hat Atelier', 'Overgeared', 'Suikoden']],
+      ['Most popular', ['Jujutsu Kaisen', 'Demon Slayer', 'Attack on Titan', 'Chainsaw Man', 'Spy x Family']],
+      ['Most favorited', ["Frieren: Beyond Journey's End", 'Fullmetal Alchemist: Brotherhood', 'Steins;Gate', 'Gintama', 'Mob Psycho 100']],
+      ['Just completed', ['The Apothecary Diaries', 'Kaiju No. 8', 'Blue Lock', 'Dr. Stone', 'Solo Leveling']]
+    ];
+    const charts = chartCols.map(([title, items], c) => ({ title, items: items.map((t, k) => ({ title: t, tone: tones[(k + c) % tones.length], sub: 24 - k * 3, dub: 20 - k * 3, format: 'TV' })) }));
+    const upcomingRaw = ['Delicious in Dungeon Season 2', 'Mushoku Tensei: Jobless Reincarnation Season 3', 'Jujutsu Kaisen: The Culling Game Part 2', '[Upcoming film]'];
+    const upcoming = upcomingRaw.map((title, k) => { const on = !!st.reminders[k]; return { title, tone: tones[(k + 4) % tones.length], meta: ['TV · Winter 2027', 'TV · Winter 2027', 'TV · Winter 2027', 'Movie · 2027'][k], on: on ? 'true' : 'false', label: on ? 'Reminder on' : 'Remind me', bg: on ? '#F5F5F5' : '#151515', fg: on ? '#0E0E0E' : '#F5F5F5', border: on ? '#F5F5F5' : '#333333', toggle: () => { this.setState({ reminders: { ...st.reminders, [k]: !on } }); this.showToast(on ? 'Reminder removed' : 'We’ll notify you when “' + title + '” airs'); } }; });
+    const genreNames = ['Action', 'Adventure', 'Cars', 'Comedy', 'Dementia', 'Demons', 'Drama', 'Ecchi', 'Fantasy', 'Game', 'Harem', 'Historical', 'Horror', 'Isekai', 'Josei', 'Kids', 'Magic', 'Martial Arts', 'Mecha', 'Military', 'Music', 'Mystery', 'Parody', 'Police', 'Psychological', 'Romance', 'Samurai', 'School', 'Sci-Fi', 'Seinen', 'Shoujo', 'Shounen', 'Slice of Life', 'Space', 'Sports', 'Super Power', 'Supernatural', 'Thriller', 'Vampire'];
+    return {
+      rootClass: motion ? '' : 'nomo', motion,
+      spot: spots[i], swapClass: st.swap % 2 ? 'swapA' : 'swapB', spotCountdown: this.fmt(spots[i].offset - elapsed), dots, prevSpot: go(-1), nextSpot: go(1),
+      spotListLabel: added ? 'In your list' : 'Add to list', spotListIcon: added ? 'M5 12l5 5L20 7' : 'M12 5v14M5 12h14',
+      addSpot: () => { this.setState({ spotAdded: { ...st.spotAdded, [i]: !added } }); this.showToast(added ? 'Removed from your list' : 'Added “' + spots[i].title + '” to Watching'); },
+      searchOpen: st.searchOpen,
+      openSearch: () => { clearTimeout(this.blurT); this.setState({ searchOpen: true }); },
+      closeSearch: () => { this.blurT = setTimeout(() => this.setState({ searchOpen: false }), 180); },
+      suggest: [["Frieren: Beyond Journey's End", 'TV · 2023 · 28 eps'], ["Frieren: Beyond Journey's End Season 2", 'TV · 2026 · Airing'], ['Frieren: Mini-Anime', 'ONA · 2023'], ['[Another match]', 'Movie']].map(([title, meta], k) => ({ title, meta, tone: tones[k] })),
+      hasContinue: continueList.length > 0, continueList,
+      setTrend: (el) => { this.trendEl = el; },
+      trendLeft: () => this.trendEl && this.trendEl.scrollBy({ left: -560, behavior: motion ? 'smooth' : 'auto' }),
+      trendRight: () => this.trendEl && this.trendEl.scrollBy({ left: 560, behavior: motion ? 'smooth' : 'auto' }),
+      trending: ['One Piece', "Frieren: Beyond Journey's End Season 2", 'Gachiakuta', 'Witch Hat Atelier', 'Dandadan 3rd Season', 'Overgeared', 'Black Clover Season 2', 'Suikoden', 'Nia Liston: The Merciless Maiden', 'Super Psychic Policeman Chojo'].map((title, k) => ({ title, rank: String(k + 1).padStart(2, '0'), tone: tones[(k + 1) % tones.length] })),
+      charts, tabs, periods, grid, top, today, upcoming,
+      loading: st.loading, notLoading: !st.loading, skeletons: Array.from({ length: 12 }, (_, k) => k),
+      loadMore: () => { clearTimeout(this.loadT); this.setState({ loading: true }); this.loadT = setTimeout(() => this.setState({ loading: false }), 650); },
+      genres: ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller'],
+      genreCloud: genreNames.map((name, k) => ({ name, w: k % 4 === 0 ? 700 : 500, c: k % 3 === 0 ? '#F5F5F5' : '#B5B5B5' })),
+      toast: !!st.toast, toastText: st.toast, undo: () => this.setState({ toast: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

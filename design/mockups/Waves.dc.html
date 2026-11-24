@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Waves</title>
+<script src="./support.js"></script>
+<script src="/_blob/a4377a07b3876b1352202200239915e6"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0E0E0E}
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: {{h}}; overflow: hidden">
+<canvas ref="{{setCanvas}}" aria-hidden="true" style="display: block; width: 100%; height: 100%"></canvas>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"height":{"editor":"int","default":240,"min":80,"max":600,"unit":"px"},"motion":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":240}}'>
+class Component extends DCLogic {
+  componentDidMount() { this.tries = 0; this.boot(); }
+  componentWillUnmount() { this.dead = true; cancelAnimationFrame(this.raf); clearTimeout(this.retry); if (this.ro) this.ro.disconnect(); if (this.io) this.io.disconnect(); if (this.renderer) this.renderer.dispose(); }
+  boot() {
+    const T = window.THREE, c = this.canvas;
+    if (!T || !c || !c.clientWidth) { if (this.tries++ < 40) this.retry = setTimeout(() => this.boot(), 150); return; }
+    try {
+      const renderer = new T.WebGLRenderer({ canvas: c, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      const scene = new T.Scene();
+      const camera = new T.PerspectiveCamera(40, 1, 0.1, 100);
+      camera.position.set(0, 2.2, 7.5); camera.lookAt(0, 0, 0);
+      const COLS = 140, ROWS = 20, COUNT = COLS * ROWS;
+      const pos = new Float32Array(COUNT * 3), base = new Float32Array(COUNT * 2);
+      for (let r = 0, n = 0; r < ROWS; r++) for (let q = 0; q < COLS; q++, n++) {
+        const x = (q / (COLS - 1) - 0.5) * 22, z = (r / (ROWS - 1) - 0.5) * 6;
+        base[n * 2] = x; base[n * 2 + 1] = z; pos[n * 3] = x; pos[n * 3 + 2] = z;
+      }
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+      const mat = new T.PointsMaterial({ color: 0xf5f5f5, size: 0.045, sizeAttenuation: true, transparent: true, opacity: 0.85, depthWrite: false });
+      scene.add(new T.Points(geo, mat));
+      this.renderer = renderer;
+      const size = () => { const w = c.clientWidth, h = c.clientHeight || 1; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+      size();
+      if (window.ResizeObserver) { this.ro = new ResizeObserver(size); this.ro.observe(c); }
+      let visible = true;
+      if (window.IntersectionObserver) { this.io = new IntersectionObserver((e) => { visible = e[0].isIntersecting; }); this.io.observe(c); }
+      const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const draw = (t) => {
+        const a = geo.attributes.position.array;
+        for (let n = 0; n < COUNT; n++) {
+          const x = base[n * 2], z = base[n * 2 + 1];
+          a[n * 3 + 1] = Math.sin(x * 0.55 + t * 0.9) * 0.28 + Math.cos(z * 1.4 + x * 0.15 + t * 0.6) * 0.18;
+        }
+        geo.attributes.position.needsUpdate = true;
+        renderer.render(scene, camera);
+      };
+      const loop = (ms) => {
+        if (this.dead) return;
+        const moving = (this.props.motion ?? true) && !reduce;
+        if (visible && moving) draw(ms / 1000);
+        else if (!this.drawnStill) { draw(0); this.drawnStill = true; }
+        if (moving) this.drawnStill = false;
+        this.raf = requestAnimationFrame(loop);
+      };
+      this.raf = requestAnimationFrame(loop);
+    } catch (e) { /* no WebGL: the canvas just stays empty */ }
+  }
+  renderVals() {
+    return { h: (this.props.height ?? 240) + 'px', setCanvas: (el) => { this.canvas = el; } };
+  }
+}
+</script>
+</body>
+</html>
