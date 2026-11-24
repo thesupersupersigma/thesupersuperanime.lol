@@ -1,0 +1,6 @@
+{
+  "//": "Used by `pnpm auth:schema` only: Better Auth's CLI can't load modules that import 'server-only'.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "paths": { "@/*": ["../src/*"], "server-only": ["../test/empty.ts"] } },
+  "include": ["*.ts"]
+}
