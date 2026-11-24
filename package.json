@@ -1,0 +1,12 @@
+{
+  "name": "thesupersuperanime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Anime streaming site powered by RECONSUMET.TS",
+  "license": "GPL-3.0-or-later",
+  "author": "thesupersupersigma",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thesupersupersigma/thesupersuperanime.lol.git"
+  }
+}
