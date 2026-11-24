@@ -62,3 +62,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Claude Code task prompts (local only)
+/prompts/
