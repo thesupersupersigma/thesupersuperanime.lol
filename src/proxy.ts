@@ -1,6 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getConfig } from '@/config'
 
+// Where each provider's profile pictures live (Microsoft's come inline as data: URLs).
+const AVATAR_ORIGINS = {
+  discord: 'https://cdn.discordapp.com',
+  google: 'https://lh3.googleusercontent.com',
+  github: 'https://avatars.githubusercontent.com',
+  microsoft: null,
+} as const
+
 /** Origin of a configured URL, or null. */
 const originOf = (u?: string) => (u ? new URL(u).origin : null)
 
@@ -9,6 +17,7 @@ export function buildCsp(nonce: string, dev: boolean) {
   const relay = c.reconsumet.relayUrl
   const analytics = originOf(c.site.analyticsScriptUrl)
   const logo = originOf(c.site.logoUrl)
+  const avatars = Object.entries(AVATAR_ORIGINS).flatMap(([id, o]) => (o && id in c.auth.social ? [o] : []))
   const https = c.site.url.startsWith('https://')
   const src = (...xs: (string | null | false)[]) => xs.filter(Boolean).join(' ')
   return [
@@ -16,7 +25,7 @@ export function buildCsp(nonce: string, dev: boolean) {
     // strict-dynamic: only scripts carrying this request's nonce (Next adds it to its own) and what they load
     `script-src ${src(`'self'`, `'nonce-${nonce}'`, `'strict-dynamic'`, dev && `'unsafe-eval'`)}`,
     `style-src 'self' 'unsafe-inline'`,
-    `img-src ${src(`'self'`, 'data:', 'blob:', logo)}`,
+    `img-src ${src(`'self'`, 'data:', 'blob:', logo, ...avatars)}`,
     `font-src 'self'`,
     `connect-src ${src(`'self'`, relay, analytics, dev && 'ws:')}`,
     `media-src ${src(`'self'`, 'blob:', relay)}`,
