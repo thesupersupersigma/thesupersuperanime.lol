@@ -1,1 +1,0 @@
-{"version":3,"file":"streamtape.d.ts","sourceRoot":"","sources":["../../../src/lib/extractors/streamtape.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,aAAa,EAAE,eAAe,EAAE,MAAM,QAAQ,CAAC;AAE7D;;;;;;;;;;;GAWG;AACH,qBAAa,mBAAoB,YAAW,aAAa;IACvD,OAAO,WAA0D;IAEjE,SAAS,CAAC,GAAG,EAAE,MAAM,GAAG,OAAO;IAWzB,OAAO,CAAC,QAAQ,EAAE,MAAM,GAAG,OAAO,CAAC,eAAe,CAAC;CAyD1D"}

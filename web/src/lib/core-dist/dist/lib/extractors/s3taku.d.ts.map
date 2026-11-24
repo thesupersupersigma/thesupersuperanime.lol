@@ -1,1 +1,0 @@
-{"version":3,"file":"s3taku.d.ts","sourceRoot":"","sources":["../../../src/lib/extractors/s3taku.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,aAAa,EAAE,eAAe,EAAE,MAAM,QAAQ,CAAC;AA+E7D,qBAAa,eAAgB,YAAW,aAAa;IACnD,OAAO,WASL;IAEF,SAAS,CAAC,GAAG,EAAE,MAAM,GAAG,OAAO;IAWzB,OAAO,CAAC,QAAQ,EAAE,MAAM,GAAG,OAAO,CAAC,eAAe,CAAC;CAsF1D"}
