@@ -154,3 +154,8 @@ html[data-motion="reduce"] *::after {
 .watch-player[data-sub-size="xl"] video::cue {
   font-size: 150%;
 }
+/* JASSUB's canvas (ASS subtitles) sits above the skin's controls (z-index 30 in Video.js 10.7) so a line is never
+   hidden behind the control bar; it ignores the pointer, so every control still works. */
+.watch-player canvas.JASSUB {
+  z-index: 31;
+}
