@@ -2,21 +2,23 @@
 
 [![Discord](https://img.shields.io/badge/discord-join-5865F2)](https://discord.gg/trvtVNWzaf)
 ![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
-![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-orange)
+![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-orange)
 
 An anime streaming site built solo: AniList metadata, playback through
 [RECONSUMΣT.TS](https://github.com/thesupersupersigma/RECONSUMET.TS), accounts and watch history. Anyone can host
 their own copy: one `docker compose up -d` runs the site, its database and RECONSUMΣT.TS together, and every name,
 link and login comes from your `.env`.
 
-**Status: v0.5.0, the base.** Accounts (email, Discord, Google, GitHub, Microsoft, passkeys, two-step verification),
-guest progress that moves into your account, the design system, search suggestions and a placeholder home page with
-real anime. The real Home, Anime, Watch and Schedule pages come in 0.6. v1 (April–August 2026) is kept on the
-[`old`](../../tree/old) branch.
+**Status: v0.6.0, the watch path.** Search for an anime, open its page (episodes, characters, watch order, your list
+status and rating, trailer), press play and watch it: sub or dub, styled subtitles rendered exactly (libass through
+JASSUB), automatic fallback when a server fails, resume, skip intro/outro, up next, theater mode and keyboard
+shortcuts. Your progress is kept in your account, or in the browser as a guest. Underneath: accounts (email, Discord,
+Google, GitHub, Microsoft, passkeys, two-step verification). The real Home and the Schedule come in 0.7. v1
+(April–August 2026) is kept on the [`old`](../../tree/old) branch.
 
-| Home (placeholder) | Sign in |
+| Anime page | Watch page |
 | --- | --- |
-| ![Placeholder home page with a particle wave and a row of anime posters](docs/screenshots/home.png) | ![Sign-in page with email, password and passkey](docs/screenshots/sign-in.png) |
+| ![Anime page for Frieren with banner, poster, actions, episode list and details](docs/screenshots/anime.png) | ![Watch page playing Frieren episode 1 with server rows, toggles and the episode list](docs/screenshots/watch.png) |
 
 ## Quick start
 
@@ -42,7 +44,7 @@ Node 26 + pnpm 11: `pnpm install`, then `pnpm dev` against any Postgres and RECO
 `pnpm build`; end-to-end tests in [e2e/](e2e/README.md).
 
 Stack: Next.js 16 (App Router, standalone, Node runtime), React 19, Tailwind CSS 4, Radix UI, Prisma 7 + PostgreSQL,
-Better Auth 1.7, three.js, `@reconsumet/client`.
+Better Auth 1.7, Video.js 10 + hls.js, JASSUB (libass), three.js, `@reconsumet/client`.
 
 ## Versioning
 
