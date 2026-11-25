@@ -36,3 +36,5 @@ minimumReleaseAgeExclude:
   - "@videojs/store@10.7.0"
   - "@videojs/utils@10.7.0"
   - video.js@10.7.0
+patchedDependencies:
+  jassub@2.5.38: patches/jassub@2.5.38.patch

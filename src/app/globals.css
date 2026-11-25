@@ -126,3 +126,31 @@ html[data-motion="reduce"] *::after {
   background-size: 1200px 100%;
   animation: var(--animate-shimmer);
 }
+
+/* Video.js packaged skin in the site's monochrome look (public custom properties only). */
+.watch-player .video-skin {
+  --media-accent-color: var(--color-fg);
+  --media-accent-text-color: var(--color-bg);
+  --media-font-family: var(--font-sans);
+  --media-border-radius: 16px;
+  --media-focus-ring-color: var(--color-fg);
+}
+/* Text-track (VTT/SRT) subtitles follow the size and background settings; ASS is drawn by JASSUB as authored. */
+.watch-player video::cue {
+  background: transparent;
+  text-shadow:
+    0 2px 4px #000,
+    0 0 2px #000;
+}
+.watch-player[data-sub-bg="on"] video::cue {
+  background: rgb(0 0 0 / 0.6);
+}
+.watch-player[data-sub-size="s"] video::cue {
+  font-size: 80%;
+}
+.watch-player[data-sub-size="l"] video::cue {
+  font-size: 125%;
+}
+.watch-player[data-sub-size="xl"] video::cue {
+  font-size: 150%;
+}

@@ -1,0 +1,13 @@
+diff --git a/dist/worker/worker.js b/dist/worker/worker.js
+index ae5f88382a195dfe2a66da59f9338e10bd1e2e10..0e0a185ffa01fbbac13cf11068ce49bc4d124277 100644
+--- a/dist/worker/worker.js
++++ b/dist/worker/worker.js
+@@ -76,7 +76,7 @@ export class ASSRenderer {
+                 this._draw(this._lastDrawTime, true);
+         });
+         this._loadedInitialFonts = !data.fonts.length;
+-        const { default: WASM } = await import(__rewriteRelativeImportExtension(/* @vite-ignore */ /* webpackIgnore: true */ data.wasmWorkerUrl));
++        const { default: WASM } = await import(/* @vite-ignore */ /* webpackIgnore: true */ /* turbopackIgnore: true */ data.wasmWorkerUrl);
+         // Emscripten pre-spawns pthread workers from this pool size.
+         // A pool size of 0 pre-spawns no workers.
+         // libass reads 0 as auto, but emscripten does not.

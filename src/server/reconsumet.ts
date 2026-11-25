@@ -11,6 +11,8 @@ import {
 import { getConfig } from '@/config'
 
 const TIMEOUT_MS = 8000
+// a streams answer is a live scrape, and parallel ones queue behind the API's per-host pacing
+const STREAMS_TIMEOUT_MS = 20_000
 
 /**
  * `down`: unreachable/5xx/timeout · `not_found` · `rate_limited` · `bad_request` (our bug or bad input).
@@ -27,7 +29,7 @@ export class ReconsumetError extends Error {
   }
 }
 
-function api() {
+function api(timeoutMs = TIMEOUT_MS) {
   const { url, apiKey } = getConfig().reconsumet
   return createClient(url, {
     apiKey,
@@ -35,8 +37,8 @@ function api() {
       fetch(input, {
         ...init,
         signal: init?.signal
-          ? AbortSignal.any([init.signal, AbortSignal.timeout(TIMEOUT_MS)])
-          : AbortSignal.timeout(TIMEOUT_MS),
+          ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)])
+          : AbortSignal.timeout(timeoutMs),
       }),
   })
 }
@@ -89,7 +91,7 @@ export const reconsumet = {
   /** Never cached: links are sealed per request. `viewerIp` comes from clientIp() (trusted-proxy rules). */
   streams: (anilistId: number, episode: number, opts: { audio?: 'sub' | 'dub'; source?: string; viewerIp?: string }) =>
     call<StreamsT>(
-      api().v1.anime[':anilistId'].episodes[':episode'].streams.$get(
+      api(STREAMS_TIMEOUT_MS).v1.anime[':anilistId'].episodes[':episode'].streams.$get(
         {
           param: { anilistId: String(anilistId), episode: String(episode) },
           query: {

@@ -16,9 +16,11 @@ describe('buildCsp', () => {
 
   it('locks scripts to the nonce and framing to nobody', () => {
     const csp = buildCsp('abc', false)
-    expect(csp).toContain(`script-src 'self' 'nonce-abc' 'strict-dynamic'`)
-    expect(csp).not.toContain('unsafe-eval')
+    expect(csp).toContain(`script-src 'self' 'nonce-abc' 'strict-dynamic' 'wasm-unsafe-eval'`)
+    expect(csp).not.toContain(`'unsafe-eval'`)
     expect(csp).toContain(`frame-ancestors 'none'`)
+    // the trailer dialog is the only frame
+    expect(csp).toContain('frame-src https://www.youtube-nocookie.com;')
     expect(csp).toContain('upgrade-insecure-requests')
   })
 

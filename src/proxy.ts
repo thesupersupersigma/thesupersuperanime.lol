@@ -22,14 +22,17 @@ export function buildCsp(nonce: string, dev: boolean) {
   const src = (...xs: (string | null | false)[]) => xs.filter(Boolean).join(' ')
   return [
     `default-src 'self'`,
-    // strict-dynamic: only scripts carrying this request's nonce (Next adds it to its own) and what they load
-    `script-src ${src(`'self'`, `'nonce-${nonce}'`, `'strict-dynamic'`, dev && `'unsafe-eval'`)}`,
+    // strict-dynamic: only scripts carrying this request's nonce (Next adds it to its own) and what they load.
+    // wasm-unsafe-eval: JASSUB (libass compiled to WebAssembly) draws the styled subtitles; it allows WASM, not eval.
+    `script-src ${src(`'self'`, `'nonce-${nonce}'`, `'strict-dynamic'`, `'wasm-unsafe-eval'`, dev && `'unsafe-eval'`)}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src ${src(`'self'`, 'data:', 'blob:', logo, ...avatars)}`,
     `font-src 'self'`,
     `connect-src ${src(`'self'`, relay, analytics, dev && 'ws:')}`,
     `media-src ${src(`'self'`, 'blob:', relay)}`,
     `worker-src 'self' blob:`,
+    // only the trailer dialog, and only after a click (nothing from YouTube loads before that)
+    `frame-src https://www.youtube-nocookie.com`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
