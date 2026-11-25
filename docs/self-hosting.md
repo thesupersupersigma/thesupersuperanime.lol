@@ -153,8 +153,11 @@ docker compose pull            # new RECONSUMET.TS images (and the site's, if yo
 docker compose up -d --build   # rebuilds the site if you build it yourself
 ```
 
-Database migrations run automatically when the site starts (`prisma migrate deploy`), and RECONSUMΣT.TS migrates its
-own database the same way. Read the release notes before jumping several versions.
+Database migrations run automatically when the site starts, and RECONSUMΣT.TS migrates its own database the same way.
+Read the release notes before jumping several versions. The image applies the site's migrations with a small runner
+(`server/migrate.mjs`) instead of the Prisma CLI, which keeps the image about half the size. It writes the same
+`_prisma_migrations` table Prisma does, so `pnpm db:migrate` (`prisma migrate deploy`) from a checkout works against
+the same database too, and each sees the other's migrations as applied.
 
 ## Backups
 
