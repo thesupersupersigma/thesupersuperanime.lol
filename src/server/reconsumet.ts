@@ -1,15 +1,27 @@
 import 'server-only'
-import { type AnimeT, type CatalogEntryT, createClient, type EpisodesT, type StreamsT } from '@reconsumet/client'
+import {
+  type AnimeT,
+  type CatalogEntryT,
+  createClient,
+  type EpisodesT,
+  type SkipT,
+  type SourceT,
+  type StreamsT,
+} from '@reconsumet/client'
 import { getConfig } from '@/config'
 
 const TIMEOUT_MS = 8000
 
-/** `down`: unreachable/5xx/timeout · `not_found` · `rate_limited` · `bad_request` (our bug or bad input). */
+/**
+ * `down`: unreachable/5xx/timeout · `not_found` · `rate_limited` · `bad_request` (our bug or bad input).
+ * `code` is the API's own error code, e.g. `anilist_cap` (503: AniList budget used, try again soon) or `no_streams`.
+ */
 export class ReconsumetError extends Error {
   constructor(
     readonly kind: 'down' | 'not_found' | 'rate_limited' | 'bad_request',
     readonly status?: number,
     message?: string,
+    readonly code?: string,
   ) {
     super(message ?? `reconsumet: ${kind}${status ? ` (${status})` : ''}`)
   }
@@ -42,13 +54,14 @@ async function call<T>(req: Promise<Response>): Promise<T> {
     throw new ReconsumetError('down', undefined, `reconsumet unreachable: ${(e as Error).message}`)
   }
   if (res.ok) return (await res.json()) as T
-  const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null
+  const body = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null
   const kind =
     res.status === 404 ? 'not_found' : res.status === 429 ? 'rate_limited' : res.status >= 500 ? 'down' : 'bad_request'
-  throw new ReconsumetError(kind, res.status, body?.error?.message)
+  throw new ReconsumetError(kind, res.status, body?.error?.message, body?.error?.code)
 }
 
 export const reconsumet = {
+  sources: () => call<SourceT[]>(api().v1.sources.$get(undefined, cache(300))),
   health: () => call<{ ok: boolean; version: string }>(api().v1.health.$get(undefined, cache(false))),
   search: (q: string, limit = 8) =>
     call<CatalogEntryT[]>(api().v1.search.$get({ query: { q, limit: String(limit) } }, cache(300))),
@@ -60,6 +73,17 @@ export const reconsumet = {
       api().v1.anime[':anilistId'].episodes.$get(
         { param: { anilistId: String(anilistId) }, query: source ? { source } : {} },
         cache(600),
+      ),
+    ),
+  /** AniSkip times for a stream of `duration` seconds (the API caches them; the length must be the real stream's). */
+  skip: (anilistId: number, episode: number, duration: number) =>
+    call<SkipT>(
+      api().v1.anime[':anilistId'].episodes[':episode'].skip.$get(
+        {
+          param: { anilistId: String(anilistId), episode: String(episode) },
+          query: { duration: String(Math.round(duration)) },
+        },
+        cache(3600),
       ),
     ),
   /** Never cached: links are sealed per request. `viewerIp` comes from clientIp() (trusted-proxy rules). */

@@ -124,7 +124,7 @@ All in `.env`; [`.env.example`](../.env.example) has each one with its default a
 | `IMAGE_HOSTS` | `s4.anilist.co,cdn.myanimelist.net` | hosts posters may be resized from |
 | `RELAY_PUBLIC_URL` | `http://localhost:8081` | where browsers reach the relay |
 | `RECONSUMET_API_URL` | `http://localhost:8080` (compose: `http://api:8080`) | the API, as the site's server sees it |
-| `RECONSUMET_VERSION` | `0.4.2` | API + relay image tag |
+| `RECONSUMET_VERSION` | `0.6.0` | API + relay image tag |
 | `SITE_VERSION` | `0.5.0` | site image tag |
 | `TRUSTED_PROXIES` | none | proxies whose `CLIENT_IP_HEADER` is believed (comma list, CIDR ok) |
 | `CLIENT_IP_HEADER` | `X-Forwarded-For` | header with the viewer's IP |

@@ -21,7 +21,7 @@ services:
       retries: 20
 
   api:
-    image: ghcr.io/thesupersupersigma/reconsumet-api:${RECONSUMET_VERSION:-0.4.2}
+    image: ghcr.io/thesupersupersigma/reconsumet-api:${RECONSUMET_VERSION:-0.6.0}
     restart: unless-stopped
     # more RECONSUMET.TS settings (rate limits, AniList cap…) go in reconsumet.env; see its docs/self-hosting.md
     env_file: [{ path: reconsumet.env, required: false }]
@@ -38,7 +38,7 @@ services:
     # not published: only the site talks to the API, over the compose network
 
   relay:
-    image: ghcr.io/thesupersupersigma/reconsumet-relay:${RECONSUMET_VERSION:-0.4.2}
+    image: ghcr.io/thesupersupersigma/reconsumet-relay:${RECONSUMET_VERSION:-0.6.0}
     restart: unless-stopped
     env_file: [{ path: reconsumet.env, required: false }]
     environment:
