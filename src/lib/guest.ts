@@ -2,6 +2,9 @@
 // (minus userId). On sign-in they are merged into the account (GuestMerge → mergeGuestData) and cleared locally.
 import { z } from 'zod'
 
+// This module runs in the browser too: without this, zod probes `new Function` once, which our CSP blocks (and logs).
+z.config({ jitless: true })
+
 const date = z.iso.datetime()
 const id = z.number().int().positive()
 

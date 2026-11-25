@@ -108,7 +108,15 @@ test('passkey: add with a virtual authenticator → sign out → sign in with it
   await signOut(page)
   await freshIp(page.context())
   await page.goto('/sign-in')
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click()
+  // The virtual authenticator answers the page's passkey autofill (conditional UI) at once, which can sign in and
+  // leave the page before the button is clicked. Either way it's a passkey sign-in.
+  await Promise.race([
+    page
+      .getByRole('button', { name: 'Sign in with a passkey' })
+      .click({ timeout: 10_000 })
+      .catch(() => {}),
+    page.waitForURL((u) => !u.pathname.startsWith('/sign-in'), { timeout: 10_000 }).catch(() => {}),
+  ])
   await signedIn(page)
 })
 

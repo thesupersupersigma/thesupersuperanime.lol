@@ -30,8 +30,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!p || !r || !('anime' in r)) return { title: 'Watch' }
   const title = titleOf(r.anime.title, titleLangOf((await cookies()).get('title')?.value))
   const image = r.anime.coverImage.extraLarge ?? r.anime.coverImage.large
+  const about = r.anime.description
+    ?.replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
   return {
     title: `Episode ${p.ep} · ${title}`,
+    description: `Watch ${title} episode ${p.ep}, sub or dub.${about ? ` ${about}` : ''}`.slice(0, 200),
     openGraph: { title: `${title} · Episode ${p.ep}`, ...(image && { images: [image] }) },
   }
 }
