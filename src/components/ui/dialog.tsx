@@ -13,11 +13,14 @@ export function DialogContent({
   title,
   description,
   sheet,
+  wide,
   children,
 }: {
   title: string
   description?: ReactNode
   sheet?: 'right' | 'bottom'
+  /** for media: a video-sized dialog */
+  wide?: boolean
   children: ReactNode
 }) {
   return (
@@ -27,7 +30,8 @@ export function DialogContent({
         {...(description ? {} : { 'aria-describedby': undefined })}
         className={cx(
           'fixed z-50 flex flex-col gap-4 overflow-y-auto border border-line-3 bg-surface-1 p-6 shadow-pop outline-none',
-          !sheet && 'top-1/2 left-1/2 max-h-[90dvh] w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2 rounded-xl',
+          !sheet && 'top-1/2 left-1/2 max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 rounded-xl',
+          !sheet && (wide ? 'w-[min(94vw,960px)]' : 'w-[min(92vw,460px)]'),
           sheet === 'right' && 'inset-y-0 right-0 w-[min(92vw,420px)] animate-rise',
           sheet === 'bottom' && 'inset-x-0 bottom-0 max-h-[85dvh] animate-rise rounded-t-xl',
         )}

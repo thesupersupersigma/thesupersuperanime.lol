@@ -13,6 +13,9 @@ export const prefsSchema = z
     subtitleSize: z.enum(['s', 'm', 'l', 'xl']),
     reducedMotion: z.enum(['system', 'reduce', 'full']),
     timeZone: z.string().max(64).nullable(),
+    titleLang: z.enum(['english', 'romaji', 'native']),
+    autoResume: z.boolean(),
+    subtitleBg: z.boolean(),
   })
   .partial()
 export type Prefs = z.infer<typeof prefsSchema>

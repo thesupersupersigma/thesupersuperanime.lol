@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { guestSchema, mergeGuest, type Prefs, prefsSchema } from '@/lib/guest'
 import { getAuth } from '@/server/auth'
 import { getDb } from '@/server/db'
+import { writeListEntry, writeProgress } from '@/server/user-data'
 
 const session = async () => getAuth().api.getSession({ headers: await headers() })
 const iso = (d: Date) => d.toISOString()
@@ -63,10 +64,15 @@ async function setMotionCookie(v: NonNullable<Prefs['reducedMotion']>) {
   ;(await cookies()).set('motion', v, { path: '/', maxAge: 60 * 60 * 24 * 400, sameSite: 'lax' })
 }
 
-/** Saves preferences: to the account when signed in (guests keep them in localStorage), and the motion cookie. */
+/**
+ * Saves preferences: to the account when signed in (guests keep them in localStorage). Motion and title language
+ * also go in cookies, because the server renders with them for guests too.
+ */
 export async function savePrefs(input: unknown) {
   const prefs = prefsSchema.parse(input)
   if (prefs.reducedMotion) await setMotionCookie(prefs.reducedMotion)
+  if (prefs.titleLang)
+    (await cookies()).set('title', prefs.titleLang, { path: '/', maxAge: 60 * 60 * 24 * 400, sameSite: 'lax' })
   const s = await session()
   if (!s) return
   const db = getDb()
@@ -77,4 +83,19 @@ export async function savePrefs(input: unknown) {
     create: { userId: s.user.id, prefs: merged, updatedAt: new Date() },
     update: { prefs: merged, updatedAt: new Date() },
   })
+}
+
+/** Signed-in progress write (the player calls it every ~10 s, on pause and at the end). Guests use localStorage. */
+export async function saveProgress(input: unknown) {
+  const s = await session()
+  if (!s) return { ok: false as const }
+  return writeProgress(s.user.id, input)
+}
+
+/** Signed-in list status / rating. status null removes the entry. */
+export async function saveListEntry(input: unknown) {
+  const s = await session()
+  if (!s) return { ok: false as const }
+  await writeListEntry(s.user.id, input)
+  return { ok: true as const }
 }

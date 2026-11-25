@@ -13,13 +13,22 @@ import { Section } from './section'
 
 type Msg = { busy?: boolean; error?: string | null; ok?: string }
 
-export function AccountForms({ canVerifyEmail, motion }: { canVerifyEmail: boolean; motion: string }) {
+export function AccountForms({
+  canVerifyEmail,
+  motion,
+  titleLang,
+}: {
+  canVerifyEmail: boolean
+  motion: string
+  titleLang: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const { data, refetch } = authClient.useSession()
   const [profile, setProfile] = useState<Msg>({})
   const [email, setEmail] = useState<Msg>({})
   const [reduce, setReduce] = useState(motion)
+  const [lang, setLang] = useState(titleLang)
   const user = data?.user
   if (!user) return null
 
@@ -116,6 +125,23 @@ export function AccountForms({ canVerifyEmail, motion }: { canVerifyEmail: boole
             { value: 'system', label: 'Same as my device' },
             { value: 'reduce', label: 'Reduce motion' },
             { value: 'full', label: 'Full motion' },
+          ]}
+        />
+      </Section>
+
+      <Section title="Titles" description="Which name anime pages and the player show first.">
+        <Select
+          label="Title language"
+          value={lang}
+          onValueChange={async (v) => {
+            setLang(v)
+            await savePrefs({ titleLang: v })
+            router.refresh()
+          }}
+          options={[
+            { value: 'english', label: 'English' },
+            { value: 'romaji', label: 'Romaji (Sousou no Frieren)' },
+            { value: 'native', label: 'Native (葬送のフリーレン)' },
           ]}
         />
       </Section>

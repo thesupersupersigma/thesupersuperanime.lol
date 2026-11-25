@@ -51,10 +51,10 @@ export function SearchResults({ q, results }: { q: string; results: Result[] }) 
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-fg-2" id="years">
+          <span className="text-sm font-medium text-fg-2" aria-hidden>
             Years
           </span>
-          <div className="flex items-center gap-2" role="group" aria-labelledby="years">
+          <div className="flex items-center gap-2">
             <input
               aria-label="From year"
               inputMode="numeric"
