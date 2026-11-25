@@ -121,7 +121,8 @@ All in `.env`; [`.env.example`](../.env.example) has each one with its default a
 | `DISCORD_INVITE_URL` | none | footer link (hidden when unset) |
 | `ANALYTICS_SCRIPT_URL` | none | one analytics script (allowed in the CSP automatically) |
 | `HOME_ANILIST_IDS` | `16498,1535,5114,113415,21,154587` | AniList IDs on the placeholder home |
-| `IMAGE_HOSTS` | `s4.anilist.co,cdn.myanimelist.net` | hosts posters may be resized from |
+| `IMAGE_HOSTS` | `s4.anilist.co,cdn.myanimelist.net,img1.ak.crunchyroll.com` | hosts posters and episode thumbnails may be resized from (others fall back to the cover) |
+| `SHOW_ADULT` | `false` | show adult (18+) titles in search and adult tags on anime pages |
 | `RELAY_PUBLIC_URL` | `http://localhost:8081` | where browsers reach the relay |
 | `RECONSUMET_API_URL` | `http://localhost:8080` (compose: `http://api:8080`) | the API, as the site's server sees it |
 | `RECONSUMET_VERSION` | `0.6.0` | API + relay image tag |

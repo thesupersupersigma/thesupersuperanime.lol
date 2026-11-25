@@ -30,7 +30,8 @@ export const envSchema = z.object({
   HOME_ANILIST_IDS: list('16498,1535,5114,113415,21,154587')
     .transform((xs) => xs.map(Number))
     .pipe(z.array(z.number().int().positive())),
-  IMAGE_HOSTS: list('s4.anilist.co,cdn.myanimelist.net'),
+  IMAGE_HOSTS: list('s4.anilist.co,cdn.myanimelist.net,img1.ak.crunchyroll.com'),
+  SHOW_ADULT: bool(false),
 
   BETTER_AUTH_SECRET: z.string({ error: 'required' }).min(32, 'must be at least 32 characters'),
   TRUSTED_PROXIES: str,
@@ -110,6 +111,7 @@ export function parseConfig(env: Record<string, string | undefined>) {
     reconsumet: { url: e.RECONSUMET_API_URL, apiKey: e.RECONSUMET_API_KEY, relayUrl: e.RELAY_PUBLIC_URL },
     homeAnilistIds: e.HOME_ANILIST_IDS,
     imageHosts: e.IMAGE_HOSTS,
+    showAdult: e.SHOW_ADULT,
     auth: {
       secret: e.BETTER_AUTH_SECRET,
       email: Boolean(smtp) || e.AUTH_EMAIL_ALLOW_UNVERIFIED,

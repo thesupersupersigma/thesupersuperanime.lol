@@ -7,8 +7,11 @@ import { Wordmark } from './wordmark'
 
 type User = { name: string; email: string; image?: string | null }
 
-// Task 06 adds Browse / Schedule here as those pages land.
-const NAV = [{ href: '/', label: 'Home' }]
+// Browse / Schedule join in task 07.
+const NAV = [
+  { href: '/', label: 'Home' },
+  { href: '/search', label: 'Search' },
+]
 
 export function Header({ site, user }: { site: PublicConfig; user: User | null }) {
   return (
