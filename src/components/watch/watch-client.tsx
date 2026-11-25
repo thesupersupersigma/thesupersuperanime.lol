@@ -35,7 +35,8 @@ export function WatchClient(props: Props) {
   // remote images only go through our optimizer (CSP + IMAGE_HOSTS)
   const poster = props.poster && `/_next/image?url=${encodeURIComponent(props.poster)}&w=1920&q=75`
   return (
-    <VideoPlayer title={`${props.title} · Episode ${props.episode}`} poster={poster ?? null}>
+    // no title inside the player: the page's own heading says it, and on phones it would cover the overlays
+    <VideoPlayer poster={poster ?? null}>
       <Watch {...props} />
     </VideoPlayer>
   )
@@ -546,11 +547,11 @@ function Watch({
               </div>
             )}
 
-            {(inIntro || inOutro) && !showUpNext && (
+            {started && (inIntro || inOutro) && !showUpNext && (
               <button
                 type="button"
                 onClick={() => store.seek(inIntro ? (skip.intro as Range).end : (skip.outro as Range).end)}
-                className="absolute right-5 bottom-24 z-10 inline-flex min-h-11 animate-pop items-center gap-2 rounded-[11px] border border-fg bg-bg/75 px-4.5 font-bold transition-transform duration-hover hover:-translate-y-px"
+                className="absolute right-3 bottom-16 z-10 inline-flex min-h-11 sm:right-5 sm:bottom-24 animate-pop items-center gap-2 rounded-[11px] border border-fg bg-bg/75 px-4.5 font-bold transition-transform duration-hover hover:-translate-y-px"
               >
                 {inIntro ? 'Skip intro' : 'Skip outro'}
                 <ChevronsRight aria-hidden className="size-4" />
@@ -626,8 +627,8 @@ function Watch({
                   onClick={() => setSubPanel(!subPanel)}
                   className="inline-flex min-h-11 items-center gap-2 rounded-[10px] bg-black/55 px-3 text-[13px] font-semibold backdrop-blur hover:bg-black/75"
                 >
-                  <Captions aria-hidden className="size-[18px]" />
-                  {sub ? sub.label : 'Subtitles off'}
+                  <Captions aria-hidden className="size-[18px] flex-none" />
+                  <span className="max-w-[40vw] truncate sm:max-w-[240px]">{sub ? sub.label : 'Subtitles off'}</span>
                 </button>
                 {subPanel && (
                   <div
@@ -835,7 +836,10 @@ function Watch({
               Episode {ep}
               {episodeTitle ? ` · ${episodeTitle}` : ''}
             </h1>
-            <Link href={`/anime/${id}`} className="text-fg-3 hover:text-fg">
+            <Link
+              href={`/anime/${id}`}
+              className="inline-flex min-h-11 items-center self-start text-fg-3 hover:text-fg"
+            >
               {title}
             </Link>
           </div>

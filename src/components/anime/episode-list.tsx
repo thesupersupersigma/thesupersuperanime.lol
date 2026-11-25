@@ -56,7 +56,7 @@ export function EpisodeList({
 
   const seg = (on: boolean) =>
     cx(
-      'flex size-9 items-center justify-center rounded-sm transition-colors duration-hover',
+      'flex size-11 items-center justify-center rounded-sm transition-colors duration-hover',
       on ? 'bg-surface-3 text-fg' : 'text-muted hover:text-fg',
     )
 

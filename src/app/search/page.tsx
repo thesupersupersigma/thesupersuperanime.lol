@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Skeleton, SkeletonGroup } from '@/components/ui/card'
 import { getConfig } from '@/config'
+import { allowedImage } from '@/server/anime'
 import { reconsumet } from '@/server/reconsumet'
 import { type Result, SearchResults } from './results'
 
@@ -71,7 +72,7 @@ async function Results({ q }: { q: string }) {
           {
             id: r.anilistId,
             title: r.title,
-            picture: r.picture,
+            picture: allowedImage(r.picture) ?? null,
             type: r.type,
             year: r.year,
             episodes: r.episodes,

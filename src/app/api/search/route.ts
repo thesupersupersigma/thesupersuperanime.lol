@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { Suggestion } from '@/components/shell/search-box'
 import { getConfig } from '@/config'
+import { allowedImage } from '@/server/anime'
 import { clientIp } from '@/server/client-ip'
 import { limited } from '@/server/rate-limit'
 import { reconsumet } from '@/server/reconsumet'
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
             {
               anilistId: r.anilistId,
               title: r.title,
-              picture: r.picture,
+              picture: allowedImage(r.picture) ?? null,
               meta: [r.type, r.year, r.episodes && `${r.episodes} eps`].filter(Boolean).join(' · '),
             },
           ]
