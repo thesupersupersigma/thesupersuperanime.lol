@@ -27,12 +27,12 @@ minimumReleaseAgeExclude:
   - "@biomejs/cli-win32-x64@2.6.9"
   - "@types/react@19.3.1"
   - auth@1.7.28
-  - '@videojs/core@10.7.0'
-  - '@videojs/hlsjs-video@10.7.0'
-  - '@videojs/media@10.7.0'
-  - '@videojs/native-hls-video@10.7.0'
-  - '@videojs/react@10.7.0'
-  - '@videojs/spf@10.7.0'
-  - '@videojs/store@10.7.0'
-  - '@videojs/utils@10.7.0'
+  - "@videojs/core@10.7.0"
+  - "@videojs/hlsjs-video@10.7.0"
+  - "@videojs/media@10.7.0"
+  - "@videojs/native-hls-video@10.7.0"
+  - "@videojs/react@10.7.0"
+  - "@videojs/spf@10.7.0"
+  - "@videojs/store@10.7.0"
+  - "@videojs/utils@10.7.0"
   - video.js@10.7.0
